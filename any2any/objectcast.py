@@ -88,7 +88,7 @@ class ObjectCast(Cast):
         """dict. Define which accessor is used for a given attribute name."""
 
     #------------------------- methods to override -------------------------#
-    def default_include(self):
+    def default_include(self, obj):
         """
         Returns:
             list. The list of attribute names included by default.
@@ -117,12 +117,12 @@ class ObjectCast(Cast):
         return {}
 
     #------------------------------ BASE ------------------------------#
-    def calculate_include(self):
+    def calculate_include(self, obj):
         """
         Returns:
             set. Calculates the set of attributes to take into account for the cast, considering :attr:`include`, :attr:`exclude` and :meth:`default_include`.
         """
-        include = getattr(self, 'include') or self.default_include(operation)
+        include = getattr(self, 'include') or self.default_include(obj)
         exclude = getattr(self, 'exclude')
         return set(include) - set(exclude)
 
@@ -183,13 +183,16 @@ class ObjectToDict(ObjectCast):
 
         conversion = (object, dict)
 
+    def default_include(self, obj):
+        return filter(lambda n: n[0] != '_', list(obj.__dict__))
+
     def __call__(self, obj):
         """
         Returns:
             dict. **{<attribute_name>: <converted_value>}**
         """
         dct = {}
-        for attr_name in self.calculate_include():
+        for attr_name in self.calculate_include(obj):
             accessor = self.get_attr_accessor(attr_name)
             cast = self.cast_for_attr(attr_name)
             attr_value = accessor.get_attr(obj, attr_name)
@@ -219,6 +222,9 @@ class DictToObject(ObjectCast):
         """
         return self.conversion[TO]()
 
+    def default_include(self, dct):
+        return dct.keys()
+
     def __call__(self, dct):
         """
         Args:
@@ -228,7 +234,7 @@ class DictToObject(ObjectCast):
             object.
         """
         converted_attrs = {}
-        include = self.calculate_include()
+        include = self.calculate_include(dct)
         for attr_name in (set(dct) & include):
             cast = self.cast_for_attr(attr_name)
             converted_attrs[attr_name] = cast(dct[attr_name])

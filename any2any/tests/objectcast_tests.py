@@ -2,11 +2,11 @@
 ..
     >>> import os, sys
     >>> sys.path.append(os.path.abspath('../..'))
-    >>> from spiteat.objectcast import *
-    >>> from spiteat.base import *
+    >>> from any2any.objectcast import *
+    >>> from any2any.base import *
     >>> import re
 
-.. currentmodule:: spiteat.objectcast
+.. currentmodule:: any2any.objectcast
 
 :class:`ObjectCast` implements serializations with the following steps :
 
@@ -158,23 +158,23 @@ Once you have declared a new accessor, you can use the settings :attr:`ObjectCas
     >>> r = somecast(some_obj)
     >>> fd.seek(0)
     >>> print fd.read()
-    spiteat.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) <= SomeObject(1, SomeObject(2, 1, C), 3)
+    any2any.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) <= SomeObject(1, SomeObject(2, 1, C), 3)
     Attribute a
-        spiteat.base.Identity((<type 'object'>, <type 'object'>)) <= 1
-        spiteat.base.Identity((<type 'object'>, <type 'object'>)) => 1
+        any2any.base.Identity((<type 'object'>, <type 'object'>)) <= 1
+        any2any.base.Identity((<type 'object'>, <type 'object'>)) => 1
     Attribute c
-        spiteat.base.Identity((<type 'object'>, <type 'object'>)) <= 3
-        spiteat.base.Identity((<type 'object'>, <type 'object'>)) => 3
+        any2any.base.Identity((<type 'object'>, <type 'object'>)) <= 3
+        any2any.base.Identity((<type 'object'>, <type 'object'>)) => 3
     Attribute b
-        spiteat.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) <= SomeObject(2, 1, C)
+        any2any.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) <= SomeObject(2, 1, C)
         Attribute a
-            spiteat.base.Identity((<type 'object'>, <type 'object'>)) <= 2
-            spiteat.base.Identity((<type 'object'>, <type 'object'>)) => 2
+            any2any.base.Identity((<type 'object'>, <type 'object'>)) <= 2
+            any2any.base.Identity((<type 'object'>, <type 'object'>)) => 2
         Attribute c
-            spiteat.base.Identity((<type 'object'>, <type 'object'>)) <= 'C'
-            spiteat.base.Identity((<type 'object'>, <type 'object'>)) => 'C'
-        spiteat.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) => {'a': 2, 'c': 'C'}
-    spiteat.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) => {'a': 1, 'c': 3, 'b': {'a': 2, 'c': 'C'}}
+            any2any.base.Identity((<type 'object'>, <type 'object'>)) <= 'C'
+            any2any.base.Identity((<type 'object'>, <type 'object'>)) => 'C'
+        any2any.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) => {'a': 2, 'c': 'C'}
+    any2any.objectcast.ObjectToDict((<type 'object'>, <type 'dict'>)) => {'a': 1, 'c': 3, 'b': {'a': 2, 'c': 'C'}}
     <BLANKLINE>
     <BLANKLINE>
 

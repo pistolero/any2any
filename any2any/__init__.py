@@ -18,8 +18,9 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 """
-from base import SequenceCast, MappingCast, register, Identity
-from utils import specialize
+from base import SequenceCast, MappingCast, register, Identity, cast_map
+from objectcast import ObjectToDict, DictToObject
+from utils import specialize, closest_conversion
 
 register(Identity(), conversions=[(object, object)])
 
@@ -31,3 +32,13 @@ register(SequenceCast(conversion=tuple_conversion), conversions=[(tuple, tuple)]
 
 mapping_conversion = (specialize(dict, object), specialize(dict, object))
 register(MappingCast(), conversions=[(dict, dict)])
+
+register(ObjectToDict(), conversions=[(object, dict)])
+
+register(DictToObject(), conversions=[(dict, object)])
+
+def any2any(obj, klass):
+    conversion = (type(obj), klass)
+    choice = closest_conversion(conversion, cast_map.keys())
+    cast = cast_map[choice]
+    return cast.copy(settings={'conversion': conversion})(obj)

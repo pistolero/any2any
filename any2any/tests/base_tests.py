@@ -2,9 +2,52 @@
 ..
     >>> import os, sys
     >>> sys.path.append(os.path.abspath('../..'))
-    >>> from spiteat.base import *
+    >>> from any2any.base import *
 
-.. currentmodule:: spiteat.base
+    ----- CastClassSettings
+    -- fixture
+    >>> class Settings:
+    ...     _schema = {'a_setting': {'type': 'dict', 'inheritance': 'update'}}
+    ...     a_setting = {'a': 1, 'b': 2}
+    ...     another = 1
+    ...     more = {'c': 'C'}
+
+    -- init
+    >>> settings = CastClassSettings(Settings)
+
+    -- items
+    >>> dict(settings.items()) == {
+    ...     'a_setting': {'a': 1, 'b': 2},
+    ...     'another': 1,
+    ...     'more': {'c': 'C'},
+    ... }
+    True
+    
+    -- fixture
+    >>> class Settings:
+    ...     _schema = {'a_setting': {'type': 'dict', 'inheritance': 'update'}}
+    ...     a_setting = {'a': 2, 'c': 3}
+    ...     moremore = {'D': 'd'}
+
+    -- update
+    >>> subclass_settings = CastClassSettings(Settings)
+    >>> settings.update(subclass_settings)
+    >>> settings.a_setting == {'a': 2, 'b': 2, 'c': 3}
+    True
+    >>> settings.moremore == {'D': 'd'}
+    True
+    >>> settings.more == {'c': 'C'}
+    True
+
+    -- in
+    >>> 'a_setting' in settings
+    True
+    >>> 'moremore' in settings
+    True
+    >>> 'another' in settings
+    True
+
+.. currentmodule:: any2any.base
 
 Getting a serializer for a given class
 ----------------------------------------
@@ -28,9 +71,6 @@ You can also pass a second argument in order to get a customized serializer :
     >>> custom_cast = cast.cast_for((list, list), {'conversion': (object, object)})
     >>> custom_cast.conversion == (object, object)
     True
-
-Defining settings of a serializer
------------------------------------
 
 Configuring the behaviour of :meth:`Cast.cast_for`
 --------------------------------------------------
@@ -64,7 +104,7 @@ Second solution is to change the setting :attr:`Cast.Settings.cast_map`. This wo
     >>> isinstance(custom_cast.cast_for((Dumb, object)), DumbCast) #However the global defaults still work 
     True
 
-Validators
+Validation
 ------------
 
     >>> int_cast = Identity(conversion=(int, object))
@@ -74,7 +114,21 @@ Validators
     Traceback (most recent call last):
     ValidationError: message
 
-   
+    >>> from any2any.validation import ValidationError, validate_input
+    >>> def validate_gt0(cast, integer):
+    ...     if not integer > 0:
+    ...         raise ValidationError('input not gt 0')
+    ... 
+    >>> int_gt0_cast = Identity(conversion=(int, object), validators=[validate_input, validate_gt0])
+    >>> int_gt0_cast(8)
+    8
+    >>> int_gt0_cast('str')#doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ValidationError: message
+    >>> int_gt0_cast(-1)#doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ValidationError: message
+
 
 Debugging
 -----------
@@ -90,7 +144,7 @@ For example, here we create a temporary file, and a :class:`StreamHandler` that 
 
 Then we set the handler's formatter (optional), add our handler to **SpitEat**'s logger and set the logging level to :attr:`DEBUG`.
 
-    >>> from spiteat.base import logger, formatter
+    >>> from any2any.base import logger, formatter
     >>> h.setFormatter(formatter)
     >>> logger.addHandler(h)
     >>> logger.setLevel(logging.DEBUG)
@@ -102,11 +156,11 @@ Finally, after a few spit/eat operations, we can chack that the logging worked :
     >>> eat = cast(1)
     >>> fd.seek(0)
     >>> print fd.read()
-    spiteat.base.Identity((<type 'object'>, <type 'object'>)) <= 1
-    spiteat.base.Identity((<type 'object'>, <type 'object'>)) => 1
+    any2any.base.Identity((<type 'object'>, <type 'object'>)) <= 1
+    any2any.base.Identity((<type 'object'>, <type 'object'>)) => 1
     <BLANKLINE>
-    spiteat.base.Identity((<type 'object'>, <type 'object'>)) <= 1
-    spiteat.base.Identity((<type 'object'>, <type 'object'>)) => 1
+    any2any.base.Identity((<type 'object'>, <type 'object'>)) <= 1
+    any2any.base.Identity((<type 'object'>, <type 'object'>)) => 1
     <BLANKLINE>
     <BLANKLINE>
 

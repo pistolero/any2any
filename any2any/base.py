@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#'SpitEat'
+#'any2any'
 #Copyright (C) 2011 Sébastien Piquemal @ futurice
 #contact : sebastien.piquemal@futurice.com
 #futurice's website : www.futurice.com
@@ -17,7 +17,7 @@
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-.. currentmodule:: spiteat.base
+.. currentmodule:: any2any.base
 
 This module defines the base casts.
 
@@ -44,7 +44,7 @@ from validation import validate_input, ValidationError
 
 cast_map = {}
 """
-dict. This dictionary maps a conversion **(<from>, <to>)** to a :class:`Cast`. This is SpitEat's global default mapping.
+dict. This dictionary maps a conversion **(<from>, <to>)** to a :class:`Cast`.
 """
 
 def register(cast, conversions=[]):
@@ -65,16 +65,21 @@ class CastClassSettings(object):
         self.schema = settings.pop('_schema', {})
         setting_names = filter(lambda n: n[0] != '_', list(settings))
         for name in setting_names:
-            self.schema.setdefault(name, None)
+            self.schema.setdefault(name, {})
             setattr(self, name, settings[name])
 
     def items(self):
         return ((name, getattr(self, name)) for name in self.schema)
 
     def update(self, settings):
+        self.schema.update(settings.schema)
         for name, value in settings.items():
-            setattr(self, name, value)
-            self.schema.update(settings.schema)
+            if self.schema[name].get('inheritance') == 'update':
+                new_value = getattr(self, name, {})
+                new_value.update(value)
+            else:
+                new_value = value
+            setattr(self, name, new_value)
 
     def copy(self):
         class Placeholder: pass
@@ -127,7 +132,7 @@ class CastMetaclass(type):
     def validators_wrapper(func):
         @wraps(func)
         def _wraped_func(self, obj, *args, **kwargs):
-            for validator in getattr(self, 'validators'):
+            for validator in self.validators:
                 validator(self, obj)
             return func(self, obj, *args, **kwargs)
         return _wraped_func
@@ -167,7 +172,6 @@ class Cast(object):
 
         _schema = {
             'cast_map': {
-                'type': dict,
                 'inheritance': 'update',
             }
         }
@@ -216,10 +220,10 @@ class Cast(object):
     def cast_for(self, conversion, settings={}):
         """
         Returns:
-            Cast. The cast to use for *conversion*. To find the right typecast, SpitEat looks-up for the closest *conversion* in :
+            Cast. The cast to use for *conversion*. To find the right typecast, any2any looks-up for the closest *conversion* in :
 
                 #. calling cast's :attr:`cast_map` setting.
-                #. SpitEat's global :attr:`cast_map`.
+                #. any2any's global :attr:`cast_map`.
         """
         #builds all choices from global map and local map
         choices = cast_map.copy()
@@ -263,7 +267,7 @@ class Cast(object):
 
     def log(self, message):
         """
-        Logs a message to **SpitEat**'s logger.
+        Logs a message to **any2any**'s logger.
         """
         indent = ' ' * 4 * self._depth
         logger.debug(indent + message)
