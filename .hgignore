@@ -1,0 +1,10 @@
+syntax: glob
+
+logs/*
+*.sqlite3
+*.pid
+*.pyc
+.*.swp
+*~
+.coverage
+docs/html/*
