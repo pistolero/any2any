@@ -1,30 +1,30 @@
 FROM = 0
 TO = 1
 
-def closest_conversion(converts, from_choices):
+def closest_conversion(conversion, from_choices):
     """
     .. todo:: if triangle, then random choice will be picked ...
     """
     candidates = [choice for choice in from_choices if\
-        issubclass(converts[FROM], choice[FROM]) and\
-        issubclass(choice[TO], converts[TO])]
+        issubclass(conversion[FROM], choice[FROM]) and\
+        issubclass(choice[TO], conversion[TO])]
 
     #This is used to sort the list and take the closer parent of *klass*
     class K(object):
-        def __init__(self, converts):
-            self.converts = converts
+        def __init__(self, conversion):
+            self.conversion = conversion
         def __lt__(self, other):
-            issub = issubclass(self.converts[FROM], other.converts[FROM])
-            if issub and self.converts[FROM] != other.converts[FROM]:
+            issub = issubclass(self.conversion[FROM], other.conversion[FROM])
+            if issub and self.conversion[FROM] != other.conversion[FROM]:
                 return True
-            elif self.converts[FROM] == other.converts[FROM]:
-                return issubclass(other.converts[TO], self.converts[TO])
+            elif self.conversion[FROM] == other.conversion[FROM]:
+                return issubclass(other.conversion[TO], self.conversion[TO])
             else:
                 return False    
         def __gt__(self, other):
             return other < self
         def __eq__(self, other):
-            return self.converts == other.converts
+            return self.conversion == other.conversion
     
     if not candidates:
         raise ValueError('') #TODO : good message in there

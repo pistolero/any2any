@@ -72,7 +72,8 @@ class CastClassSettings(object):
         return ((name, getattr(self, name)) for name in self.schema)
 
     def update(self, settings):
-        self.schema.update(settings.schema)
+        for name, value in settings.schema.items():
+            self.schema.setdefault(name, value)
         for name, value in settings.items():
             if self.schema[name].get('inheritance') == 'update':
                 new_value = getattr(self, name, {})
