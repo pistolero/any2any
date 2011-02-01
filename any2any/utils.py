@@ -7,7 +7,7 @@ def closest_conversion(conversion, from_choices):
     """
     candidates = [choice for choice in from_choices if\
         issubclass(conversion[FROM], choice[FROM]) and\
-        issubclass(choice[TO], conversion[TO])]
+        issubclass(conversion[TO], choice[TO])]
 
     #This is used to sort the list and take the closer parent of *klass*
     class K(object):
@@ -18,7 +18,7 @@ def closest_conversion(conversion, from_choices):
             if issub and self.conversion[FROM] != other.conversion[FROM]:
                 return True
             elif self.conversion[FROM] == other.conversion[FROM]:
-                return issubclass(other.conversion[TO], self.conversion[TO])
+                return issubclass(self.conversion[TO], other.conversion[TO])
             else:
                 return False    
         def __gt__(self, other):
@@ -29,7 +29,7 @@ def closest_conversion(conversion, from_choices):
     if not candidates:
         raise ValueError('') #TODO : good message in there
     else:
-        return sorted(candidates, key=K)[FROM]
+        return sorted(candidates, key=K)[0]
 
 def closest_parent(klass, other_classes):
     """

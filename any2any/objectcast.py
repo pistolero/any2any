@@ -55,6 +55,9 @@ class ObjectCast(Cast):
         _schema = {
             'class_accessor_map': {
                 'inheritance': 'update',
+            },
+            'class_conversion_map': {
+                'inheritance': 'update',
             }
         }
 
@@ -70,10 +73,12 @@ class ObjectCast(Cast):
         list. Names of attributes to exclude from the cast.
         """
 
-        attr_conversion_map = {}
+        attr_class_map = {}
         """
-        dict. Maps attribute name to the conversion to apply to them.
+        dict. Maps attribute class to the conversion to apply to the attribute.
         """
+
+        class_conversion_map = {object: (object, object)}
 
         attr_cast_map = {}
         """dict. Maps attribute name to a cast."""
@@ -96,30 +101,28 @@ class ObjectCast(Cast):
         """
         return []
 
-    def default_attr_conversion(self, obj, name):
-        """
-        Returns:
-            (type, type). The conversion to realize on the attribute *name*. 
-
-        .. warning:: This method will only be called if the conversion is not specified by :attr:`attr_conversion_map`.
-
-        .. note:: Override this method to specify what is the conversion to realize on each attribute. This helps the calling cast to select an appropriate cast for each attribute.
-        """
-        return (object, object)
+    def default_attr_class(self, name, obj):
+        return object
 
     #------------------------------ BASE ------------------------------#
     def get_attr_class(self, name, obj):
-        raise NotImplementedError('This class is virtual')
+        """
+        Returns:
+            type. Attribute *name*'s class.
+        """
+        if name in self.attr_class_map:
+            return self.attr_class_map.get(name)
+        else:
+            return self.default_attr_class(name, obj)
 
     def get_attr_conversion(self, name, obj):
         """
         Returns:
             type. Attribute *name*'s conversion.
         """
-        if name in self.attr_conversion_map:
-            return self.attr_conversion_map.get(name)
-        else:
-            return self.default_attr_conversion(name, obj)
+        attr_class = self.get_attr_class(name, obj)
+        choice = closest_parent(attr_class, self.class_conversion_map.keys())
+        return self.class_conversion_map[choice]
 
     def cast_for_attr(self, name, obj):
         """
@@ -161,6 +164,10 @@ class ObjectCast(Cast):
             return self.class_accessor_map[choice]
 
 class ObjectToDict(ObjectCast):
+    """
+    Returns:
+        dict. **{<attribute_name>: <converted_value>}**
+    """
 
     class Settings:
         conversion = (object, dict)
@@ -168,17 +175,10 @@ class ObjectToDict(ObjectCast):
     def default_include(self, obj):
         return filter(lambda n: n[0] != '_', list(obj.__dict__))
 
-    def default_attr_conversion(self, name, obj):
-        return (type(getattr(obj, name)), object)
-
-    def get_attr_class(self, name, obj):
-        return self.get_attr_conversion(name, obj)[FROM]
+    def default_attr_class(self, name, obj):
+        return type(getattr(obj, name))
 
     def __call__(self, obj):
-        """
-        Returns:
-            dict. **{<attribute_name>: <converted_value>}**
-        """
         dct = {}
         for attr_name in self.calculate_include(obj):
             accessor = self.get_attr_accessor(attr_name, obj)
@@ -191,7 +191,13 @@ class ObjectToDict(ObjectCast):
         return dct
 
 class DictToObject(ObjectCast):
+    """
+    Args:
+        data(dict). **{<attribute_name>: <raw_value>}**
 
+    Returns:
+        object.
+    """
 
     class Settings:
         conversion = (dict, object)
@@ -211,20 +217,10 @@ class DictToObject(ObjectCast):
     def default_include(self, dct):
         return dct.keys()
 
-    def default_attr_conversion(self, name, dct):
-        return (type(dct[name]), object)
-
-    def get_attr_class(self, name, dct):
-        return self.get_attr_conversion(name, dct)[TO]
+    def default_attr_class(self, name, dct):
+        return type(dct[name])
 
     def __call__(self, dct):
-        """
-        Args:
-            data(dict). **{<attribute_name>: <raw_value>}**
-
-        Returns:
-            object.
-        """
         converted_attrs = {}
         include = self.calculate_include(dct)
         for attr_name in (set(dct) & include):
