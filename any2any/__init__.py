@@ -16,29 +16,30 @@
 
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-"""
-from base import SequenceCast, MappingCast, register, Identity, cast_map
+
+from simple import SequenceCast, MappingCast, Identity
+from base import register#, cast_map
 from objectcast import ObjectToDict, DictToObject
 from utils import specialize, closest_conversion
 
-register(Identity(), conversions=[(object, object)])
+register(Identity(), [(object, object)])
 
 list_conversion = (specialize(list, object), specialize(list, object))
-register(SequenceCast(conversion=list_conversion), conversions=[(list, list)])
+register(SequenceCast(conversion=list_conversion), [(list, list)])
 
 tuple_conversion = (specialize(tuple, object), specialize(tuple, object))
-register(SequenceCast(conversion=tuple_conversion), conversions=[(tuple, tuple)])
+register(SequenceCast(conversion=tuple_conversion), [(tuple, tuple)])
 
 mapping_conversion = (specialize(dict, object), specialize(dict, object))
-register(MappingCast(), conversions=[(dict, dict)])
+register(MappingCast(), [(dict, dict)])
 
-register(ObjectToDict(), conversions=[(object, dict)])
+register(ObjectToDict(), [(object, dict)])
 
-register(DictToObject(), conversions=[(dict, object)])
-
+register(DictToObject(), [(dict, object)])
+"""
 def any2any(obj, klass):
     conversion = (type(obj), klass)
     choice = closest_conversion(conversion, cast_map.keys())
     cast = cast_map[choice]
     return cast.copy(settings={'conversion': conversion})(obj)
+"""

@@ -16,204 +16,238 @@
 
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """
 .. currentmodule:: any2any.base
 
 This module defines the base casts.
 
-.. todo:: maps in settings could be updated (with parent_default.update(child_default)) so you don't have to redefine it completely when subclassing
+.. todo:: even cooler logging (html page with cast settings and so on)
 """
 # Logging 
 #====================================
 import logging
+
 class NullHandler(logging.Handler):
     def emit(self, record):
         pass
-formatter = logging.Formatter("%(message)s")
 logger = logging.getLogger()
 logger.addHandler(NullHandler())
 
-# Base class for casts 
+# Base serializer 
 #====================================
 import copy
+import re
+import collections
 from functools import wraps
 from types import FunctionType
 
-from utils import closest_conversion, specialize, FROM, TO
-from validation import validate_input, ValidationError
+from utils import closest_conversion, specialize, copied_values, FROM, TO
 
-cast_map = {}
+cv_to_cast = {}
 """
-dict. This dictionary maps a conversion **(<from>, <to>)** to a :class:`Cast`.
+dict. This dictionary maps a :class:`Conversion` to a :class:`Cast`. This is any2any's global default mapping.
 """
 
-def register(cast, conversions=[]):
+def register(cast, use_for):
     """
-    If *conversions* is not empty, this function registers *cast* as the default cast for every conversion in *conversions*.
+    Registers *cast* as the default cast for every conversion in *use_for*.
     """
-    if conversions:
-        for conversion in conversions:
-            #no matter if cast for *conversion* is already in the map, we override it
-            cast_map[conversion] = cast
+    for conversion in use_for:
+        #no matter if cast for *conversion* is already in the map, we override it
+        cv_to_cast[conversion] = cast
 
-class CastClassSettings(object):
-    """
-    *settings* of a cast class. Takes a setting placeholder (``class Settings: ...``) as unique argument.
-    """
-    def __init__(self, placeholder):
-        settings = placeholder.__dict__.copy()
-        self.schema = settings.pop('_schema', {})
-        setting_names = filter(lambda n: n[0] != '_', list(settings))
-        for name in setting_names:
-            self.schema.setdefault(name, {})
-            setattr(self, name, settings[name])
 
-    def items(self):
-        return ((name, getattr(self, name)) for name in self.schema)
+class CastSettings(collections.MutableMapping):
+    """
+    *settings* of a cast class or a cast instance. Constructor takes a dictionnary as argument:
 
-    def update(self, settings):
-        for name, value in settings.schema.items():
-            self.schema.setdefault(name, value)
+        >>> CastSettings({
+        ...     'my_setting': a_dict, 'spit_my_setting': another_dict,
+        ...     'my_other_setting': 1,
+        ...     '_schema': {'my_setting': {'update': 'update'}}
+        ... })
+    """
+
+    def __init__(self, **settings):
+        self._schema = settings.pop('_schema', {})
+        self._values = dict()
         for name, value in settings.items():
-            if self.schema[name].get('inheritance') == 'update':
-                new_value = getattr(self, name, {})
-                new_value.update(value)
-            else:
-                new_value = value
-            setattr(self, name, new_value)
+            self._values[name] = value
+            self._schema.setdefault(name, {})
+        
+    def __getitem__(self, name):
+        try:
+            return self._values[name]
+        except KeyError:
+            raise KeyError("Setting '%s' is not defined for this serializer" % name) 
 
-    def copy(self):
-        class Placeholder: pass
-        placeholder = Placeholder()
-        for name, value in self.items():
-            setattr(placeholder, name, value)
-            placeholder.schema = self.schema.copy() #TODO : should that be a deepcopy ? 
-        return CastClassSettings(placeholder)
+    def __setitem__(self, name, value):
+        if name in self:
+            self._values[name] = value
+        else:
+            raise TypeError("Setting '%s' is not defined for this serializer" % name)
+
+    def __delitem__(self, name):
+        del self._values[name]
+        del self._schema[name]
+
+    def __contains__(self, name):
+        return name in self._schema
+
+    def __len__(self):
+        return len(self._schema)
 
     def __iter__(self):
-        return self.items()
+        return iter(self._values)
 
-    def __contains__(self, setting):
-        return setting in self.schema
+    def __copy__(self):
+        settings_dict = dict(copied_values(self.items()))
+        settings_dict['_schema'] = self._schema.copy()
+        return self.__class__(**settings_dict)
+
+    def override(self, settings):
+        """
+        Updates the calling instance with *settings*. The updating behaviour is taken from `_schema`
+
+        Args:
+            settings(dict).
+        """
+
+        #We don't change the schema, only add settings that didn't exist in the calling instance.
+        for name, value in settings._schema.items():
+            self._schema.setdefault(name, value)
+        for name, value in settings.items():
+            if name in self:
+                if self._schema[name].get('update') == 'update':
+                    new_value = self._values.get(name, {})
+                    new_value.update(value)
+                    self._values[name] = new_value
+                else:
+                    self._values[name] = value
+            else:
+                self._values[name] = value
+
+    def configure(self, **settings):
+        """
+        Sets a bunch of settings:
+
+            >>> settings.configure(setA='a value', spit_setB='some value')
+        """
+        for name, value in settings.items():
+            self[name] = value
 
 
-class CastMetaclass(type):
+class CastType(type):
 
     def __new__(cls, name, bases, attrs):
-        new_settings = CastClassSettings(attrs.get('Settings', object))
-        #Just a trick to get parent's settings without messing-up with mro
-        trash = super(CastMetaclass, cls).__new__(cls, name, bases, attrs)
-        #We give the new class a copy of its parent's settings
-        attrs['settings'] = getattr(trash, 'settings', new_settings).copy()
+        new_defaults = (attrs.pop('defaults', None))
+        #TODO: what the ??
+        if attrs.get('call'):
+            attrs['_original_call'] = attrs['call']
 
-        #wrap *__call__* to automate logging
-        if '__call__' in attrs:
-            attrs['__call__'] = cls.log_wrapper(attrs['__call__'])
-            attrs['__call__'] = cls.validators_wrapper(attrs['__call__'])
+        #just a trick because I don't want to mess up with MRO when overriding settings TODO: I'll have to :-(
+        trash = super(CastType, cls).__new__(cls, name, bases, attrs)
+        attrs['defaults'] = copy.copy(getattr(trash, 'defaults', None))
+        if not attrs['defaults']:#Useful for the base serializer class `Cast`
+            attrs['defaults'] = new_defaults
 
         #create new class
-        new_cast_class = super(CastMetaclass, cls).__new__(cls, name, bases, attrs)
-        new_cast_class.settings.update(new_settings)
+        new_cast_class = super(CastType, cls).__new__(cls, name, bases, attrs)
+        if new_defaults:
+            new_cast_class.defaults.override(new_defaults)
+
+        #wrap *call* to automate logging and context management
+        new_cast_class.call = cls.operation_wrapper(new_cast_class._original_call, new_cast_class)
 
         return new_cast_class
 
-    @staticmethod
-    def log_wrapper(func):
-        @wraps(func)
-        def _wraped_func(self, obj, *args, **kwargs):
-            self.log(str(self) + ' <= ' + repr(obj))
-            returned = func(self, obj, *args, **kwargs)
-            self.log(str(self) + ' => ' + repr(returned))
+    #NB : For all wrappers, we should avoid raising errors if it is not justified ... not to mix-up the user. 
+    #For example, if we had `_wrapped_func(self, inpt, *args, **kwargs)`, and we call `func` without a
+    #parameter, the error will be raised from the wrapper, which will result in a confusing error message:
+    #    TypeError: _wrapped_func() takes exactly 2 arguments (1 given)
+    #That's why we prefer using `_wrapped_func(self, *args, **kwargs)`
+
+    #NB2 : The wrappers use a hack to avoid executing the wrapping code when the operation is called with
+    #    super(MyCast, self).operation(*args, **kwargs) 
+    #`meta_wrapper(operation, cast_class)` builds a decorator that by-passes
+    #all the wrapping code if `cast_class != type(self)`.
+
+    @classmethod
+    def meta_wrapper(cls, operation, cast_class):
+        def _decorator(wrapped_operation):
+            def _wrapped_again(self, *args, **kwargs):
+                if (type(self) == cast_class):
+                    return wrapped_operation(self, *args, **kwargs)
+                else:
+                    return operation(self, *args, **kwargs)
+            return _wrapped_again
+        return _decorator
+
+    @classmethod
+    def operation_wrapper(cls, operation, cast_class):
+        @wraps(operation)
+        @cls.meta_wrapper(operation, cast_class)
+        def _wrapped_operation(self, *args, **kwargs):
+            #context management : should be first, because logging might use it.
+            self._context = {'input': args[0] if args else None}
+            #logging
+            self.log('%s.%s' % (self, operation.__name__) + ' <= ' + repr(args[0] if args else None), 'start', throughput=args[0] if args else None)
+            #the actual operation
+            returned = operation(self, *args, **kwargs)
+            #logging
+            self.log('%s.%s' % (self, operation.__name__) + ' => ' + repr(returned), 'end', throughput=returned)
             if self._depth == 0:
                 self.log('')
+            #context management
+            self._context = None
             return returned
-        return _wraped_func
-
-    @staticmethod
-    def validators_wrapper(func):
-        @wraps(func)
-        def _wraped_func(self, obj, *args, **kwargs):
-            for validator in self.validators:
-                validator(self, obj)
-            return func(self, obj, *args, **kwargs)
-        return _wraped_func
+        return _wrapped_operation
 
 class Cast(object):
     """
-    Base class for all casts. This class is virtual, all subclasses MUST implement :meth:`__call__`, and CAN declare new settings or override parent settings. For example :
+    Base class for all serializers. This class is virtual, and all subclasses must implement :meth:`spit` and :meth:`eat`.
 
-        >>> class CastSubclass(Cast):
-        ...
-        ...     class Settings:
-        ...         a_new_setting = 'its_default_value'
-        ...         conversion = (int, str) # Overriden setting, new default value 
+        >>> my_cast = MyCastClass(conversion=SomeClass, some_setting='some value')
 
-        ...     def __call__(self, input):
-        ...         # ...
-        ...         return output
-        ...
+    Settings available for instances of :class:`Cast` :
 
-    Then, all declared settings are available as keyword arguments. Parent settings being inherited they are available too ::
+    dict. This is a dict ``{<class>: <srz>}``. It allows to specify which serializer :meth:`Srz.srz_for` should pick for a given class.
 
-        >>> cast = CastSubclass(a_new_setting='my value', propagate=['a_new_setting'])
-        >>> cast.conversion = (int, str) #Overriden default value
-        True
-        >>> cast.cast_map == {} #Inherited default value
-        True
-        >>> cast.a_new_setting #Our new setting, configured with a different value on this instance
-        'my value'
+    .. seealso:: :ref:`How<configuring-srz_for>` to use *cv_to_cast*.
+
+    type. The class the serializer is customized for.
+
+    list. When calling :meth:`srz_for`, all settings whose name are in this list will be transmitted from the calling serializer to the returned serializer (if this serializer defines them).
+
+    .. todo:: FIXME : propagate breaks if different serializer type in between ...
+
+    bool. If True, the serializer writes debug to the logger.
     """
 
-    __metaclass__ = CastMetaclass
+    __metaclass__ = CastType
 
-    class Settings:
-        """
-        Settings available for instances of :class:`Cast` :
-        """
-
-        _schema = {
-            'cast_map': {
-                'inheritance': 'update',
+    defaults = CastSettings(
+        _schema={
+            'cv_to_cast': {
+                'update': 'update',
             }
-        }
-
-        cast_map = {}
-        """
-        {(type, type): Cast}. This is a dict **{<conversion>: <cast>}**. It allows to control the behaviour of :meth:`cast_for`.
-        """
-
-        conversion = (object, object)
-        """
-        (type, type). The conversion this cast realizes.
-        """
-
-        propagate = ['cast_map', 'propagate']
-        """
-        list. When calling :meth:`cast_for`, all settings whose name are in this list will be transmitted from the calling cast to the returned cast (if this cast defines them).
-
-        .. todo:: FIXME : propagate breaks if different serializer type in between ...
-        """
-
-        validators = [validate_input,]
-        """
-        list. A list of validator functions. Those functions must accept two arguments : the cast and the input value, and raise :class:`ValidationError` if validation has failed. For example :
-
-            >>> def validate_gt_0(cast, input_val):
-            ...     if not input_val > 0:
-            ...         raise ValidationError 
-        """
-
+        },
+        cv_to_cast={},
+        conversion=None,
+        propagate=['cv_to_cast', 'propagate'],
+        logs=True,
+    )
 
     def __new__(cls, *args, **kwargs):
-        #set the cast's settings with all the default values.
         new_cast = super(Cast, cls).__new__(cls)
-        for name, value in cls.settings.items():
-            setattr(new_cast, name, value)
+        new_cast.settings = copy.copy(cls.defaults)
         return new_cast
 
     def __init__(self, **settings):
-        self.configure(**settings)
+        self._context = None #operation context
         self._depth = 0 #used for logging
+        self.settings.configure(**settings)
 
     def __repr__(self):
         return '.'.join([self.__class__.__module__, '%s(%s)' % (self.__class__.__name__, self.conversion)]) 
@@ -221,167 +255,66 @@ class Cast(object):
     def cast_for(self, conversion, settings={}):
         """
         Returns:
-            Cast. The cast to use for *conversion*. To find the right typecast, any2any looks-up for the closest *conversion* in :
+            Cast. A cast suitable for objects of type *conversion*, and customized with *settings*.
 
-                #. calling cast's :attr:`cast_map` setting.
-                #. any2any's global :attr:`cast_map`.
+        .. seealso:: :ref:`How<configuring-srz_for>` to control the behaviour of *srz_for*.
         """
         #builds all choices from global map and local map
-        choices = cast_map.copy()
-        choices.update(self.cast_map)
+        choices = cv_to_cast.copy()
+        choices.update(self.cv_to_cast)
         #gets better choice
-        chosen = closest_conversion(conversion, choices.keys())
-        cast = choices[chosen]
+        close_conversion = closest_conversion(conversion, choices.keys())
+        cast = choices[close_conversion]
         return cast.copy(settings, self)
 
     def copy(self, settings, cast=None):
         """
         Returns:
-            Cast. A copy of the calling cast with its settings overriden.
-
-        Args:
-            cast(Cast). All settings in *cast*'s :attr:`propagate` will be transmitted to the returned cast.
-            settings(dict). All settings in this dictionary will override the returned cast's settings (including settings transmitted from *cast*).
+            Cast. A copy of the calling serializer, whose settings are overriden in the following order:
+                
+                #. settings of *cast* (in respect to *cast*'s :attr:`propagate` attribute).
+                #. *settings*
         """
-        new_cast = copy.deepcopy(self)
+        new_cast = copy.copy(self)
         if cast:
             new_cast._depth = cast._depth + 1
             for name in cast.propagate:
-                new_cast.configure(**{name: copy.copy(getattr(cast, name))})
-        new_cast.configure(**settings)
+                new_cast.settings.configure(**{name: copy.copy(getattr(cast, name))})
+        new_cast.settings.configure(**settings)
         return new_cast
-    
-    def __call__(self, obj):
-        raise NotImplementedError('This class is virtual')
 
-    def configure(self, **settings):
+    def call(self, inpt):
         """
-        Configure the calling cast's *settings*. For example :
-        
-            >>> cast.configure(conversion=(int, str), a_setting='some_value')
-        """
-        for name, value in settings.items():
-            if name in self.settings:
-                setattr(self, name, value)
-            else:
-                raise TypeError("Setting '%s' is not defined for casts of class %s" % (name, self.__class__))
-
-    def log(self, message):
-        """
-        Logs a message to **any2any**'s logger.
-        """
-        indent = ' ' * 4 * self._depth
-        logger.debug(indent + message)
-
-# Simple serializers for base types
-#====================================
-class Identity(Cast):
-    """
-    Identity operation. Default cast for the conversion **(object, object)**.
-
-        >>> Identity()('1')
-        '1'
-    """
-
-    def __call__(self, obj):
-        return obj
-
-class ContainerCast(Cast):
-    """
-    Base cast for container types. This class is virtual. The casting goes this way ::
-
-        SomeContainer(obj1, ..., objN) ----> SomeContainer(obj1_converted, ..., objN_converted)
-
-    Which means that only the content is converted.
-    """
-
-    class Settings:
-        conversion = (object, object)
-
-    @classmethod
-    def new_container(cls):
-        """
-        Returns an empty container.
+        Serializes *obj*.
         """
         raise NotImplementedError('This class is virtual')
 
-    @classmethod
-    def container_iter(cls, container):
+    def log(self, message, state='during', throughput=None):
         """
-        Returns an iterator on pairs **(index, value)**, where *index* and *value* are such as ::
-        
-            container[index] == value
+        Logs a message to **SpitEat**'s logger.
+
+        Args:
+            state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place. 
         """
-        raise NotImplementedError('This class is virtual')
+        if self.logs:
+            indent = ' ' * 4 * self._depth
+            extra = {
+                'cast': self,
+                'throughput': throughput,
+                'settings': self.settings,
+                'state': state,
+            }
+            logger.debug(indent + message, extra=extra)
 
-    @classmethod
-    def container_insert(cls, container, index, value):
-        """
-        Inserts *value* at *index* in container.
-        """
-        raise NotImplementedError('This class is virtual')
+    def __copy__(self):
+        copied_cast = self.__class__()
+        copied_cast.settings = copy.copy(self.settings)
+        return copied_cast
 
-    @classmethod
-    def reset_container(self, container):
-        """
-        Empties *container*.
-        """
-        raise NotImplementedError('This class is virtual')
+    def __getattr__(self, name):
+        #During an operation, if *name* is a setting, we try to get the namespaced setting first, or fallback on the default value.
+        try:
+            return self.settings[name]
+        except KeyError:
+            raise AttributeError("'%s' object has no attribute '%s'" % (self, name))
 
-    def __call__(self, obj):
-        new_container = self.new_container()
-        elem_conversion = (self.conversion[FROM].feature, self.conversion[TO].feature)
-        elem_cast = self.cast_for(elem_conversion, {'conversion': elem_conversion})
-        for index, value in self.container_iter(obj):
-            self.container_insert(new_container, index, elem_cast(value))
-        return new_container
-
-class MappingCast(ContainerCast):
-    """
-    Cast for dictionaries.
-
-        >>> MappingCast()({'1': anObject1, '2': anObject2})
-        {'1': 'its converted version 1', '2': 'its converted version 2'}
-    """
-    
-    @classmethod
-    def new_container(cls):
-        return dict()
-    
-    @classmethod
-    def container_iter(cls, container):
-        return container.items()
-    
-    @classmethod
-    def container_insert(cls, container, index, value):
-        container[index] = value
-
-    @classmethod
-    def reset_container(cls, container):
-        container.clear()
-    
-
-class SequenceCast(ContainerCast):
-    """
-    Cast for lists and tuples.
-
-        >>> SequenceCast()([anObject1, anObject2])
-        ['its converted version 1', 'its converted version 2']
-    """
-
-    @classmethod
-    def new_container(cls):
-        return list()
-    
-    @classmethod
-    def container_iter(cls, container):
-        return enumerate(container)
-    
-    @classmethod
-    def container_insert(cls, container, index, value):
-        container.insert(index, value)
-
-    @classmethod
-    def reset_container(cls, container):
-        for index in range(0, len(container)):
-            container.pop()

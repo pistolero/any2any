@@ -58,7 +58,25 @@ def closest_parent(klass, other_classes):
     else:
         return sorted(candidates, key=K)[0]
 
-def specialize(klass, afeature):
+class SpecMetaclass(type):
+    def __repr__(cls):
+        return '%s of %s' % (cls.base, cls.feature)
+    def __eq__(cls, other):
+        return isinstance(other, SpecMetaclass) and\
+        other.feature == cls.feature and\
+        other.base == cls.base
+
+def specialize(klass, afeature): 
     class sclass(klass):
+        __metaclass__ = SpecMetaclass
         feature = afeature
+        base = klass
     return sclass
+
+def copied_values(dict_iter):
+    for name, value in dict_iter:
+        try:
+            yield name, copy.copy(value)
+        except:
+            yield name, value
+    raise StopIteration
