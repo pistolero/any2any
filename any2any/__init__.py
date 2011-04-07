@@ -20,17 +20,17 @@
 from simple import SequenceCast, MappingCast, Identity
 from base import register#, cast_map
 from objectcast import ObjectToDict, DictToObject
-from utils import specialize, Mm
+from utils import Spz, Mm
 
 register(Identity(), [Mm(object, object)])
 
-list_mm = Mm(specialize(list, object), specialize(list, object))
+list_mm = Mm(Spz(list, object), Spz(list, object))
 register(SequenceCast(mm=list_mm), [Mm(list, list)])
 
-tuple_mm = Mm(specialize(tuple, object), specialize(tuple, object))
+tuple_mm = Mm(Spz(tuple, object), Spz(tuple, object))
 register(SequenceCast(mm=tuple_mm), [Mm(tuple, tuple)])
 
-mapping_mm = Mm(specialize(dict, object), specialize(dict, object))
+mapping_mm = Mm(Spz(dict, object), Spz(dict, object))
 register(MappingCast(), [Mm(dict, dict)])
 
 register(ObjectToDict(), [Mm(object, dict)])

@@ -42,7 +42,7 @@ import collections
 from functools import wraps
 from types import FunctionType
 
-from utils import Mm, specialize, copied_values
+from utils import Mm, Spz, copied_values
 
 mm_to_cast = {}
 """

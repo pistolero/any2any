@@ -97,6 +97,33 @@ class Metamorphosis(object):
         return (self.from_any, self.to).__hash__()
 Mm = Metamorphosis
 
+
+class Specialization(object):
+    
+    def __init__(self, base, feature):
+        self.base = base
+        self.feature = feature
+
+    @staticmethod
+    def issubclass(c1, c2):
+        c1_is_spz, c2_is_spz = isinstance(c1, Spz), isinstance(c2, Spz)
+        if c1_is_spz and c2_is_spz:
+            return Spz.issubclass(c1.base, c2.base) and Spz.issubclass(c1.feature, c2.feature)
+        elif c1_is_spz:
+            return issubclass(c1.base, c2)
+        elif c2_is_spz:
+            return False
+        else:
+            return issubclass(c1, c2)
+
+    def __repr__(self):
+        return 'Spz(%s, %s)' % (self.base, self.feature)
+
+    def __eq__(self, other):
+        return self.issubclass(self, other) and self.issubclass(other, self) 
+Spz = Specialization
+
+
 def closest_parent(klass, other_classes):
     """
     Returns:
@@ -123,20 +150,6 @@ def closest_parent(klass, other_classes):
     else:
         return sorted(candidates, key=K)[0]
 
-class SpecMetaclass(type):
-    def __repr__(cls):
-        return '%s of %s' % (cls.base, cls.feature)
-    def __eq__(cls, other):
-        return isinstance(other, SpecMetaclass) and\
-        other.feature == cls.feature and\
-        other.base == cls.base
-
-def specialize(klass, afeature): 
-    class sclass(klass):
-        __metaclass__ = SpecMetaclass
-        feature = afeature
-        base = klass
-    return sclass
 
 def copied_values(dict_iter):
     for name, value in dict_iter:
