@@ -42,20 +42,20 @@ import collections
 from functools import wraps
 from types import FunctionType
 
-from utils import closest_conversion, specialize, copied_values, FROM, TO
+from utils import Mm, specialize, copied_values
 
-cv_to_cast = {}
+mm_to_cast = {}
 """
 dict. This dictionary maps a :class:`Conversion` to a :class:`Cast`. This is any2any's global default mapping.
 """
 
 def register(cast, use_for):
     """
-    Registers *cast* as the default cast for every conversion in *use_for*.
+    Registers *cast* as the default cast for every metamorphosis in *use_for*.
     """
-    for conversion in use_for:
-        #no matter if cast for *conversion* is already in the map, we override it
-        cv_to_cast[conversion] = cast
+    for mm in use_for:
+        #no matter if cast for *mm* is already in the map, we override it
+        mm_to_cast[mm] = cast
 
 
 class CastSettings(collections.MutableMapping):
@@ -142,9 +142,10 @@ class CastType(type):
 
     def __new__(cls, name, bases, attrs):
         new_defaults = (attrs.pop('defaults', None))
-        #TODO: what the ??
+
+        #trick to be able to wrap call later
         if attrs.get('call'):
-            attrs['_original_call'] = attrs['call']
+            attrs['_original_call'] = attrs.pop('call')
 
         #just a trick because I don't want to mess up with MRO when overriding settings TODO: I'll have to :-(
         trash = super(CastType, cls).__new__(cls, name, bases, attrs)
@@ -208,13 +209,13 @@ class Cast(object):
     """
     Base class for all serializers. This class is virtual, and all subclasses must implement :meth:`spit` and :meth:`eat`.
 
-        >>> my_cast = MyCastClass(conversion=SomeClass, some_setting='some value')
+        >>> my_cast = MyCastClass(mm=SomeClass, some_setting='some value')
 
     Settings available for instances of :class:`Cast` :
 
     dict. This is a dict ``{<class>: <srz>}``. It allows to specify which serializer :meth:`Srz.srz_for` should pick for a given class.
 
-    .. seealso:: :ref:`How<configuring-srz_for>` to use *cv_to_cast*.
+    .. seealso:: :ref:`How<configuring-srz_for>` to use *mm_to_cast*.
 
     type. The class the serializer is customized for.
 
@@ -229,13 +230,13 @@ class Cast(object):
 
     defaults = CastSettings(
         _schema={
-            'cv_to_cast': {
+            'mm_to_cast': {
                 'update': 'update',
             }
         },
-        cv_to_cast={},
-        conversion=None,
-        propagate=['cv_to_cast', 'propagate'],
+        mm_to_cast={},
+        mm=None,
+        propagate=['mm_to_cast', 'propagate'],
         logs=True,
     )
 
@@ -250,21 +251,21 @@ class Cast(object):
         self.settings.configure(**settings)
 
     def __repr__(self):
-        return '.'.join([self.__class__.__module__, '%s(%s)' % (self.__class__.__name__, self.conversion)]) 
+        return '.'.join([self.__class__.__module__, '%s(%s)' % (self.__class__.__name__, self.mm)]) 
 
-    def cast_for(self, conversion, settings={}):
+    def cast_for(self, mm, settings={}):
         """
         Returns:
-            Cast. A cast suitable for objects of type *conversion*, and customized with *settings*.
+            Cast. A cast suitable for objects of type *mm*, and customized with *settings*.
 
         .. seealso:: :ref:`How<configuring-srz_for>` to control the behaviour of *srz_for*.
         """
         #builds all choices from global map and local map
-        choices = cv_to_cast.copy()
-        choices.update(self.cv_to_cast)
+        choices = mm_to_cast.copy()
+        choices.update(self.mm_to_cast)
         #gets better choice
-        close_conversion = closest_conversion(conversion, choices.keys())
-        cast = choices[close_conversion]
+        closest_mm = mm.pick_closest_in(choices.keys())
+        cast = choices[closest_mm]
         return cast.copy(settings, self)
 
     def copy(self, settings, cast=None):
@@ -312,7 +313,7 @@ class Cast(object):
         return copied_cast
 
     def __getattr__(self, name):
-        #During an operation, if *name* is a setting, we try to get the namespaced setting first, or fallback on the default value.
+        #This allows to get the settings like normal attributes
         try:
             return self.settings[name]
         except KeyError:

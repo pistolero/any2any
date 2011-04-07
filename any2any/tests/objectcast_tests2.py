@@ -1,3 +1,4 @@
+"""
 A more complete example
 --------------------------
 
@@ -120,3 +121,4 @@ For example, let's build a simple serializer for :class:`xml.dom.minidom.Node`.
     Sandwich(The French, baguette): [Filling(camembert, cheese), Filling(mustard, sauce)]
     >>> SandwichJSONSrz().spit(sandwich) == sandwich_json
     True
+"""

@@ -41,7 +41,7 @@ Constructor
 
 The constructor of a serializer takes settings as keyword arguments :
 
-    >>> cast = MyCustomCast(conversion=(str, int), a_setting='blabla', another_setting={'bla': 'bla'})
+    >>> cast = MyCustomCast(mm=(str, int), a_setting='blabla', another_setting={'bla': 'bla'})
 
 Operation context
 ------------------
@@ -76,22 +76,23 @@ Getting a serializer for a given class
 
 To get a serializer for a class use the method :func:`Cast.cast_for` :
 
+    >>> from any2any.utils import Mm
     >>> cast = Cast()
     >>> class Dumb(object): pass
-    >>> dumb_cast = cast.cast_for((Dumb, object))
+    >>> dumb_cast = cast.cast_for(Mm(Dumb, object))
     >>> isinstance(dumb_cast, Identity)
     True
-    >>> obj_cast = cast.cast_for((object, object))
+    >>> obj_cast = cast.cast_for(Mm(object, object))
     >>> isinstance(obj_cast, Identity)
     True
-    >>> list_cast = cast.cast_for((list, list))
+    >>> list_cast = cast.cast_for(Mm(list, list))
     >>> isinstance(list_cast, SequenceCast)
     True
 
 You can also pass a second argument in order to override the serializer's settings :
 
-    >>> custom_cast = cast.cast_for((list, list), {'conversion': (set, dict)})
-    >>> custom_cast.conversion == (set, dict)
+    >>> custom_cast = cast.cast_for(Mm(list, list), {'mm': Mm(set, dict)})
+    >>> custom_cast.mm == Mm(set, dict)
     True
 
 .. _configuring-cast_for:
@@ -105,17 +106,17 @@ You can set a serializer as global default for a class, using the function :func
 
     >>> from any2any.base import register
     >>> class DumbCast(Cast):
-    ...     defaults = CastSettings(conversion=(Dumb, object))
+    ...     defaults = CastSettings(mm=Mm(Dumb, object))
     >>> dumb_cast = DumbCast()
-    >>> register(dumb_cast, [(Dumb, object)])
+    >>> register(dumb_cast, [Mm(Dumb, object)])
     >>> cast = Cast()
-    >>> other_dumb_cast = cast.cast_for((Dumb, object))
+    >>> other_dumb_cast = cast.cast_for(Mm(Dumb, object))
     >>> isinstance(other_dumb_cast, DumbCast)
     True
 
 ..
     Testing that default for 'object' is still the same :
-    >>> isinstance(cast.cast_for((object, object)), Identity)
+    >>> isinstance(cast.cast_for(Mm(object, object)), Identity)
     True
 
 Note that the serializer returned by :meth:`Cast.cast_for` if not the one you registered :
@@ -125,23 +126,23 @@ Note that the serializer returned by :meth:`Cast.cast_for` if not the one you re
 
 Indeed, :meth:`Srz.srz_for` doesn't return directly ``dumb_srz``, but a copy obtained by calling ``dumb_srz.copy()``. This in in order to allow overriding settings of the returned serializer. For example :
 
-    >>> other_dumb_cast = cast.cast_for((Dumb, object), settings={'conversion': (Dumb, int)})
-    >>> dumb_cast.conversion
-    (<class '__main__.Dumb'>, <type 'object'>)
-    >>> other_dumb_cast.conversion
-    (<class '__main__.Dumb'>, <type 'int'>)
+    >>> other_dumb_cast = cast.cast_for(Mm(Dumb, object), settings={'mm': Mm(Dumb, int)})
+    >>> dumb_cast.mm
+    Mm(<class '__main__.Dumb'>, <type 'object'>)
+    >>> other_dumb_cast.mm
+    Mm(<class '__main__.Dumb'>, <type 'int'>)
 
 Second solution is to change the setting :attr:`Srz.Settings.class_srz_map`. This won't modify global defaults, but rather override them on the serializer level :
  
     >>> class MyCast(Cast): pass
     >>> cast = Cast()
     >>> mycast = MyCast()
-    >>> custom_cast = Cast(cv_to_cast={(int, object): mycast})
-    >>> isinstance(custom_cast.cast_for((int, object)), MyCast)
+    >>> custom_cast = Cast(mm_to_cast={Mm(int, object): mycast})
+    >>> isinstance(custom_cast.cast_for(Mm(int, object)), MyCast)
     True
-    >>> isinstance(cast.cast_for((int, object)), Identity) #Only the map of custom_cast is affected
+    >>> isinstance(cast.cast_for(Mm(int, object)), Identity) #Only the map of custom_cast is affected
     True
-    >>> isinstance(custom_cast.cast_for((Dumb, object)), DumbCast) #However the global defaults still work 
+    >>> isinstance(custom_cast.cast_for(Mm(Dumb, object)), DumbCast) #However the global defaults still work 
     True
 
 Other functionalities

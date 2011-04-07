@@ -20,26 +20,26 @@
 from simple import SequenceCast, MappingCast, Identity
 from base import register#, cast_map
 from objectcast import ObjectToDict, DictToObject
-from utils import specialize, closest_conversion
+from utils import specialize, Mm
 
-register(Identity(), [(object, object)])
+register(Identity(), [Mm(object, object)])
 
-list_conversion = (specialize(list, object), specialize(list, object))
-register(SequenceCast(conversion=list_conversion), [(list, list)])
+list_mm = Mm(specialize(list, object), specialize(list, object))
+register(SequenceCast(mm=list_mm), [Mm(list, list)])
 
-tuple_conversion = (specialize(tuple, object), specialize(tuple, object))
-register(SequenceCast(conversion=tuple_conversion), [(tuple, tuple)])
+tuple_mm = Mm(specialize(tuple, object), specialize(tuple, object))
+register(SequenceCast(mm=tuple_mm), [Mm(tuple, tuple)])
 
-mapping_conversion = (specialize(dict, object), specialize(dict, object))
-register(MappingCast(), [(dict, dict)])
+mapping_mm = Mm(specialize(dict, object), specialize(dict, object))
+register(MappingCast(), [Mm(dict, dict)])
 
-register(ObjectToDict(), [(object, dict)])
+register(ObjectToDict(), [Mm(object, dict)])
 
-register(DictToObject(), [(dict, object)])
+register(DictToObject(), [Mm(dict, object)])
 """
 def any2any(obj, klass):
-    conversion = (type(obj), klass)
-    choice = closest_conversion(conversion, cast_map.keys())
+    mm = (type(obj), klass)
+    choice = closest_mm(mm, cast_map.keys())
     cast = cast_map[choice]
-    return cast.copy(settings={'conversion': conversion})(obj)
+    return cast.copy(settings={'mm': mm})(obj)
 """
