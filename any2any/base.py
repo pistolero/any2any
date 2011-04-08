@@ -70,11 +70,11 @@ class CastSettings(collections.MutableMapping):
     """
 
     def __init__(self, **settings):
-        self._schema = settings.pop('_schema', {})
+        schema = settings.pop('_schema', {})
+        self._schema = dict.fromkeys(settings, {})
+        self._schema.update(schema)
         self._values = dict()
-        for name, value in settings.items():
-            self._values[name] = value
-            self._schema.setdefault(name, {})
+        self.update(settings)
         
     def __getitem__(self, name):
         try:
@@ -84,6 +84,9 @@ class CastSettings(collections.MutableMapping):
 
     def __setitem__(self, name, value):
         if name in self:
+            type_check = self._schema[name].get('type', None)
+            if type_check and not isinstance(value, type_check):
+                raise TypeError("Value for setting '%s' must be of type '%s'" % (name, type_check))
             self._values[name] = value
         else:
             raise TypeError("Setting '%s' is not defined for this serializer" % name)
@@ -119,23 +122,13 @@ class CastSettings(collections.MutableMapping):
             self._schema.setdefault(name, value)
         for name, value in settings.items():
             if name in self:
-                if self._schema[name].get('update') == 'update':
-                    new_value = self._values.get(name, {})
-                    new_value.update(value)
-                    self._values[name] = new_value
-                else:
-                    self._values[name] = value
+                meth = self._schema[name].get('override', '__setitem__')
+                getattr(self, meth)(name, value)
             else:
                 self._values[name] = value
 
-    def configure(self, **settings):
-        """
-        Sets a bunch of settings:
-
-            >>> settings.configure(setA='a value', spit_setB='some value')
-        """
-        for name, value in settings.items():
-            self[name] = value
+    def update_item(self, name, value):
+        self[name].update(value)
 
 
 class CastType(type):
@@ -229,15 +222,14 @@ class Cast(object):
     __metaclass__ = CastType
 
     defaults = CastSettings(
-        _schema={
-            'mm_to_cast': {
-                'update': 'update',
-            }
-        },
         mm_to_cast={},
-        mm=None,
+        mm=Mm(object, object),
         propagate=['mm_to_cast', 'propagate'],
         logs=True,
+        _schema={
+            'mm_to_cast': {'override': 'update_item'},
+            'mm': {'type': Mm}
+        },
     )
 
     def __new__(cls, *args, **kwargs):
@@ -248,7 +240,7 @@ class Cast(object):
     def __init__(self, **settings):
         self._context = None #operation context
         self._depth = 0 #used for logging
-        self.settings.configure(**settings)
+        self.settings.update(settings)
 
     def __repr__(self):
         return '.'.join([self.__class__.__module__, '%s(%s)' % (self.__class__.__name__, self.mm)]) 
@@ -280,8 +272,8 @@ class Cast(object):
         if cast:
             new_cast._depth = cast._depth + 1
             for name in cast.propagate:
-                new_cast.settings.configure(**{name: copy.copy(getattr(cast, name))})
-        new_cast.settings.configure(**settings)
+                new_cast.settings.update({name: copy.copy(getattr(cast, name))})
+        new_cast.settings.update(settings)
         return new_cast
 
     def call(self, inpt):
@@ -289,6 +281,21 @@ class Cast(object):
         Serializes *obj*.
         """
         raise NotImplementedError('This class is virtual')
+
+    def __call__(self, inpt):
+        return self.call(inpt)
+
+    def __copy__(self):
+        copied_cast = self.__class__()
+        copied_cast.settings = copy.copy(self.settings)
+        return copied_cast
+
+    def __getattr__(self, name):
+        #This allows to get the settings like normal attributes
+        try:
+            return self.settings[name]
+        except KeyError:
+            raise AttributeError("'%s' object has no attribute '%s'" % (self, name))
 
     def log(self, message, state='during', throughput=None):
         """
@@ -306,16 +313,3 @@ class Cast(object):
                 'state': state,
             }
             logger.debug(indent + message, extra=extra)
-
-    def __copy__(self):
-        copied_cast = self.__class__()
-        copied_cast.settings = copy.copy(self.settings)
-        return copied_cast
-
-    def __getattr__(self, name):
-        #This allows to get the settings like normal attributes
-        try:
-            return self.settings[name]
-        except KeyError:
-            raise AttributeError("'%s' object has no attribute '%s'" % (self, name))
-

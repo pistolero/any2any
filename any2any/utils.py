@@ -41,7 +41,7 @@ class Metamorphosis(object):
         Return:
             bool. True if calling metamorphosis is a super-metamorphosis of *other*.
         """
-        return issubclass(self.from_any, other.from_any) and issubclass(other.to, self.to)
+        return Spz.issubclass(self.from_any, other.from_any) and Spz.issubclass(other.to, self.to)
 
     @staticmethod
     def most_precise(m1, m2):
@@ -70,13 +70,13 @@ class Metamorphosis(object):
         else:# C)
             if m1.to != m2.to:
                 # more general is best
-                if issubclass(m1.to, m2.to):
+                if Spz.issubclass(m1.to, m2.to):
                     return m2
                 else:
                     return m1
             else:
                 # more precise is best
-                if issubclass(m1.from_any, m2.from_any):
+                if Spz.issubclass(m1.from_any, m2.from_any):
                     return m1
                 else:
                     return m2
@@ -120,7 +120,7 @@ class Specialization(object):
         return 'Spz(%s, %s)' % (self.base, self.feature)
 
     def __eq__(self, other):
-        return self.issubclass(self, other) and self.issubclass(other, self) 
+        return Spz.issubclass(self, other) and Spz.issubclass(other, self) 
 Spz = Specialization
 
 
@@ -132,7 +132,7 @@ def closest_parent(klass, other_classes):
     #We select only the super classes of *klass*
     candidates = []
     for oclass in other_classes:
-        if issubclass(klass, oclass):
+        if Spz.issubclass(klass, oclass):
             candidates.append(oclass)
 
     #This is used to sort the list and take the closer parent of *klass*
@@ -141,7 +141,7 @@ def closest_parent(klass, other_classes):
         def __init__(self, klass):
             self.klass = klass
         def __lt__(self, other):
-            return issubclass(self.klass, other.klass)
+            return Spz.issubclass(self.klass, other.klass)
         def __eq__(self, other):
             return self.klass == other.klass
     

@@ -1,4 +1,4 @@
-from base import Cast
+from base import Cast, CastSettings, Mm, Spz
 
 class Identity(Cast):
     """
@@ -7,9 +7,13 @@ class Identity(Cast):
         >>> Identity()('1')
         '1'
     """
+    defaults = CastSettings(
+        mm=Mm(object, object)
+    )
 
     def call(self, obj):
         return obj
+
 
 class ContainerCast(Cast):
     """
@@ -18,20 +22,19 @@ class ContainerCast(Cast):
         SomeContainer(obj1, ..., objN) ----> SomeContainer(obj1_converted, ..., objN_converted)
 
     Which means that only the content is converted.
+
+    Settings:
+        The serializer to use for the container's elements
     """
 
-    class Settings:
-        conversion = (object, object)
+    defaults = CastSettings(
+        element_cast=None,
+    )
 
-    @classmethod
-    def new_container(cls):
-        """
-        Returns an empty container.
-        """
+    def new_container(self, items_iterator):
         raise NotImplementedError('This class is virtual')
 
-    @classmethod
-    def container_iter(cls, container):
+    def container_iter(self, container):
         """
         Returns an iterator on pairs **(index, value)**, where *index* and *value* are such as ::
         
@@ -39,27 +42,21 @@ class ContainerCast(Cast):
         """
         raise NotImplementedError('This class is virtual')
 
-    @classmethod
-    def container_insert(cls, container, index, value):
-        """
-        Inserts *value* at *index* in container.
-        """
-        raise NotImplementedError('This class is virtual')
+    def call(self, container):
+        return self.new_container(self.items(container))
 
-    @classmethod
-    def reset_container(self, container):
-        """
-        Empties *container*.
-        """
-        raise NotImplementedError('This class is virtual')
+    def items(self, container):
+        elem_cast = self._cast_for_elem()
+        for index, value in self.container_iter(container):
+            yield(index, elem_cast(value))
 
-    def call(self, obj):
-        new_container = self.new_container()
-        elem_conversion = (self.conversion[FROM].feature, self.conversion[TO].feature)
-        elem_cast = self.cast_for(elem_conversion, {'conversion': elem_conversion})
-        for index, value in self.container_iter(obj):
-            self.container_insert(new_container, index, elem_cast(value))
-        return new_container
+    @property
+    def elem_mm(self):
+        return Mm(self.mm.from_any.feature, self.mm.to.feature)
+
+    def _cast_for_elem(self):
+        return self.element_cast or self.cast_for(self.elem_mm, {'mm': self.elem_mm})
+
 
 class MappingCast(ContainerCast):
     """
@@ -68,23 +65,12 @@ class MappingCast(ContainerCast):
         >>> MappingCast()({'1': anObject1, '2': anObject2})
         {'1': 'its converted version 1', '2': 'its converted version 2'}
     """
-    
-    @classmethod
-    def new_container(cls):
-        return dict()
-    
-    @classmethod
-    def container_iter(cls, container):
+    def container_iter(self, container):
         return container.items()
-    
-    @classmethod
-    def container_insert(cls, container, index, value):
-        container[index] = value
 
-    @classmethod
-    def reset_container(cls, container):
-        container.clear()
-    
+    def new_container(self, items_iterator):
+        return self.mm.to.base(items_iterator)
+
 
 class SequenceCast(ContainerCast):
     """
@@ -94,20 +80,9 @@ class SequenceCast(ContainerCast):
         ['its converted version 1', 'its converted version 2']
     """
 
-    @classmethod
-    def new_container(cls):
-        return list()
-    
-    @classmethod
-    def container_iter(cls, container):
+    def container_iter(self, container):
         return enumerate(container)
-    
-    @classmethod
-    def container_insert(cls, container, index, value):
-        container.insert(index, value)
 
-    @classmethod
-    def reset_container(cls, container):
-        for index in range(0, len(container)):
-            container.pop()
+    def new_container(self, items_iterator):
+        return self.mm.to.base([item[1] for item in items_iterator])
 
