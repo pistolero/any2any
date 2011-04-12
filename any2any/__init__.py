@@ -19,7 +19,7 @@
 
 from simple import SequenceCast, MappingCast, Identity
 from base import register#, cast_map
-from objectcast import ObjectToDict, DictToObject
+#from simple import ObjectToDict, DictToObject
 from utils import Spz, Mm
 
 register(Identity(), [Mm(object, object)])
@@ -33,9 +33,9 @@ register(SequenceCast(mm=tuple_mm), [Mm(tuple, tuple)])
 mapping_mm = Mm(Spz(dict, object), Spz(dict, object))
 register(MappingCast(), [Mm(dict, dict)])
 
-register(ObjectToDict(), [Mm(object, dict)])
+#register(ObjectToDict(), [Mm(object, dict)])
 
-register(DictToObject(), [Mm(dict, object)])
+#register(DictToObject(), [Mm(dict, object)])
 """
 def any2any(obj, klass):
     mm = (type(obj), klass)

@@ -80,7 +80,7 @@ class CastSettings(collections.MutableMapping):
         try:
             return self._values[name]
         except KeyError:
-            raise KeyError("Setting '%s' is not defined for this serializer" % name) 
+            raise KeyError("%s" % name) 
 
     def __setitem__(self, name, value):
         if name in self:
@@ -116,34 +116,36 @@ class CastSettings(collections.MutableMapping):
         Args:
             settings(dict).
         """
-
-        #We don't change the schema, only add settings that didn't exist in the calling instance.
         for name, value in settings._schema.items():
-            self._schema.setdefault(name, value)
-        for name, value in settings.items():
-            if name in self:
-                meth = self._schema[name].get('override', '__setitem__')
-                getattr(self, meth)(name, value)
+            if name in self._schema:
+                self._schema[name].update(value)
             else:
-                self._values[name] = value
+                self._schema[name] = value
+        for name, value in settings.items():
+            meth = self._schema[name].get('override', '__setitem__')
+            getattr(self, meth)(name, value)
 
     def update_item(self, name, value):
-        self[name].update(value)
-
+        new_value = self.get(name, None)
+        if new_value: new_value.update(value)
+        self[name] = new_value or value
 
 class CastType(type):
 
     def __new__(cls, name, bases, attrs):
-        new_defaults = (attrs.pop('defaults', None))
-
         #trick to be able to wrap call later
         if attrs.get('call'):
             attrs['_original_call'] = attrs.pop('call')
 
-        #just a trick because I don't want to mess up with MRO when overriding settings TODO: I'll have to :-(
-        trash = super(CastType, cls).__new__(cls, name, bases, attrs)
-        attrs['defaults'] = copy.copy(getattr(trash, 'defaults', None))
-        if not attrs['defaults']:#Useful for the base serializer class `Cast`
+        # handling multiple inheritance of defaults
+        new_defaults = attrs.pop('defaults', CastSettings())
+        attrs['defaults'] = CastSettings()
+        cast_bases = filter(lambda b: isinstance(b, CastType), bases)
+        if cast_bases:
+            for base in reversed(cast_bases):
+                attrs['defaults'].override(base.defaults)
+            attrs['defaults'].override(new_defaults)
+        else: #in the case the new class is Cast itself
             attrs['defaults'] = new_defaults
 
         #create new class
@@ -222,11 +224,11 @@ class Cast(object):
     __metaclass__ = CastType
 
     defaults = CastSettings(
-        mm_to_cast={},
-        mm=Mm(object, object),
-        propagate=['mm_to_cast', 'propagate'],
-        logs=True,
-        _schema={
+        mm_to_cast = {},
+        mm = Mm(object, object),
+        propagate = ['mm_to_cast', 'propagate'],
+        logs = True,
+        _schema = {
             'mm_to_cast': {'override': 'update_item'},
             'mm': {'type': Mm}
         },

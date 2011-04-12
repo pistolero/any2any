@@ -7,25 +7,6 @@
 
 .. currentmodule:: any2any.base
 
-..
-    ---- Metaclass - wrappers
-    >>> class Parent(Cast):
-    ...     def call(self, inpt):
-    ...         print 'Parent', self._context['bla']
-    ...
-    >>> class Child(Parent):
-    ...     def call(self, inpt):
-    ...         self._context['bla'] = 'woohoo'
-    ...         #When calling like that, the wrapping of Parent.call should be inneficient
-    ...         #and therefore, the context should stay the same ...
-    ...         super(Child, self).call(inpt)
-    ...         #... and not be reset after the parent operation was called
-    ...         print 'Child', self._context['bla']
-    ... 
-    >>> Child().call(1)
-    Parent woohoo
-    Child woohoo
-
 Building a serializer
 =========================
 
@@ -41,7 +22,7 @@ Constructor
 
 The constructor of a serializer takes settings as keyword arguments :
 
-    >>> cast = MyCustomCast(mm=(str, int), a_setting='blabla', another_setting={'bla': 'bla'})
+    >>> cast = MyCustomCast(mm=Mm(str, int), a_setting='blabla', another_setting={'bla': 'bla'})
 
 Operation context
 ------------------
@@ -172,8 +153,8 @@ Finally, after a few spit/eat operations, we can chack that the logging worked :
     >>> spitted = cast.call(1)
     >>> fd.seek(0)
     >>> print fd.read()
-    any2any.simple.Identity(None).call <= 1
-    any2any.simple.Identity(None).call => 1
+    any2any.simple.Identity(Mm(<type 'object'>, <type 'object'>)).call <= 1
+    any2any.simple.Identity(Mm(<type 'object'>, <type 'object'>)).call => 1
     <BLANKLINE>
     <BLANKLINE>
 
