@@ -19,12 +19,14 @@
 """
 """
 from base import Cast, CastSettings, Mm, Spz
+from utils import closest_parent
 
 class ContainerCast(Cast):
 
     defaults = CastSettings(
         index_to_cast = {},
         index_to_mm = {},
+        element_cast = None,
     )
 
     def iter_input(self, inpt):
@@ -34,12 +36,18 @@ class ContainerCast(Cast):
         """
         raise NotImplementedError()
 
-    def get_mm(self, index, value):
+    def get_mm(self, index, value=None):
         """
         Returns:
             Mm. The metamorphosis to apply on item <index>.
         """
         raise NotImplementedError()
+
+    def get_from(self, index):
+        return None
+
+    def get_to(self, index):
+        return None
 
     def build_output(self, items_iter):
         """
@@ -54,6 +62,8 @@ class ContainerCast(Cast):
         if index in self.index_to_cast:
             cast = self.index_to_cast.get(index)
             cast = cast.copy({}, self)
+        elif self.element_cast:
+            return self.element_cast
         #otherwise try to build it by getting attribute's class
         else:
             if index in self.index_to_mm:
@@ -75,59 +85,118 @@ class ContainerCast(Cast):
         return self.build_output(iter_ouput)
 
 
-class FromDictMixin(object):
+class GuessMmMixin(Cast):
+
+    def get_mm(self, index, value):
+        from_any = self.get_from(index) or type(value)
+        to = self.get_to(index) or object
+        return Mm(from_any, to)
+
+
+class FromDictMixin(Cast):
     
     def iter_input(self, inpt):
         return inpt.iteritems()
 
+    def get_from(self, index):
+        return self.mm.to.feature if isinstance(self.mm.from_any, Spz) else None
 
-class ToDictMixin(object):
+
+class ToDictMixin(Cast):
     
     def build_output(self, items_iter):
         return dict(items_iter)
 
+    def get_to(self, index):
+        return self.mm.to.feature if isinstance(self.mm.to, Spz) else None
 
-class FromObjectMixin(object):
+
+class FromListMixin(Cast):
+    
+    def iter_input(self, inpt):
+        return enumerate(inpt) 
+
+    def get_from(self, index):
+        return self.mm.to.feature if isinstance(self.mm.from_any, Spz) else None
+
+
+class ToListMixin(Cast):
+    
+    def build_output(self, items_iter):
+        return [value for index, value in items_iter]
+
+    def get_to(self, index):
+        return self.mm.to.feature if isinstance(self.mm.to, Spz) else None
+
+
+class FromObjectMixin(Cast):
     
     defaults = CastSettings(
         class_to_getter = {object: getattr,},
-        index_to_getter = {},
+        attrname_to_getter = {},
+        include = None,
+        exclude = None,
     )
+
+    def attr_names(self):
+        """
+        Returns:
+            list. The list of attribute names included by default.
+    
+        .. warning:: This method will only be called if :attr:`include` is empty.
+
+        .. note:: Override this method if you want to build dynamically the list of attributes to include by default.
+        """
+        raise NotImplementedError()
+
+    def calculate_include(self):
+        """
+        Returns:
+            set. The set of attributes to include for the current operation. Take into account *include* or :meth:`attr_names` and *exclude*.
+        """
+        include = self.include if self.include != None else self.attr_names()
+        exclude = self.exclude if self.exclude != None else []
+        return set(include) - set(exclude)
 
     def iter_input(self, inpt):
-        for index in self.calculate_include():
-            yield index, self.get_attr_accessor(index)(inpt, index)
+        for name in self.calculate_include():
+            yield name, self.get_getter(name)(inpt, name)
 
-    def get_attr_accessor(self, index):
+    def get_getter(self, name):
         # try to get accessor on a per-attribute basis
-        if self.index_to_getter and index in self.index_to_getter:
-            return self.index_to_getter[index]
+        if name in self.attrname_to_getter:
+            return self.attrname_to_getter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self._get_attr_class(index)# TODO
-            closer_parent = closest_parent(attr_class, self.class_to_getter.keys())
-            return self.class_to_getter[closer_parent]
+            attr_class = self.get_from(name) or object
+            parent = closest_parent(attr_class, self.class_to_getter.keys())
+            return self.class_to_getter[parent]
 
 
-class ToObjectMixin(object):
+class ToObjectMixin(Cast):
     
     defaults = CastSettings(
-        attr_class_to_setter = {object: setattr,},
-        attr_name_to_setter = {}
+        class_to_setter = {object: setattr,},
+        attrname_to_setter = {}
     )
 
-    def build_output(self, items_iter):
-        new_object = self.mm.to()
-        for name, value in items_iter:
-            self.get_attr_accessor(name)(new_object, name, value)
+    def new_object(self, kwargs):
+        raise NotImplementedError()
 
-    def get_attr_accessor(self, name):
+    def build_output(self, items_iter):
+        items = dict(items_iter)
+        new_object = self.new_object(items)
+        for name, value in items.items():
+            self.get_setter(name)(new_object, name, value)
+        return new_object
+
+    def get_setter(self, name):
         # try to get accessor on a per-attribute basis
-        if self.attr_name_to_setter and name in self.attr_name_to_setter:
-            return self.attr_name_to_setter[name]
+        if name in self.attrname_to_setter:
+            return self.attrname_to_setter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self._get_attr_class(name)# TODO
-            closer_parent = closest_parent(attr_class, self.attr_class_to_setter.keys())
-            return self.attr_class_to_setter[closer_parent]
+            attr_class = self.get_to(name) or object
+            parent = closest_parent(attr_class, self.class_to_setter.keys())
+            return self.class_to_setter[parent]
 

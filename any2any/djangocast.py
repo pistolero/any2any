@@ -18,79 +18,32 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import copy
 
-import logging
-from spiteat.base import logger
-logger.setLevel(logging.DEBUG)
-
 from django.db import models as django_models
-from django.db.models import Manager
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from spiteat.objectsrz import ObjectSrz, Accessor
-from spiteat.base import Srz
-from spiteat.simple import SequenceSrz
-from spiteat.utils import specialize
-
-class NCManyToManyAccessor(Accessor):
-    def set_attr(self, instance, name, value):
-        manager = getattr(instance, name)
-        manager.clear()
-        for element in value:
-            manager.add(element)
-
-    def get_attr(self, instance, name):
-        return list(getattr(instance, name).all())
-
-class ManyToManyAccessor(NCManyToManyAccessor):
-    def set_attr(self, instance, name, value):
-        instance.save()#because otherwise we cannot handle manytomany
-        super(ManyToManyAccessor, self).set_attr(instance, name, value)
-
-class GenericForeignKeySrz(Srz):
-    def spit(self, obj):
-        mod_opts = obj._meta
-        return (mod_opts.app_label, mod_opts.module_name, obj.pk)
-
-    def eat(self, data, instance=None):
-        ct = ContentType.objects.get(app_label=data[0], model=data[1])
-        return ct.get_object_for_this_type(pk=data[2])
+from any2any.simple import GuessMmMixin, FromListMixin, ToListMixin, ContainerCast, FromObjectMixin, ToDictMixin
+from any2any.base import CastSettings, Mm, Spz, register
 
 
-class BaseModelCast(ToDict, ObjectCast):
+class ManagerToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
 
-    defaults = settings(
-        mm = Mm(django_models.Model, dict),
-        mm_to_cast = {
-            Manager: SequenceCast(),
-            GenericForeignKey: GenericForeignKeySrz(),
-        },
-        key_schema = ('pk',),
+    defaults = CastSettings(
+        mm = Mm(list, Spz(list, dict))
+    )
 
     def iter_input(self, inpt):
-        for name in self.calculate_include():
-            yield name, getattr(inpt, name)
+        return enumerate(inpt.all())
 
-    def cast_for_item(self, name):
-        self.cast_for()
 
-    def iter_output(self, items):
-        for name, value in items:
-            cast = self.cast_for_item(name)
-            yield name, cast(value)
+def set_m2m_attr(self, instance, name, value):
+    manager = getattr(instance, name)
+    manager.clear()
+    for element in value:
+        manager.add(element)
 
-    def attr_names(self):
-        mod_opts = self._context['input']._meta
-        include = [field.name for field in mod_opts.fields] + ['pk'] + [field.name for field in mod_opts.many_to_many]
-    
-        #MTI : We exclude the fields (OneToOne) pointing to the parents.
-        exclude_ptr = []
-        parents = mod_opts.parents
-        while parents:
-            otofield = parents.values()[0]
-            exclude_ptr.append(otofield.name)
-            parents = otofield.related.parent_model._meta.parents
-        return list(set(include) - set(exclude_ptr))
+
+class IntrospectMixin(object):
 
     @property
     def pk_field_name(self):
@@ -103,8 +56,6 @@ class BaseModelCast(ToDict, ObjectCast):
             return mod_opts.pk.name
 
     def get_obj_key(self, data):
-        """
-        """
         obj_key = []
         for field_name in self.key_schema:
             if field_name == 'pk':
@@ -121,6 +72,76 @@ class BaseModelCast(ToDict, ObjectCast):
         else:
             return tuple(obj_key)
         return None
+
+    def fields(self, model):
+        # TODO: caching
+        mod_opts = model._meta
+    
+        #MTI : We exclude the fields (OneToOne) pointing to the parents.
+        exclude_ptr = []
+        parents = mod_opts.parents
+        while parents:
+            oto_field = parents.values()[0]
+            exclude_ptr.append(oto_field.name)
+            parents = oto_field.related.parent_model._meta.parents
+
+        all_fields = mod_opts.fields + mod_opts.many_to_many
+        included_fields = filter(lambda field: field.name not in exclude_ptr, all_fields)
+        return dict(zip([f.name for f in included_fields], included_fields))
+
+
+class ModelToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, IntrospectMixin, ContainerCast):
+
+    defaults = CastSettings(
+        mm = Mm(django_models.Model, dict),
+        key_schema = ('pk',),
+    )
+
+    def get_to(self, field_name):
+        field = self.fields(type(self._context['input']))[field_name]
+        if isinstance(field, django_models.ForeignKey):
+            return dict
+        elif isinstance(field, django_models.ManyToManyField):
+            return list
+        else:
+            return object
+
+    def attr_names(self):
+        model = type(self._context['input'])
+        return self.fields(model).keys()
+'''
+ModelToDict.defaults['mm_to_cast'] = {
+    (GenericForeignKey, object): GenericForeignKeySrz(),
+},
+
+
+class DictToModel(FromDictMixin, ToObjectMixin, IntrospectMixin, ContainerCast):
+
+    defaults = settings(
+        mm = Mm(dict, django_models.Model),
+        key_schema = ('pk',),
+    )
+
+    def get_mm(self, index, value=None):
+        model = self.mm.to
+        if isinstance(self.fields[index], models.ManyToManyField):
+            
+
+
+class ManyToManyAccessor(NCManyToManyAccessor):
+    def set_attr(self, instance, name, value):
+        instance.save()#because otherwise we cannot handle manytomany
+        super(ManyToManyAccessor, self).set_attr(instance, name, value)
+
+class GenericForeignKeySrz(Srz):
+    def spit(self, obj):
+        mod_opts = obj._meta
+        return (mod_opts.app_label, mod_opts.module_name, obj.pk)
+
+    def eat(self, data, instance=None):
+        ct = ContentType.objects.get(app_label=data[0], model=data[1])
+        return ct.get_object_for_this_type(pk=data[2])
+
     
     def default_attr_schema(self, name):
         mod_opts = self.custom_for._meta
@@ -149,12 +170,6 @@ class BaseModelCast(ToDict, ObjectCast):
 
 class ModelSrz(BaseModelSrz):
 
-    class Settings:
-
-        class_accessor_map = {
-            Manager: ManyToManyAccessor(),
-        }
-
     def new_object(self, data=None):
         """
         Returns:
@@ -178,12 +193,6 @@ ModelSrz.defaults.get('class_srz_map')[django_models.Model] = ModelSrz()
 
 class NCModelSrz(BaseModelSrz):
 
-    class Settings:
-
-        class_accessor_map = {
-            Manager: NCManyToManyAccessor(),
-        }
-
     def new_object(self, data=None):
         """
         Returns:
@@ -198,4 +207,6 @@ class NCModelSrz(BaseModelSrz):
         except self.custom_for.MultipleObjectReturned:
             raise
 NCModelSrz.defaults.get('class_srz_map')[django_models.Model] = NCModelSrz()        
-
+'''
+register(ManagerToList(), [Mm(django_models.Manager, list)])
+register(ModelToDict(), [Mm(django_models.Model, dict)])

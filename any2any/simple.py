@@ -1,5 +1,6 @@
 from base import Cast, CastSettings, Mm, Spz
-from containercast import ContainerCast, FromDictMixin, ToDictMixin, FromObjectMixin, ToObjectMixin
+from containercast import ContainerCast, FromDictMixin, ToDictMixin, FromListMixin, ToListMixin, FromObjectMixin, ToObjectMixin, GuessMmMixin
+from types import FunctionType
 
 
 class Identity(Cast):
@@ -17,48 +18,40 @@ class Identity(Cast):
         return obj
 
 
-class MappingCast(FromDictMixin, ToDictMixin, ContainerCast):
+class DictToDict(GuessMmMixin, FromDictMixin, ToDictMixin, ContainerCast):
     """
     Cast for dictionaries.
 
-        >>> MappingCast()({'1': anObject1, '2': anObject2})
+        >>> DictToDict()({'1': anObject1, '2': anObject2})
         {'1': 'its converted version 1', '2': 'its converted version 2'}
     """
+    defaults = CastSettings(
+        mm = Mm(dict, Spz(dict, object))
+    )
+
+
+class ListToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
     """
     Cast for lists and tuples.
 
-        >>> SequenceCast()([anObject1, anObject2])
+        >>> ListToList()([anObject1, anObject2])
         ['its converted version 1', 'its converted version 2']
     """
-    def get_mm(self, index, value):
-        return Mm(type(value), object)
+    defaults = CastSettings(
+        mm = Mm(list, Spz(list, object))
+    )
 
 
-class SequenceCast(ContainerCast):
-    """
-    Cast for lists and tuples.
+class ObjectToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, ContainerCast):
 
-        >>> SequenceCast()([anObject1, anObject2])
-        ['its converted version 1', 'its converted version 2']
-    """
-    def iter_input(self, inpt):
-        return enumerate(inpt)
-
-    def get_mm(self, index, value):
-        return Mm(type(value), object)
-
-    def build_output(self, items_iter):
-        return [value for index, value in items_iter]
+    def attr_names(self):
+        inpt = self._context['input']
+        names = filter(lambda name: name[0] != '_', list(inpt.__dict__))
+        return filter(lambda name: not isinstance(getattr(inpt, name), FunctionType), names)
 
 
-class ObjectToDict(FromObjectMixin, ToDictMixin, ContainerCast):
+class DictToObject(GuessMmMixin, FromDictMixin, ToObjectMixin, ContainerCast):
 
-    def attr_names(self, obj):
-        return filter(lambda n: n[0] != '_', list(obj.__dict__))
-
-
-class DictToObject(FromDictMixin, ToObjectMixin, ContainerCast):
-
-    def attr_names(self, obj):
-        return filter(lambda n: n[0] != '_', list(obj.__dict__))
+    def new_object(self, kwargs):
+        return self.mm.to()
 

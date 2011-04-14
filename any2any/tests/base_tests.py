@@ -67,7 +67,7 @@ To get a serializer for a class use the method :func:`Cast.cast_for` :
     >>> isinstance(obj_cast, Identity)
     True
     >>> list_cast = cast.cast_for(Mm(list, list))
-    >>> isinstance(list_cast, SequenceCast)
+    >>> isinstance(list_cast, ListToList)
     True
 
 You can also pass a second argument in order to override the serializer's settings :

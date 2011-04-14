@@ -136,7 +136,6 @@ def closest_parent(klass, other_classes):
             candidates.append(oclass)
 
     #This is used to sort the list and take the closer parent of *klass*
-    @total_ordering
     class K(object):
         def __init__(self, klass):
             self.klass = klass
@@ -144,6 +143,8 @@ def closest_parent(klass, other_classes):
             return Spz.issubclass(self.klass, other.klass)
         def __eq__(self, other):
             return self.klass == other.klass
+        def __gt__(self, other):
+            return Spz.issubclass(other.klass, klass.klass)
     
     if not candidates:
         return object

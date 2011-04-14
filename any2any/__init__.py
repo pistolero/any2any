@@ -17,7 +17,7 @@
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from simple import SequenceCast, MappingCast, Identity
+from simple import ListToList, DictToDict, Identity
 from base import register#, cast_map
 #from simple import ObjectToDict, DictToObject
 from utils import Spz, Mm
@@ -25,13 +25,13 @@ from utils import Spz, Mm
 register(Identity(), [Mm(object, object)])
 
 list_mm = Mm(Spz(list, object), Spz(list, object))
-register(SequenceCast(mm=list_mm), [Mm(list, list)])
+register(ListToList(mm=list_mm), [Mm(list, list)])
 
 tuple_mm = Mm(Spz(tuple, object), Spz(tuple, object))
-register(SequenceCast(mm=tuple_mm), [Mm(tuple, tuple)])
+register(ListToList(mm=tuple_mm), [Mm(tuple, tuple)])
 
 mapping_mm = Mm(Spz(dict, object), Spz(dict, object))
-register(MappingCast(), [Mm(dict, dict)])
+register(DictToDict(), [Mm(dict, dict)])
 
 #register(ObjectToDict(), [Mm(object, dict)])
 
