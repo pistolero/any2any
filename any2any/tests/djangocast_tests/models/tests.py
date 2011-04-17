@@ -1,10 +1,5 @@
 # coding=utf-8
 
-#import serializers_tests, api_tests
-#__test__ = dict()
-#__test__['serializers_tests'] = serializers_tests.__doc__
-#__test__['api_tests'] = api_tests.__doc__
-
 from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.manager import Manager
 
@@ -358,21 +353,6 @@ If we provide the primary key, we can do this either by using the property name 
     True
     >>> ncauthor_srz.eat({'id': 5777777})
 
-
-default_attr_schema
----------------------
-
-    >>> author_srz.default_attr_schema('id')[0] == AutoField
-    True
-    >>> author_srz.default_attr_schema('firstname')[0] == CharField
-    True
-    >>> book_srz = ModelSrz(custom_for=Book)
-    >>> book_srz.default_attr_schema('author')[0] == Author
-    True
-    >>> gourmand_srz = ModelSrz(custom_for=Gourmand)
-    >>> from spiteat.utils import specialize
-    >>> gourmand_srz.default_attr_schema('favourite_dishes') == (Manager, {'custom_for': specialize(list, Dish)})
-    True
 
 Content type - GenericForeignKey
 ----------------------------------
