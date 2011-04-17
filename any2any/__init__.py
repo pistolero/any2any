@@ -22,16 +22,16 @@ from base import register#, cast_map
 #from simple import ObjectToDict, DictToObject
 from utils import Spz, Mm
 
-register(Identity(), [Mm(object, object)])
+register(Identity(), [Mm(from_any=object, to_any=object)])
 
 list_mm = Mm(Spz(list, object), Spz(list, object))
-register(ListToList(mm=list_mm), [Mm(list, list)])
+register(ListToList(mm=list_mm), [Mm(from_any=list, to_any=list)])
 
 tuple_mm = Mm(Spz(tuple, object), Spz(tuple, object))
-register(ListToList(mm=tuple_mm), [Mm(tuple, tuple)])
+register(ListToList(mm=tuple_mm), [Mm(from_any=tuple, to_any=tuple)])
 
 mapping_mm = Mm(Spz(dict, object), Spz(dict, object))
-register(DictToDict(), [Mm(dict, dict)])
+register(DictToDict(), [Mm(from_any=dict, to_any=dict)])
 
 #register(ObjectToDict(), [Mm(object, dict)])
 

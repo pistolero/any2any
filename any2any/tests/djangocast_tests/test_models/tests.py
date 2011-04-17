@@ -15,13 +15,21 @@ from nose.tools import assert_raises, ok_
 
 class IntrospectMixin_Test(object):
     
+    def setUp(self):
+        # hack to have a model
+        class Introspect(IntrospectMixin):
+            model = Columnist
+        self.columnist_introspector = Introspect()
+        class Introspect(IntrospectMixin):
+            model = Gourmand
+        self.gourmand_introspector = Introspect()
+
     def fields_test(self):
         """
         Test IntrospectMixin.fields
         """
-        introspector = IntrospectMixin()
-        columnist_fields = introspector.fields(Columnist)
-        gourmand_fields = introspector.fields(Gourmand)
+        columnist_fields = self.columnist_introspector.fields
+        gourmand_fields = self.gourmand_introspector.fields
         ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
         ok_(isinstance(columnist_fields['id'], AutoField))
         ok_(isinstance(columnist_fields['lastname'], CharField))
@@ -32,12 +40,18 @@ class IntrospectMixin_Test(object):
         ok_(isinstance(gourmand_fields['favourite_dishes'], ManyToManyField))
         ok_(isinstance(gourmand_fields['pseudo'], CharField))
 
+    def nk_test(self):
+        self.columnist_introspector.settings['key_schema'] = ('firstname', 'lastname')
+        ok_(self.columnist_introspector.get_obj_key({
+            'firstname': 'Jamy',
+            'lastname': 'Gourmaud',
+            'journal': {'id': 806, 'name': "C'est pas sorcier"},
+            'id': 7763,
+            'column': 'truck',
+        }) == ('Jamy', 'Gourmaud'))
 
-class ModelToDict_Test(object):
-    """
-    Tests for ModelToDict
-    """
-
+class BaseModel(object):
+    
     def setUp(self):
         self.author = Author(firstname='John', lastname='Steinbeck', nickname='JS')
         self.book = Book(title='Grapes of Wrath', author=self.author, comments='great great great')
@@ -53,6 +67,20 @@ class ModelToDict_Test(object):
         self.gourmand.save()
         self.journal.save()
         self.columnist.save()
+
+    def tearDown(self):
+        self.author.delete()
+        self.book.delete()
+        self.foiegras.delete()
+        self.salmon.delete()
+        self.gourmand.delete()
+        self.columnist.delete()
+        self.journal.delete()
+
+class ModelToDict_Test(BaseModel):
+    """
+    Tests for ModelToDict
+    """
 
     def call_test(self):
         """
@@ -112,26 +140,11 @@ class ModelToDict_Test(object):
             ]
         })
 
-    def tearDown(self):
-        self.author.delete()
-        self.book.delete()
-        self.foiegras.delete()
-        self.salmon.delete()
-        self.gourmand.delete()
-        self.columnist.delete()
-        self.journal.delete()
 
-
-class DictToModel_Test(object):
+class DictToModel_Test(BaseModel):
     """
     Tests for DictToModel
     """
-
-    def setUp(self):
-        self.author = Author(firstname='John', lastname='Steinbeck', nickname='JS')
-        self.book = Book(title='Grapes of Wrath', author=self.author, comments='great great great')
-        self.author.save()
-        self.book.save()
 
     def call_test(self):
         """
@@ -139,67 +152,174 @@ class DictToModel_Test(object):
         """
         cast = DictToModel(mm=Mm(dict, Author))
         authors_before = Author.objects.count()
-        da = cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'id': 3, 'nickname': 'JC Ballard'})
+        james = cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JC Ballard'})
+        james = Author.objects.get(pk = james.pk)
         # We check the fields
-        ok_(da.firstname == 'James Graham')
-        ok_(da.lastname == 'Ballard')
-        ok_(da.id == 3)
-        ok_(da.nickname == 'JC Ballard')
+        ok_(james.firstname == 'James Graham')
+        ok_(james.lastname == 'Ballard')
+        ok_(james.nickname == 'JC Ballard')
         # We check that new author was created
         ok_(Author.objects.count() == authors_before + 1)
-        da.delete()
+        james.delete()
 
-    def update_objects_test(self):
+    def update_object_with_fk_test(self):
         """
         Test deserialize already existing object with an already existing foreignkey 
         """
         book_cast = DictToModel(mm=Mm(dict, Book))
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        db = book_cast.call({
+        book = book_cast.call({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
             'author': {'id': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
         })
+        book = Book.objects.get(pk=book.pk)
+        author = Author.objects.get(pk=book.author.pk)
         # We check the fields
-        ok_(db.title == 'In cold blood')
-        author = Author.objects.get(pk=db.author.pk)
+        ok_(book.title == 'In cold blood')
         ok_(author.firstname == 'Truman')
         ok_(author.lastname == 'Capote')
         # We check that no item was created
         ok_(Book.objects.count() == books_before)
         ok_(Author.objects.count() == authors_before)
-        # cleaning-up
-        author = db.author
-        book.delete()
-        author.delete()
 
-    def create_objects_auto_assign_pk_test(self):
+    def create_object_with_fk_auto_assign_pk_test(self):
         """
-        Test deserialize new object with new foreignkey, automatically picked PK. 
+        Test deserialize new object with new foreignkey with automatically picked PK. 
         """
         book_cast = DictToModel(mm=Mm(dict, Book))
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        db = book_cast.call({
+        book = book_cast.call({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
         })
-        # We check the fields
-        ok_(db.title == 'Grapes of Wrath')
+        book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
-        ok_(db.author.firstname == 'Jo')
-        ok_(db.author.lastname == 'Stein')
-        # We check that no item was created
+        # We check the fields
+        ok_(book.title == '1984')
+        ok_(author.firstname == 'George')
+        ok_(author.lastname == 'Orwell')
+        # We check that items were created
         ok_(Book.objects.count() == books_before + 1)
         ok_(Author.objects.count() == authors_before + 1)
         # cleaning-up
-        author = db.author
         book.delete()
         author.delete()
 
-    def tearDown(self):
-        self.author.delete()
-        self.book.delete()
+    def create_object_with_fk_choose_pk_test(self):
+        """
+        Test deserialize new object with new foreignkey, PK provided. 
+        """
+        book_cast = DictToModel(mm=Mm(dict, Book))
+        authors_before = Author.objects.count()
+        books_before = Book.objects.count()
+        book = book_cast.call({
+            'id': 989, 'title': '1984', 'comments': 'great great great',
+            'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
+        })
+        book = Book.objects.get(pk=book.pk)
+        author = Author.objects.get(firstname='George', lastname='Orwell')
+        # We check the fields
+        ok_(book.id == 989)
+        ok_(book.title == '1984')
+        ok_(author.id == 76)
+        ok_(author.firstname == 'George')
+        ok_(author.lastname == 'Orwell')
+        # We check that items were created
+        ok_(Book.objects.count() == books_before + 1)
+        ok_(Author.objects.count() == authors_before + 1)
+        # cleaning-up
+        book.delete()
+        author.delete()
+
+    def update_object_with_m2m_already_existing_objects_test(self):
+        """
+        Test update object, update m2m field with existing FKs.
+        """
+        g_before = Gourmand.objects.count()
+        d_before = Dish.objects.count()
+        gourmand_cast = DictToModel(mm=Mm(dict, Gourmand))
+        gourmand = gourmand_cast.call({
+            'id': self.gourmand.pk,
+            'pseudo': 'Taaaaz',
+            'favourite_dishes': [
+                {'id': self.salmon.pk, 'name': 'Pretty much'},
+                {'id': self.foiegras.pk, 'name': 'Anything'},
+            ]
+        })
+        gourmand = Gourmand.objects.get(pk=gourmand.pk)
+        salmon = Dish.objects.get(pk=self.salmon.pk)
+        foiegras = Dish.objects.get(pk=self.foiegras.pk)
+        # We check the fields
+        ok_(set(gourmand.favourite_dishes.all()) == set([salmon, foiegras]))
+        ok_(gourmand.pseudo == 'Taaaaz')
+        ok_(salmon.name == u'Pretty much')
+        ok_(foiegras.name == u'Anything')
+        # We check that no item was created
+        ok_(Gourmand.objects.count() == g_before)
+        ok_(Dish.objects.count() == d_before)
+
+    def update_object_with_m2m_new_objects_test(self):
+        """
+        Test update object, update m2m field with new FK.
+        """
+        g_before = Gourmand.objects.count()
+        d_before = Dish.objects.count()
+        gourmand_cast = DictToModel(mm=Mm(dict, Gourmand))
+        gourmand = gourmand_cast.call({
+            'pseudo': 'Touz',
+            'favourite_dishes': [
+                {'id': 888, 'name': 'Vitamine O'},
+                {'id': self.salmon.pk},
+                {'id': self.foiegras.pk},
+            ]
+        })
+        gourmand = Gourmand.objects.get(pk=gourmand.pk)
+        vitamineo = Dish.objects.get(pk=888)
+        # We check the fields
+        ok_(set(gourmand.favourite_dishes.all()) == set([vitamineo, self.foiegras, self.salmon]))
+        ok_(gourmand.pseudo == 'Touz')
+        ok_(vitamineo.name == u'Vitamine O')
+        # We check that items were created
+        ok_(Gourmand.objects.count() == g_before + 1)
+        ok_(Dish.objects.count() == d_before + 1)
+
+    def update_object_with_nk_test(self):
+        """
+        Test update an object with its natural key, natural key already existing.
+        """
+        columnist_before = Columnist.objects.count()
+        columnist_cast = DictToModel(mm=Mm(dict, Columnist), key_schema=('firstname', 'lastname'))
+        jamy = columnist_cast.call({
+            'firstname': 'Jamy',
+            'lastname': 'Gourmaud',
+            'column': 'truck'
+        })
+        jamy = Columnist.objects.get(pk=jamy.pk)
+        # We check the fields
+        ok_(jamy.column == 'truck')
+        # We check that no item was created
+        ok_(columnist_before == Columnist.objects.count())
+
+    def create_object_with_nk_test(self):
+        """
+        Test deserialize and create an object with its natural key.
+        """
+        columnist_before = Columnist.objects.count()
+        columnist_cast = DictToModel(mm=Mm(dict, Columnist), key_schema=('firstname', 'lastname'))
+        fred = columnist_cast.call({
+            'firstname': 'Frédéric',
+            'lastname': 'Courant',
+            'journal': {'id': self.journal.pk},
+            'column': 'on the field',
+        })
+        fred = Columnist.objects.get(pk=fred.pk)
+        # We check the fields
+        ok_(fred.column == 'on the field')
+        # We check that items were created
+        ok_(columnist_before + 1 == Columnist.objects.count())
+        fred.delete()
 
 
 donttest="""
@@ -254,62 +374,6 @@ default_attr_schema
     >>> gourmand_srz.default_attr_schema('favourite_dishes') == (Manager, {'custom_for': specialize(list, Dish)})
     True
 
-Deserialization ManyToManyField
--------------------------------
-
-If the record exist, no new record is created
-
-    >>> g_before = Gourmand.objects.count()
-    >>> d_before = Dish.objects.count()
-    >>> gourmand = gourmand_srz.eat({
-    ...     'pk': 1,
-    ...     'pseudo': 'Taaaaz',
-    ...     'favourite_dishes': [
-    ...         {'pk': 1, 'name': 'Pretty much'},
-    ...         {'pk': 2, 'name': 'Anything'},
-    ...     ]
-    ... })
-    >>> Gourmand.objects.count() == g_before
-    True
-    >>> Dish.objects.count() == d_before
-    True
-
-    >>> set(gourmand.favourite_dishes.all()) == set([salmon, foiegras])
-    True
-    >>> gourmand.pseudo
-    'Taaaaz'
-    >>> Dish.objects.get(pk=1).name
-    u'Pretty much'
-    >>> Dish.objects.get(pk=2).name
-    u'Anything'
-
-If it doesn't exist, record is created, and manytomany related objects as well.
-
-    >>> g_before = Gourmand.objects.count()
-    >>> d_before = Dish.objects.count()
-    >>> gourmand = gourmand_srz.eat({
-    ...     'pk': 444,
-    ...     'pseudo': 'Touz',
-    ...     'favourite_dishes': [
-    ...         {'pk': 888, 'name': 'Vitamine O'},
-    ...         {'pk': 1},
-    ...         {'pk': 2},
-    ...     ]
-    ... })
-    >>> Gourmand.objects.count() == g_before + 1
-    True
-    >>> Dish.objects.count() == d_before + 1
-    True
-
-    >>> vitamineo = Dish.objects.get(pk=888)
-    >>> set(gourmand.favourite_dishes.all()) == set([vitamineo, foiegras, salmon])
-    True
-    >>> gourmand.pseudo
-    'Touz'
-    >>> vitamineo.name
-    u'Vitamine O'
-
-
 Content type - GenericForeignKey
 ----------------------------------
 
@@ -323,35 +387,4 @@ Content type - GenericForeignKey
     >>> bookmark_srz.spit(bookmark) == {'to': ('test_models', 'dish', salmon.pk), 'pk': bookmark.pk}
     True
 
-Natural key
--------------
-
-    >>> columnist_srz = ModelSrz(custom_for=Columnist, key_schema=('firstname', 'lastname'))
-    >>> columnist_srz.get_obj_key({
-    ...     'firstname': 'Jamy',
-    ...     'lastname': 'Gourmaud',
-    ...     'journal': {'id': cps.pk, 'pk': cps.pk, 'name': 'C\\'est pas sorcier'},
-    ...     'id': jamy.pk,
-    ...     'pk': jamy.pk,
-    ...     'column': 'truck',
-    ... })
-    ('Jamy', 'Gourmaud')
-
-    >>> columnist_before = Columnist.objects.count()
-    >>> jamy = columnist_srz.eat({
-    ...     'firstname': 'Jamy',
-    ...     'lastname': 'Gourmaud',
-    ... })
-    >>> columnist_before == Columnist.objects.count()
-    True
-
-    >>> columnist_before = Columnist.objects.count()
-    >>> fred = columnist_srz.eat({
-    ...     'firstname': 'Frédéric',
-    ...     'lastname': 'Courant',
-    ...     'journal': {'id': cps.pk},
-    ...     'column': 'field',
-    ... })
-    >>> columnist_before + 1 == Columnist.objects.count()
-    True
 """

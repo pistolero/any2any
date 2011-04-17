@@ -168,10 +168,10 @@ class Metamorphosis(object):
         return not self == other
 
     def __repr__(self):
-        return 'Mm(%s, %s)' % (self.from_any, self.to)
+        return 'Mm(%s, %s)' % (self._from_set, self._to_set)
 
     def __hash__(self):
-        return (self.from_any, self.to).__hash__()
+        return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 Mm = Metamorphosis
 
 

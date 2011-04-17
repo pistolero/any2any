@@ -88,9 +88,9 @@ class ContainerCast(Cast):
 class GuessMmMixin(Cast):
 
     def get_mm(self, index, value):
-        from_any = self.get_from(index) or type(value)
+        from_ = self.get_from(index) or type(value)
         to = self.get_to(index) or object
-        return Mm(from_any, to)
+        return Mm(from_, to)
 
 
 class FromDictMixin(Cast):
@@ -99,7 +99,7 @@ class FromDictMixin(Cast):
         return inpt.iteritems()
 
     def get_from(self, index):
-        return self.mm.to.feature if isinstance(self.mm.from_any, Spz) else None
+        return self.mm.to.feature if isinstance(self.mm.from_, Spz) else None
 
 
 class ToDictMixin(Cast):
@@ -117,7 +117,7 @@ class FromListMixin(Cast):
         return enumerate(inpt) 
 
     def get_from(self, index):
-        return self.mm.to.feature if isinstance(self.mm.from_any, Spz) else None
+        return self.mm.to.feature if isinstance(self.mm.from_, Spz) else None
 
 
 class ToListMixin(Cast):

@@ -23,7 +23,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any.simple import GuessMmMixin, FromListMixin, ToListMixin, ContainerCast, FromObjectMixin, ToDictMixin, FromDictMixin, ToObjectMixin
-from any2any.base import CastSettings, Mm, Spz, register
+from any2any.base import Cast, CastSettings, Mm, Spz, register
 
 
 class ManagerToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
@@ -36,7 +36,11 @@ class ManagerToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
         return enumerate(inpt.all())
 
 
-class IntrospectMixin(object):
+class IntrospectMixin(Cast):
+
+    defaults = CastSettings(
+        key_schema = ('id',),
+    )
 
     @property
     def model(self):
@@ -45,7 +49,7 @@ class IntrospectMixin(object):
     @property
     def pk_field_name(self):
         #We get pk's field name from the "super" parent (i.e. the "eldest")
-        mod_opts = self.custom_for._meta
+        mod_opts = self.model._meta
         if mod_opts.parents:
             super_parent = filter(lambda p: issubclass(p, django_models.Model), mod_opts.get_parent_list())[0]
             return super_parent._meta.pk.name
@@ -68,9 +72,10 @@ class IntrospectMixin(object):
                     return None
         return tuple(obj_key)
 
-    def fields(self, model):
+    @property
+    def fields(self):
         # TODO: caching
-        mod_opts = model._meta
+        mod_opts = self.model._meta
     
         #MTI : We exclude the fields (OneToOne) pointing to the parents.
         exclude_ptr = []
@@ -89,7 +94,6 @@ class ModelToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, IntrospectMixin, C
 
     defaults = CastSettings(
         mm = Mm(django_models.Model, dict),
-        key_schema = ('id',),
     )
 
     @property
@@ -102,16 +106,16 @@ class ModelToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, IntrospectMixin, C
             return {
                 django_models.ForeignKey: dict,
                 django_models.ManyToManyField: Spz(list, dict),
-            }[type(self.fields(self.model)[field_name])]
+            }[type(self.fields[field_name])]
         except KeyError:
             # Identity on the rest
             return object
 
     def attr_names(self):
-        return self.fields(self.model).keys()
+        return self.fields.keys()
 
 
-def set_m2m_attr(self, instance, name, value):
+def set_m2m_attr(instance, name, value):
     instance.save()# Because otherwise we cannot handle manytomany
     manager = getattr(instance, name)
     manager.clear()
@@ -123,7 +127,6 @@ class DictToModel(GuessMmMixin, FromDictMixin, ToObjectMixin, IntrospectMixin, C
 
     defaults = CastSettings(
         mm = Mm(dict, django_models.Model),
-        key_schema = ('id',),
         class_to_setter = {Spz(list, django_models.Model): set_m2m_attr},
         _schema = {'class_to_setter': {'override': 'update_item'}}
     )
@@ -133,7 +136,7 @@ class DictToModel(GuessMmMixin, FromDictMixin, ToObjectMixin, IntrospectMixin, C
         return self.mm.to
 
     def get_to(self, field_name):
-        field = self.fields(self.model)[field_name]
+        field = self.fields[field_name]
         # If fk, we return the right model
         if isinstance(field, django_models.ForeignKey):
             return field.rel.to
@@ -158,11 +161,15 @@ class DictToModel(GuessMmMixin, FromDictMixin, ToObjectMixin, IntrospectMixin, C
                 new_object = self.model(**key_dict)
             else:
                 new_object = self.model()
-            new_object.save()
             return new_object
         except self.model.MultipleObjectReturned:
             raise ValueError("'%s' is not a valid natural key for '%s', because there are duplicates." %
             (self.key_schema, self.model))
+
+    def call(self, inpt):
+        obj = ContainerCast.call(self, inpt)
+        obj.save()#because otherwise we cannot handle the foreign keys
+        return obj
 
 '''
 class ModelSrz(BaseModelSrz):
@@ -235,6 +242,6 @@ class GenericForeignKeySrz(Srz):
 
      
 '''
-register(ManagerToList(), [Mm(django_models.Manager, Spz(list, dict))])
-register(ModelToDict(), [Mm(django_models.Model, dict)])
+register(ManagerToList(), [Mm(from_any=django_models.Manager, to=Spz(list, dict))])
+register(ModelToDict(), [Mm(from_any=django_models.Model, to=dict)])
 register(DictToModel(), [Mm(dict, to_any=django_models.Model)])
