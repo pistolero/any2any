@@ -1,6 +1,53 @@
 """
 """
 
+class ClassSet(object):
+
+    def __init__(self, klass, singleton=False):
+        self.klass = klass
+        self.singleton = singleton
+
+    def __eq__(self, other):
+        if isinstance(other, ClassSet):
+            return (self.klass, self.singleton) == (other.klass, other.singleton)
+        else:
+            return NotImplemented
+        
+    def __ne__(self, other):
+        return not self == other
+
+    # NB : We cannot use total_ordering,
+    # because there are cases where two sets are not comparable
+    def __lt__(self, other):
+        # *other* can include self, only if *other* is not a singleton.
+        # So there are only 2 cases where self < other:
+        # A) {self.klass} < other.klass
+        # B) self.klass < other.klass
+        if other.singleton:
+            return False
+        elif Spz.issubclass(self.klass, other.klass) and not other == self:
+            return True
+        else:
+            return False
+
+    def __gt__(self, other):
+        if self.singleton:
+            return False
+        elif Spz.issubclass(other.klass, self.klass) and not other == self:
+            return True
+        else:
+            return False
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __ge__(self, other):
+        return self > other or self == other
+
+    def __repr__(self):
+        return u'%s' % self.klass if self.singleton else u'Any %s' % self.klass
+
+
 class Metamorphosis(object):
     """
     A metamorphosis between two types :
@@ -22,64 +69,82 @@ class Metamorphosis(object):
         True
     """
 
-    def __init__(self, from_any, to):
+    def __init__(self, from_=None, to=None, from_any=None, to_any=None):
+        if from_any and from_:
+            raise TypeError("Arguments 'from_any' and 'from_' cannot be provided at the same time")
+        elif not from_any and not from_:
+            raise TypeError("You must provide 'from_' or 'from_any'")
+        else:
+            pass
+        if to_any and to:
+            raise TypeError("Arguments 'to_any' and 'to' cannot be provided at the same time")
+        elif not to_any and not to:
+            raise TypeError("You must provide 'to' or 'to_any'")
+        else:
+            pass
+        # Sets used for easier comparison 
+        self._to_set = ClassSet(to or to_any, singleton=bool(to))
+        self._from_set = ClassSet(from_ or from_any, singleton=bool(from_))
+        # Keeping the arguments at hand
         self.from_any = from_any
+        self.from_ = from_
+        self.to_any = to_any
         self.to = to
 
     def pick_closest_in(self, choice_list):
         """
         .. todo:: if triangle, then random choice will be picked ...
         """
+        # When picking-up a metamorphosis in choice_list:
+        # if 
         candidates = filter(self.included_in, choice_list)
         if not candidates:
-            raise ValueError('No suitable metamorphosis found') #TODO : good message in there
+            raise ValueError("No suitable metamorphosis found for '%s'" % self)
         else:
             return sorted(candidates)[0]
 
-    def included_in(self, other):
-        """
-        Return:
-            bool. True if calling metamorphosis is a super-metamorphosis of *other*.
-        """
-        return Spz.issubclass(self.from_any, other.from_any) and Spz.issubclass(other.to, self.to)
+    def included_in(self, other, strict=False):
+        if strict and self != other:
+            return False
+        return self._from_set <= other._from_set and self._to_set <= other._to_set
 
     @staticmethod
     def most_precise(m1, m2):
         """
         Returns:
-            Metamorphosis. The most precise metamorphose between m1 and m2
+            Metamorphosis. The most precise metamorphosis between m1 and m2
         """
-        # There are 7 cases (excluding symetric cases):
+        # There are 10 cases (excluding symetric cases):
         # A) m1 = m2                                        -> None
         #
         # B) m1 C m2
-        #   m1.from_any < m2.from_any, m2.to < m1.to        -> m1
-        #   m1.from_any = m2.from_any, m2.to < m1.to        -> m1
-        #   m1.from_any < m2.from_any, m2.to = m1.to        -> m1
+        #   m1.from < m2.from, m1.to < m2.to        -> m1
+        #   m1.from = m2.from, m1.to < m2.to        -> m1
+        #   m1.from < m2.from, m1.to = m2.to        -> m1
         #
-        # C) m1 & m2 = {}
-        #   m1.from_any > m2.from_any, m2.to < m1.to        -> m1
-        #   m1.from_any = m2.from_any, m2.to < m1.to        -> m1
-        #   m1.from_any < m2.from_any, m2.to = m1.to        -> m1
+        # C) m1 ? m2
+        #   a) m1.from > m2.from, m1.to < m2.to        -> m1
+        #   b) m1.from ? m2.from, m1.to < m2.to        -> m1
+        #   c) m1.from < m2.from, m1.to ? m2.to        -> m1
+        #   d) m1.from ? m2.from, m1.to ? m2.to        -> None
+        #   e) m1.from ? m2.from, m1.to = m2.to        -> None
+        #   f) m1.from = m2.from, m1.to ? m2.to        -> None
+
         if m1 == m2:# A)
             return None
-        elif m1.included_in(m2):# B)
-            return m1
-        elif m2.included_in(m1):
-            return m2
-        else:# C)
-            if m1.to != m2.to:
-                # more general is best
-                if Spz.issubclass(m1.to, m2.to):
-                    return m2
-                else:
-                    return m1
-            else:
-                # more precise is best
-                if Spz.issubclass(m1.from_any, m2.from_any):
-                    return m1
-                else:
-                    return m2
+
+        elif m1.included_in(m2) or m2.included_in(m1):# B)
+            return m1 if m1.included_in(m2) else m2
+
+        elif m1._to_set < m2._to_set or m2._to_set < m1._to_set:# C) : a), b)
+            return m1 if m1._to_set < m2._to_set else m2
+
+        elif m1._from_set < m2._from_set or m2._from_set < m1._from_set:#C) : c)
+            return m1 if m1._from_set < m2._from_set else m2
+
+        else: #C) : d), e), f)
+            return None
+        
 
     def __lt__(self, other):
         return self.most_precise(self, other) == self
@@ -87,8 +152,20 @@ class Metamorphosis(object):
     def __gt__(self, other):
         return self.most_precise(self, other) == other
 
+    def __le__(self, other):
+        return self.most_precise(self, other) == self or self == other
+
+    def __ge__(self, other):
+        return self.most_precise(self, other) == other or self == other
+
     def __eq__(self, other):
-        return self.from_any == other.from_any and self.to == other.to
+        if isinstance(other, Metamorphosis):
+            return self._from_set == other._from_set and self._to_set == other._to_set
+        else:
+            return NotImplemented
+ 
+    def __ne__(self, other):
+        return not self == other
 
     def __repr__(self):
         return 'Mm(%s, %s)' % (self.from_any, self.to)

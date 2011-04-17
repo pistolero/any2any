@@ -84,7 +84,7 @@ class ContainerCast(Cast):
         iter_ouput = self.iter_output(iter_input)
         return self.build_output(iter_ouput)
 
-
+#TODO: Improve mixins (decorators) so that the order doesn't matter (@implements, @interface)
 class GuessMmMixin(Cast):
 
     def get_mm(self, index, value):
@@ -147,7 +147,7 @@ class FromObjectMixin(Cast):
 
         .. note:: Override this method if you want to build dynamically the list of attributes to include by default.
         """
-        raise NotImplementedError()
+        return []
 
     def calculate_include(self):
         """
@@ -180,8 +180,8 @@ class ToObjectMixin(Cast):
         attrname_to_setter = {}
     )
 
-    def new_object(self, kwargs):
-        raise NotImplementedError()
+    def new_object(self, items):
+        return self.mm.to()
 
     def build_output(self, items_iter):
         items = dict(items_iter)

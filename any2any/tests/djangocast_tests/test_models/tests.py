@@ -20,23 +20,39 @@ class IntrospectMixin_Test(object):
         Test IntrospectMixin.fields
         """
         introspector = IntrospectMixin()
-        set(introspector.fields(Person)) == set(['id', 'lastname', 'firstname'])
-        set(introspector.fields(Columnist)) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname'])
-        raise Exception("incomplete")
+        columnist_fields = introspector.fields(Columnist)
+        gourmand_fields = introspector.fields(Gourmand)
+        ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
+        ok_(isinstance(columnist_fields['id'], AutoField))
+        ok_(isinstance(columnist_fields['lastname'], CharField))
+        ok_(isinstance(columnist_fields['nickname'], CharField))
+        ok_(isinstance(columnist_fields['journal'], ForeignKey))
+        ok_(set(gourmand_fields) == set(['id', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
+        ok_(isinstance(gourmand_fields['firstname'], CharField))
+        ok_(isinstance(gourmand_fields['favourite_dishes'], ManyToManyField))
+        ok_(isinstance(gourmand_fields['pseudo'], CharField))
+
 
 class ModelToDict_Test(object):
+    """
+    Tests for ModelToDict
+    """
 
     def setUp(self):
         self.author = Author(firstname='John', lastname='Steinbeck', nickname='JS')
         self.book = Book(title='Grapes of Wrath', author=self.author, comments='great great great')
         self.foiegras = Dish(name='Foie gras')
         self.salmon = Dish(name='salmon')
-        self.gourmand = Gourmand(pseudo='Taz')
+        self.gourmand = Gourmand(pseudo='Taz', firstname='T', lastname='Aznicniev')
+        self.journal = Journal(name="C'est pas sorcier") ; self.journal.save()
+        self.columnist = Columnist(firstname='Jamy', lastname='Gourmaud', journal=self.journal, column='truck')
         self.author.save()
         self.book.save()
         self.foiegras.save()
         self.salmon.save()
         self.gourmand.save()
+        self.journal.save()
+        self.columnist.save()
 
     def call_test(self):
         """
@@ -45,17 +61,54 @@ class ModelToDict_Test(object):
         cast = ModelToDict()
         ok_(cast.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
 
-    def many2many_test(self):
+    def mti_test(self):
+        """
+        Test ModelToDict.call with a model with long inheritance chain.
+        """
         cast = ModelToDict()
-        ok_(cast.call(self.gourmand) == {'id': self.gourmand.pk, 'pseudo': 'Taz', 'favourite_dishes': []})
+        ok_(cast.call(self.columnist) == {
+            'firstname': 'Jamy',
+            'lastname': 'Gourmaud',
+            'journal': {'id': self.journal.pk, 'name': "C'est pas sorcier"},
+            'id': self.columnist.pk,
+            'column': 'truck',
+            'nickname': ''
+        })
+
+    def fk_test(self):
+        """
+        Test ModelToDict.call with foreignkeys
+        """
+        cast = ModelToDict()
+        ok_(cast.call(self.book) == {
+            'id': self.book.pk,
+            'title': 'Grapes of Wrath',
+            'author': {
+                'id': self.author.pk,
+                'firstname': 'John',
+                'lastname': 'Steinbeck',
+                'nickname': 'JS'
+            },
+            'comments': 'great great great'
+        })
+
+    def many2many_test(self):
+        """
+        Test ModelToDict.call with many2many field.
+        """
+        cast = ModelToDict()
+        ok_(cast.call(self.gourmand) == {
+            'id': self.gourmand.pk, 'pseudo': 'Taz', 'favourite_dishes': [],
+            'firstname': 'T', 'lastname': 'Aznicniev'
+        })
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.favourite_dishes.add(self.foiegras)
         self.gourmand.save()
         ok_(cast.call(self.gourmand) == {
-            'id': 1, 'pseudo': 'Taz',
+            'id': self.gourmand.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
             'favourite_dishes': [
-                {'id': 1, 'name': 'Foie gras'},
-                {'id': 2, 'name': 'salmon'},
+                {'id': self.foiegras.pk, 'name': 'Foie gras'},
+                {'id': self.salmon.pk, 'name': 'salmon'},
             ]
         })
 
@@ -65,6 +118,89 @@ class ModelToDict_Test(object):
         self.foiegras.delete()
         self.salmon.delete()
         self.gourmand.delete()
+        self.columnist.delete()
+        self.journal.delete()
+
+
+class DictToModel_Test(object):
+    """
+    Tests for DictToModel
+    """
+
+    def setUp(self):
+        self.author = Author(firstname='John', lastname='Steinbeck', nickname='JS')
+        self.book = Book(title='Grapes of Wrath', author=self.author, comments='great great great')
+        self.author.save()
+        self.book.save()
+
+    def call_test(self):
+        """
+        Simple test DictToModel.call
+        """
+        cast = DictToModel(mm=Mm(dict, Author))
+        authors_before = Author.objects.count()
+        da = cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'id': 3, 'nickname': 'JC Ballard'})
+        # We check the fields
+        ok_(da.firstname == 'James Graham')
+        ok_(da.lastname == 'Ballard')
+        ok_(da.id == 3)
+        ok_(da.nickname == 'JC Ballard')
+        # We check that new author was created
+        ok_(Author.objects.count() == authors_before + 1)
+        da.delete()
+
+    def update_objects_test(self):
+        """
+        Test deserialize already existing object with an already existing foreignkey 
+        """
+        book_cast = DictToModel(mm=Mm(dict, Book))
+        authors_before = Author.objects.count()
+        books_before = Book.objects.count()
+        db = book_cast.call({
+            'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
+            'author': {'id': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
+        })
+        # We check the fields
+        ok_(db.title == 'In cold blood')
+        author = Author.objects.get(pk=db.author.pk)
+        ok_(author.firstname == 'Truman')
+        ok_(author.lastname == 'Capote')
+        # We check that no item was created
+        ok_(Book.objects.count() == books_before)
+        ok_(Author.objects.count() == authors_before)
+        # cleaning-up
+        author = db.author
+        book.delete()
+        author.delete()
+
+    def create_objects_auto_assign_pk_test(self):
+        """
+        Test deserialize new object with new foreignkey, automatically picked PK. 
+        """
+        book_cast = DictToModel(mm=Mm(dict, Book))
+        authors_before = Author.objects.count()
+        books_before = Book.objects.count()
+        db = book_cast.call({
+            'title': '1984', 'comments': 'great great great',
+            'author': {'firstname': 'George', 'lastname': 'Orwell'}
+        })
+        # We check the fields
+        ok_(db.title == 'Grapes of Wrath')
+        author = Author.objects.get(firstname='George', lastname='Orwell')
+        ok_(db.author.firstname == 'Jo')
+        ok_(db.author.lastname == 'Stein')
+        # We check that no item was created
+        ok_(Book.objects.count() == books_before + 1)
+        ok_(Author.objects.count() == authors_before + 1)
+        # cleaning-up
+        author = db.author
+        book.delete()
+        author.delete()
+
+    def tearDown(self):
+        self.author.delete()
+        self.book.delete()
+
 
 donttest="""
 
@@ -116,87 +252,6 @@ default_attr_schema
     >>> gourmand_srz = ModelSrz(custom_for=Gourmand)
     >>> from spiteat.utils import specialize
     >>> gourmand_srz.default_attr_schema('favourite_dishes') == (Manager, {'custom_for': specialize(list, Dish)})
-    True
-
-
-
-Deserialization
-----------------
-
-    >>> authors_before = Author.objects.count()
-    >>> da = author_srz.eat({'firstname': 'James Graham', 'lastname': 'Ballard', 'id': 3, 'nickname': 'JC Ballard'})
-    >>> Author.objects.count() == authors_before + 1
-    True
-    >>> da.firstname
-    'James Graham'
-    >>> da.lastname
-    'Ballard'
-    >>> da.id
-    3
-    >>> da.nickname
-    'JC Ballard'
-
-Serialization foreignkey
--------------------------
-
-    >>> book_srz = ModelSrz(custom_for=Book)
-    >>> book_srz.class_srz_map.get(Author, None) == None
-    True
-    >>> book_srz.spit(book) == {
-    ...     'id': 1, 'pk': 1,
-    ...     'title': 'Grapes of Wrath',
-    ...     'author': {
-    ...         'id': author.pk, 'pk': author.pk,
-    ...         'firstname': 'John',
-    ...         'lastname': 'Steinbeck',
-    ...         'nickname': 'JS'
-    ...     },
-    ...     'comments': 'great great great'
-    ... }
-    True
-    >>> book_srz.class_srz_map.get(Author, None) == None
-    True
-
-
-Deserialization foreignkey
----------------------------
-
-If the record already exist, no new record is created
-
-    >>> authors_before = Author.objects.count()
-    >>> books_before = Book.objects.count()
-    >>> book_pk = Book.objects.all()[0].pk
-    >>> author_pk = Author.objects.all()[0].pk
-
-    >>> db = book_srz.eat({'id': book_pk, 'title': 'Grapes of Wrath', 'author': {'id': author_pk, 'firstname': 'John', 'lastname': 'Steinbeck'}, 'comments': 'great great great'})
-    >>> db.title
-    'Grapes of Wrath'
-    >>> db.author.firstname
-    'John'
-    >>> db.author.lastname
-    'Steinbeck'
-
-    >>> Book.objects.count() == books_before
-    True
-    >>> Author.objects.count() == authors_before
-    True
-
-On the other hand, if the record doesn't exist, it is created.
-
-    >>> authors_before = Author.objects.count()
-    >>> books_before = Book.objects.count()
-
-    >>> db = book_srz.eat({'title': 'Grapes of Wrath', 'author': {'firstname': 'Jo', 'lastname': 'Stein'}, 'comments': 'great great great'})
-    >>> db.title
-    'Grapes of Wrath'
-    >>> db.author.firstname
-    'Jo'
-    >>> db.author.lastname
-    'Stein'
-
-    >>> Book.objects.count() == books_before + 1
-    True
-    >>> Author.objects.count() == authors_before + 1
     True
 
 Deserialization ManyToManyField
@@ -254,24 +309,6 @@ If it doesn't exist, record is created, and manytomany related objects as well.
     >>> vitamineo.name
     u'Vitamine O'
 
-Serialize model + parent fields
----------------------------------
-
-    >>> cps = Journal(name='C\\'est pas sorcier')
-    >>> cps.save()
-    >>> jamy = Columnist(firstname='Jamy', lastname='Gourmaud', journal=cps, column='truck')
-    >>> jamy.save()
-
-    >>> columnist_srz.spit(jamy) == {
-    ...     'firstname': 'Jamy',
-    ...     'lastname': 'Gourmaud',
-    ...     'journal': {'id': cps.pk, 'pk': cps.pk, 'name': 'C\\'est pas sorcier'},
-    ...     'id': jamy.pk,
-    ...     'pk': jamy.pk,
-    ...     'column': 'truck',
-    ...     'nickname': ''
-    ... }
-    True
 
 Content type - GenericForeignKey
 ----------------------------------

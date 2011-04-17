@@ -260,6 +260,8 @@ class Cast(object):
         #gets better choice
         closest_mm = mm.pick_closest_in(choices.keys())
         cast = choices[closest_mm]
+        # We set the cast's mm
+        settings.setdefault('mm', mm)
         return cast.copy(settings, self)
 
     def copy(self, settings, cast=None):
@@ -297,7 +299,7 @@ class Cast(object):
         try:
             return self.settings[name]
         except KeyError:
-            raise AttributeError("'%s' object has no attribute '%s'" % (self, name))
+            pass
 
     def log(self, message, state='during', throughput=None):
         """

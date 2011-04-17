@@ -27,7 +27,7 @@ class Book (Model) :
 class Dish (Model) :
     name = CharField(max_length=100)
 
-class Gourmand (Model) :
+class Gourmand (Person) :
     pseudo = CharField(max_length=100)
     favourite_dishes = ManyToManyField(Dish)
 

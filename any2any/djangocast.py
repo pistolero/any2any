@@ -22,7 +22,7 @@ from django.db import models as django_models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.simple import GuessMmMixin, FromListMixin, ToListMixin, ContainerCast, FromObjectMixin, ToDictMixin
+from any2any.simple import GuessMmMixin, FromListMixin, ToListMixin, ContainerCast, FromObjectMixin, ToDictMixin, FromDictMixin, ToObjectMixin
 from any2any.base import CastSettings, Mm, Spz, register
 
 
@@ -36,14 +36,11 @@ class ManagerToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
         return enumerate(inpt.all())
 
 
-def set_m2m_attr(self, instance, name, value):
-    manager = getattr(instance, name)
-    manager.clear()
-    for element in value:
-        manager.add(element)
-
-
 class IntrospectMixin(object):
+
+    @property
+    def model(self):
+        raise NotImplementedError()
 
     @property
     def pk_field_name(self):
@@ -68,10 +65,8 @@ class IntrospectMixin(object):
                 try:
                     obj_key.append(data[field_name])
                 except KeyError:
-                    break
-        else:
-            return tuple(obj_key)
-        return None
+                    return None
+        return tuple(obj_key)
 
     def fields(self, model):
         # TODO: caching
@@ -94,38 +89,108 @@ class ModelToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, IntrospectMixin, C
 
     defaults = CastSettings(
         mm = Mm(django_models.Model, dict),
-        key_schema = ('pk',),
+        key_schema = ('id',),
     )
 
+    @property
+    def model(self):
+        return type(self._context['input'])
+
     def get_to(self, field_name):
-        field = self.fields(type(self._context['input']))[field_name]
-        if isinstance(field, django_models.ForeignKey):
-            return dict
-        elif isinstance(field, django_models.ManyToManyField):
-            return list
-        else:
+        try:
+            # Managers to list, and Models to dict
+            return {
+                django_models.ForeignKey: dict,
+                django_models.ManyToManyField: Spz(list, dict),
+            }[type(self.fields(self.model)[field_name])]
+        except KeyError:
+            # Identity on the rest
             return object
 
     def attr_names(self):
-        model = type(self._context['input'])
-        return self.fields(model).keys()
+        return self.fields(self.model).keys()
+
+
+def set_m2m_attr(self, instance, name, value):
+    instance.save()# Because otherwise we cannot handle manytomany
+    manager = getattr(instance, name)
+    manager.clear()
+    for element in value:
+        manager.add(element)
+
+
+class DictToModel(GuessMmMixin, FromDictMixin, ToObjectMixin, IntrospectMixin, ContainerCast):
+
+    defaults = CastSettings(
+        mm = Mm(dict, django_models.Model),
+        key_schema = ('id',),
+        class_to_setter = {Spz(list, django_models.Model): set_m2m_attr},
+        _schema = {'class_to_setter': {'override': 'update_item'}}
+    )
+
+    @property
+    def model(self):
+        return self.mm.to
+
+    def get_to(self, field_name):
+        field = self.fields(self.model)[field_name]
+        # If fk, we return the right model
+        if isinstance(field, django_models.ForeignKey):
+            return field.rel.to
+        # If m2m, we want a list of the right model
+        elif isinstance(field, django_models.ManyToManyField):
+            return Spz(list, field.rel.to)
+        # Identity on the rest
+        else:
+            return object
+            
+    def new_object(self, items):
+        """
+        Returns:
+            django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
+        """
+        key_tuple = self.get_obj_key(items)
+        key_dict = dict(zip(self.key_schema, key_tuple)) if key_tuple else {'pk': None}
+        try:
+            return self.model.objects.get(**key_dict)
+        except self.model.DoesNotExist:
+            if key_dict:
+                new_object = self.model(**key_dict)
+            else:
+                new_object = self.model()
+            new_object.save()
+            return new_object
+        except self.model.MultipleObjectReturned:
+            raise ValueError("'%s' is not a valid natural key for '%s', because there are duplicates." %
+            (self.key_schema, self.model))
+
+'''
+class ModelSrz(BaseModelSrz):
+
+
+ModelSrz.defaults.get('class_srz_map')[django_models.Model] = ModelSrz()
+
+class NCModelSrz(BaseModelSrz):
+
+    def new_object(self, data=None):
+        """
+        Returns:
+            django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
+        """
+        key_tuple = self.get_obj_key(data)
+        key_dict = dict(zip(self.key_schema, key_tuple)) if key_tuple else {'pk': None}
+        try:
+            return self.custom_for.objects.get(**key_dict)
+        except self.custom_for.DoesNotExist:
+            raise
+        except self.custom_for.MultipleObjectReturned:
+            raise
+NCModelSrz.defaults.get('class_srz_map')[django_models.Model] = NCModelSrz()   
+'''
 '''
 ModelToDict.defaults['mm_to_cast'] = {
     (GenericForeignKey, object): GenericForeignKeySrz(),
 },
-
-
-class DictToModel(FromDictMixin, ToObjectMixin, IntrospectMixin, ContainerCast):
-
-    defaults = settings(
-        mm = Mm(dict, django_models.Model),
-        key_schema = ('pk',),
-    )
-
-    def get_mm(self, index, value=None):
-        model = self.mm.to
-        if isinstance(self.fields[index], models.ManyToManyField):
-            
 
 
 class ManyToManyAccessor(NCManyToManyAccessor):
@@ -168,45 +233,8 @@ class GenericForeignKeySrz(Srz):
         return obj
 
 
-class ModelSrz(BaseModelSrz):
-
-    def new_object(self, data=None):
-        """
-        Returns:
-            django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
-        """
-        key_tuple = self.get_obj_key(data)
-        key_dict = dict(zip(self.key_schema, key_tuple)) if key_tuple else {'pk': None}
-        try:
-            return self.custom_for.objects.get(**key_dict)
-        except self.custom_for.DoesNotExist:
-            if key_dict:
-                new_object = self.custom_for(**key_dict)
-            else:
-                new_object = self.custom_for()
-            return new_object
-        except self.custom_for.MultipleObjectReturned:
-            raise
-        else:
-            raise ValueError("Object with key '%s' already exist" % key_dict)
-ModelSrz.defaults.get('class_srz_map')[django_models.Model] = ModelSrz()
-
-class NCModelSrz(BaseModelSrz):
-
-    def new_object(self, data=None):
-        """
-        Returns:
-            django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
-        """
-        key_tuple = self.get_obj_key(data)
-        key_dict = dict(zip(self.key_schema, key_tuple)) if key_tuple else {'pk': None}
-        try:
-            return self.custom_for.objects.get(**key_dict)
-        except self.custom_for.DoesNotExist:
-            raise
-        except self.custom_for.MultipleObjectReturned:
-            raise
-NCModelSrz.defaults.get('class_srz_map')[django_models.Model] = NCModelSrz()        
+     
 '''
-register(ManagerToList(), [Mm(django_models.Manager, list)])
+register(ManagerToList(), [Mm(django_models.Manager, Spz(list, dict))])
 register(ModelToDict(), [Mm(django_models.Model, dict)])
+register(DictToModel(), [Mm(dict, to_any=django_models.Model)])

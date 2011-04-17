@@ -1,4 +1,4 @@
-# Django settings for test_djangosrz project.
+# Django settings for test_djangocast project.
 import sys
 import os
 
@@ -21,7 +21,7 @@ DATABASES = {
 ROOT_URLCONF = 'tests.urls'
 
 INSTALLED_APPS = (
-    'djangosrz_tests.test_models',
+    'djangocast_tests.test_models',
     'django.contrib.contenttypes',
     'django_nose',
 )
