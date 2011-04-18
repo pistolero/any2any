@@ -14,9 +14,11 @@ class IntrospectMixin_Test(object):
         # hack to have a model
         class Introspect(IntrospectMixin):
             model = Columnist
+            def call(self): pass
         self.columnist_introspector = Introspect()
         class Introspect(IntrospectMixin):
             model = Gourmand
+            def call(self): pass
         self.gourmand_introspector = Introspect()
 
     def fields_test(self):

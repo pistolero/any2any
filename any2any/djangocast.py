@@ -22,11 +22,11 @@ from django.db import models as django_models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.simple import GuessMmMixin, FromListMixin, ToListMixin, ContainerCast, FromObjectMixin, ToDictMixin, FromDictMixin, ToObjectMixin
+from any2any.simple import FromList, ToList, ContainerCast, FromObject, ToDict, FromDict, ToObject
 from any2any.base import Cast, CastSettings, Mm, Spz, register
 
 
-class ManagerToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
+class ManagerToList(FromList, ToList, ContainerCast):
 
     defaults = CastSettings(
         mm = Mm(list, Spz(list, dict))
@@ -90,7 +90,7 @@ class IntrospectMixin(Cast):
         return dict(zip([f.name for f in included_fields], included_fields))
 
 
-class ModelToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, IntrospectMixin, ContainerCast):
+class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
 
     defaults = CastSettings(
         mm = Mm(django_models.Model, dict),
@@ -100,7 +100,7 @@ class ModelToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, IntrospectMixin, C
     def model(self):
         return type(self._context['input'])
 
-    def get_to(self, field_name):
+    def get_item_to(self, field_name):
         try:
             # Managers to list, and Models to dict
             return {
@@ -123,7 +123,7 @@ def set_m2m_attr(instance, name, value):
         manager.add(element)
 
 
-class DictToModel(GuessMmMixin, FromDictMixin, ToObjectMixin, IntrospectMixin, ContainerCast):
+class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
 
     defaults = CastSettings(
         mm = Mm(dict, django_models.Model),
@@ -135,7 +135,7 @@ class DictToModel(GuessMmMixin, FromDictMixin, ToObjectMixin, IntrospectMixin, C
     def model(self):
         return self.mm.to
 
-    def get_to(self, field_name):
+    def get_item_to(self, field_name):
         field = self.fields[field_name]
         # If fk, we return the right model
         if isinstance(field, django_models.ForeignKey):
@@ -242,6 +242,6 @@ class GenericForeignKeySrz(Srz):
 
      
 '''
-register(ManagerToList(), [Mm(from_any=django_models.Manager, to=Spz(list, dict))])
-register(ModelToDict(), [Mm(from_any=django_models.Model, to=dict)])
-register(DictToModel(), [Mm(dict, to_any=django_models.Model)])
+register(ManagerToList(), Mm(from_any=django_models.Manager, to=Spz(list, dict)))
+register(ModelToDict(), Mm(from_any=django_models.Model, to=dict))
+register(DictToModel(), Mm(dict, to_any=django_models.Model))

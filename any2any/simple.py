@@ -1,5 +1,5 @@
 from base import Cast, CastSettings, Mm, Spz
-from containercast import ContainerCast, FromDictMixin, ToDictMixin, FromListMixin, ToListMixin, FromObjectMixin, ToObjectMixin, GuessMmMixin
+from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject
 from types import FunctionType
 
 
@@ -18,7 +18,7 @@ class Identity(Cast):
         return obj
 
 
-class DictToDict(GuessMmMixin, FromDictMixin, ToDictMixin, ContainerCast):
+class DictToDict(FromDict, ToDict, ContainerCast):
     """
     Cast for dictionaries.
 
@@ -30,7 +30,7 @@ class DictToDict(GuessMmMixin, FromDictMixin, ToDictMixin, ContainerCast):
     )
 
 
-class ListToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
+class ListToList(FromList, ToList, ContainerCast):
     """
     Cast for lists and tuples.
 
@@ -42,7 +42,7 @@ class ListToList(GuessMmMixin, FromListMixin, ToListMixin, ContainerCast):
     )
 
 
-class ObjectToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, ContainerCast):
+class ObjectToDict(FromObject, ToDict, ContainerCast):
 
     def attr_names(self):
         inpt = self._context['input']
@@ -50,7 +50,7 @@ class ObjectToDict(GuessMmMixin, FromObjectMixin, ToDictMixin, ContainerCast):
         return filter(lambda name: not isinstance(getattr(inpt, name), FunctionType), names)
 
 
-class DictToObject(GuessMmMixin, FromDictMixin, ToObjectMixin, ContainerCast):
+class DictToObject(FromDict, ToObject, ContainerCast):
 
     def new_object(self, kwargs):
         return self.mm.to()

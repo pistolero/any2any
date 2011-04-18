@@ -38,6 +38,7 @@ logger.addHandler(NullHandler())
 #====================================
 import copy
 import re
+import abc
 import collections
 from functools import wraps
 from types import FunctionType
@@ -49,13 +50,12 @@ mm_to_cast = {}
 dict. This dictionary maps a :class:`Conversion` to a :class:`Cast`. This is any2any's global default mapping.
 """
 
-def register(cast, use_for):
+def register(cast, mm):
     """
-    Registers *cast* as the default cast for every metamorphosis in *use_for*.
+    Registers *cast* as the default cast for metamorphosis *mm*.
     """
-    for mm in use_for:
-        #no matter if cast for *mm* is already in the map, we override it
-        mm_to_cast[mm] = cast
+    #no matter if cast for *mm* is already in the map, we override it
+    mm_to_cast[mm] = cast
 
 
 class CastSettings(collections.MutableMapping):
@@ -130,13 +130,9 @@ class CastSettings(collections.MutableMapping):
         if new_value: new_value.update(value)
         self[name] = new_value or value
 
-class CastType(type):
+class CastType(abc.ABCMeta):
 
     def __new__(cls, name, bases, attrs):
-        #trick to be able to wrap call later
-        if attrs.get('call'):
-            attrs['_original_call'] = attrs.pop('call')
-
         # handling multiple inheritance of defaults
         new_defaults = attrs.pop('defaults', CastSettings())
         attrs['defaults'] = CastSettings()
@@ -154,7 +150,7 @@ class CastType(type):
             new_cast_class.defaults.override(new_defaults)
 
         #wrap *call* to automate logging and context management
-        new_cast_class.call = cls.operation_wrapper(new_cast_class._original_call, new_cast_class)
+        new_cast_class.call = cls.operation_wrapper(new_cast_class.call, new_cast_class)
 
         return new_cast_class
 
@@ -247,7 +243,7 @@ class Cast(object):
     def __repr__(self):
         return '.'.join([self.__class__.__module__, '%s(%s)' % (self.__class__.__name__, self.mm)]) 
 
-    def cast_for(self, mm, settings={}):
+    def cast_for(self, mm):
         """
         Returns:
             Cast. A cast suitable for objects of type *mm*, and customized with *settings*.
@@ -261,8 +257,7 @@ class Cast(object):
         closest_mm = mm.pick_closest_in(choices.keys())
         cast = choices[closest_mm]
         # We set the cast's mm
-        settings.setdefault('mm', mm)
-        return cast.copy(settings, self)
+        return cast.copy({'mm': mm}, self)
 
     def copy(self, settings, cast=None):
         """
@@ -280,11 +275,12 @@ class Cast(object):
         new_cast.settings.update(settings)
         return new_cast
 
+    @abc.abstractmethod
     def call(self, inpt):
         """
         Serializes *obj*.
         """
-        raise NotImplementedError('This class is virtual')
+        return
 
     def __call__(self, inpt):
         return self.call(inpt)

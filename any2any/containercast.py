@@ -18,6 +18,7 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 """
+import abc
 from base import Cast, CastSettings, Mm, Spz
 from utils import closest_parent
 
@@ -29,32 +30,38 @@ class ContainerCast(Cast):
         element_cast = None,
     )
 
+    @abc.abstractmethod
     def iter_input(self, inpt):
         """
         Returns:
             iterator. (<index>, <value>)
         """
-        raise NotImplementedError()
+        return
 
-    def get_mm(self, index, value=None):
+    @abc.abstractmethod
+    def get_item_from(self, index):
+        return
+
+    @abc.abstractmethod
+    def get_item_to(self, index):
+        return
+
+    def get_item_mm(self, index, value):
         """
         Returns:
             Mm. The metamorphosis to apply on item <index>.
         """
-        raise NotImplementedError()
+        from_ = self.get_item_from(index) or type(value)
+        to = self.get_item_to(index) or object
+        return Mm(from_, to)
 
-    def get_from(self, index):
-        return None
-
-    def get_to(self, index):
-        return None
-
+    @abc.abstractmethod
     def build_output(self, items_iter):
         """
         Returns:
             object. The casted object in its final shape.
         """
-        raise NotImplementedError()
+        return
 
     def cast_for_item(self, index, value):
         self.log('Item %s' % index)
@@ -69,7 +76,7 @@ class ContainerCast(Cast):
             if index in self.index_to_mm:
                 mm = self.index_to_mm[index]
             else:
-                mm = self.get_mm(index, value)
+                mm = self.get_item_mm(index, value)
             cast = self.cast_for(mm, {})
         cast._context = self._context.copy()# TODO: USELESS ?
         return cast
@@ -84,52 +91,44 @@ class ContainerCast(Cast):
         iter_ouput = self.iter_output(iter_input)
         return self.build_output(iter_ouput)
 
-#TODO: Improve mixins (decorators) so that the order doesn't matter (@implements, @interface)
-class GuessMmMixin(Cast):
 
-    def get_mm(self, index, value):
-        from_ = self.get_from(index) or type(value)
-        to = self.get_to(index) or object
-        return Mm(from_, to)
-
-
-class FromDictMixin(Cast):
+class FromDict(ContainerCast):
     
     def iter_input(self, inpt):
         return inpt.iteritems()
 
-    def get_from(self, index):
+    def get_item_from(self, index):
         return self.mm.to.feature if isinstance(self.mm.from_, Spz) else None
 
 
-class ToDictMixin(Cast):
+class ToDict(ContainerCast):
     
     def build_output(self, items_iter):
         return dict(items_iter)
 
-    def get_to(self, index):
+    def get_item_to(self, index):
         return self.mm.to.feature if isinstance(self.mm.to, Spz) else None
 
 
-class FromListMixin(Cast):
+class FromList(ContainerCast):
     
     def iter_input(self, inpt):
         return enumerate(inpt) 
 
-    def get_from(self, index):
+    def get_item_from(self, index):
         return self.mm.to.feature if isinstance(self.mm.from_, Spz) else None
 
 
-class ToListMixin(Cast):
+class ToList(ContainerCast):
     
     def build_output(self, items_iter):
         return [value for index, value in items_iter]
 
-    def get_to(self, index):
+    def get_item_to(self, index):
         return self.mm.to.feature if isinstance(self.mm.to, Spz) else None
 
 
-class FromObjectMixin(Cast):
+class FromObject(ContainerCast):
     
     defaults = CastSettings(
         class_to_getter = {object: getattr,},
@@ -138,6 +137,10 @@ class FromObjectMixin(Cast):
         exclude = None,
     )
 
+    def get_item_from(self, index):
+        return None
+
+    @abc.abstractmethod
     def attr_names(self):
         """
         Returns:
@@ -147,7 +150,7 @@ class FromObjectMixin(Cast):
 
         .. note:: Override this method if you want to build dynamically the list of attributes to include by default.
         """
-        return []
+        return
 
     def calculate_include(self):
         """
@@ -168,20 +171,24 @@ class FromObjectMixin(Cast):
             return self.attrname_to_getter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self.get_from(name) or object
+            attr_class = self.get_item_from(name) or object
             parent = closest_parent(attr_class, self.class_to_getter.keys())
             return self.class_to_getter[parent]
 
 
-class ToObjectMixin(Cast):
+class ToObject(ContainerCast):
     
     defaults = CastSettings(
         class_to_setter = {object: setattr,},
         attrname_to_setter = {}
     )
 
+    def get_item_to(self, index):
+        return None
+
+    @abc.abstractmethod
     def new_object(self, items):
-        return self.mm.to()
+        return
 
     def build_output(self, items_iter):
         items = dict(items_iter)
@@ -196,7 +203,7 @@ class ToObjectMixin(Cast):
             return self.attrname_to_setter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self.get_to(name) or object
+            attr_class = self.get_item_to(name) or object
             parent = closest_parent(attr_class, self.class_to_setter.keys())
             return self.class_to_setter[parent]
 
