@@ -17,9 +17,8 @@
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from simple import ListToList, DictToDict, Identity
+from simple import ListToList, DictToDict, Identity, ObjectToDict, DictToObject
 from base import register#, cast_map
-#from simple import ObjectToDict, DictToObject
 from utils import Spz, Mm
 
 register(Identity(), Mm(from_any=object, to_any=object))
@@ -39,9 +38,9 @@ register(
     Mm(from_any=dict, to_any=dict),
 )
 
-#register(ObjectToDict(), [Mm(object, dict)])
+register(ObjectToDict(), Mm(from_any=object, to=dict))
 
-#register(DictToObject(), [Mm(dict, object)])
+register(DictToObject(), Mm(from=dict, to_any=object))
 """
 def any2any(obj, klass):
     mm = (type(obj), klass)

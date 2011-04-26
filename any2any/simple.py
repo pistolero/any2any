@@ -5,7 +5,7 @@ from types import FunctionType
 
 class Identity(Cast):
     """
-    Identity operation. Default cast for the conversion **(object, object)**.
+    Identity operation :
 
         >>> Identity()('1')
         '1'
@@ -20,10 +20,10 @@ class Identity(Cast):
 
 class DictToDict(FromDict, ToDict, ContainerCast):
     """
-    Cast for dictionaries.
+    Dictionaries to dictionaries :
 
-        >>> DictToDict()({'1': anObject1, '2': anObject2})
-        {'1': 'its converted version 1', '2': 'its converted version 2'}
+        >>> DictToDict()({'1': anObject1, 2: anObject2})
+        {'1': 'its casted version 1', 2: 'its casted version 2'}
     """
     defaults = CastSettings(
         mm = Mm(dict, Spz(dict, object))
@@ -32,10 +32,10 @@ class DictToDict(FromDict, ToDict, ContainerCast):
 
 class ListToList(FromList, ToList, ContainerCast):
     """
-    Cast for lists and tuples.
+    List to list :
 
         >>> ListToList()([anObject1, anObject2])
-        ['its converted version 1', 'its converted version 2']
+        ['its casted version 1', 'its casted version 2']
     """
     defaults = CastSettings(
         mm = Mm(list, Spz(list, object))
@@ -43,6 +43,12 @@ class ListToList(FromList, ToList, ContainerCast):
 
 
 class ObjectToDict(FromObject, ToDict, ContainerCast):
+    """
+    Object to dictionary :
+
+        >>> ObjectToDict()(anObject)
+        {'attr1': 'its casted value', 'attr2': 'its casted value'}
+    """
 
     def attr_names(self):
         inpt = self._context['input']
@@ -51,6 +57,13 @@ class ObjectToDict(FromObject, ToDict, ContainerCast):
 
 
 class DictToObject(FromDict, ToObject, ContainerCast):
+    """
+    Dictionary to object :
+
+        >>> cast = ObjectToDict(mm=Mm(from=dict, to=SomeObject))
+        >>> cast({'attr1': 'its casted value 1', 'attr2': 'its casted value 2'})
+        <SomeObject>
+    """
 
     def new_object(self, kwargs):
         return self.mm.to()
