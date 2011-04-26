@@ -68,7 +68,7 @@ class ContainerCast(Cast):
         #try to get serializer with the per-attribute map
         if index in self.index_to_cast:
             cast = self.index_to_cast.get(index)
-            cast = cast.copy({}, self)
+            cast = cast.copy()
         elif self.element_cast:
             return self.element_cast
         #otherwise try to build it by getting attribute's class
@@ -77,7 +77,7 @@ class ContainerCast(Cast):
                 mm = self.index_to_mm[index]
             else:
                 mm = self.get_item_mm(index, value)
-            cast = self.cast_for(mm, {})
+            cast = self.cast_for(mm)
         cast._context = self._context.copy()# TODO: USELESS ?
         return cast
 
