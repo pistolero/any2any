@@ -38,7 +38,10 @@ logger.addHandler(NullHandler())
 #====================================
 import copy
 import re
-import abc
+try:
+    import abc
+except ImportError:
+    from compat import abc
 import collections
 from functools import wraps
 from types import FunctionType

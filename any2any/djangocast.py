@@ -100,7 +100,7 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
     def model(self):
         return type(self._context['input'])
 
-    def get_item_to(self, field_name):
+    def get_to_class(self, field_name):
         try:
             # Managers to list, and Models to dict
             return {
@@ -135,7 +135,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     def model(self):
         return self.mm.to
 
-    def get_item_to(self, field_name):
+    def get_to_class(self, field_name):
         field = self.fields[field_name]
         # If fk, we return the right model
         if isinstance(field, django_models.ForeignKey):
