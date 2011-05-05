@@ -1,22 +1,4 @@
 # -*- coding: utf-8 -*-
-#'any2any'
-#Copyright (C) 2011 Sébastien Piquemal @ futurice
-#contact : sebastien.piquemal@futurice.com
-#futurice's website : www.futurice.com
-
-#This program is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-
-#This program is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-
-#You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 .. currentmodule:: any2any.base
 
@@ -68,26 +50,54 @@ class CastSettings(collections.MutableMapping):
         >>> c['my_other_setting']
         1
 
-    The constructor optionally takes a keyword `_schema` that allows to configure different things for a given setting. For example :
+    The constructor optionally takes a keyword `_schema` that allows to configure different things for a given setting. For each setting, the schema can contain :
+
+    - *type* : an exception is thrown if the setting's value isn't an instance of `type` :
 
         >>> c = CastSettings(my_setting=1, _schema={'my_setting': {'type': int}})
         >>> c['my_setting'] = 'a' #doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         TypeError: message
 
-    Will cause the setting object to throw an error if `my_setting` is set with a value that is not an instance of `int`.
+    - *override* : method to use when overriding the setting :
 
         >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'override': 'update_item'}})
         >>> c.override({'my_setting': {'b': 2}})
         >>> c['my_setting'] == {'a': 1, 'b': 2}
         True
 
-    Allows to control the behaviour of :meth:`CastSettings.override` method.
-    """
+    - *customize* : method to use when customizing the setting :
 
+        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'customize': 'update_item'}})
+        >>> c.customize({'my_setting': {'b': 2}})
+        >>> c['my_setting'] == {'a': 1, 'b': 2}
+        True
+    """
+    """
+    - *delegate* : synchronizes two settings together :
+
+        >>> c1 = CastSettings(my_setting=1)
+        >>> c2 = CastSettings(another_setting=56, _schema={'another_setting': {'delegate': 'my_setting'}})
+        >>> c1.override(c2)
+        >>> c['my_setting'] == 56
+        True
+        >>> c['another_setting'] = 59
+        >>> c['my_setting']
+        59
+    """
     def __init__(self, _schema={}, **settings):
+        # initializing the schema
         self._schema = dict.fromkeys(settings, {})
         self._schema.update(_schema)
+        for name, value in _schema.items():
+            # TODO: Not quite working yet, cause problems with overriding
+            if 'delegate' in value:
+                delegate = value['delegate']
+                if not delegate in self:
+                    raise ValueError("Invalid 'delegate', setting '%s' is not defined" % delegate)
+                _delegated_by = self._schema[delegate].setdefault('_delegated_by', [])
+                _delegated_by.append(name)
+        # initializing the values
         self._values = dict()
         self.update(settings)
         
@@ -99,12 +109,20 @@ class CastSettings(collections.MutableMapping):
 
     def __setitem__(self, name, value):
         if name in self:
+            # handling type checking
             type_check = self._schema[name].get('type', None)
             if type_check and not isinstance(value, type_check):
                 raise TypeError("Value for setting '%s' must be of type '%s'" % (name, type_check))
+            # handling delegation
+            delegate = self._schema[name].get('delegate', None)
+            _delegated_by = self._schema[name].get('_delegated_by', [])
+            to_update = _delegated_by + ([delegate] if delegate else [])
+            for uname in to_update:
+                self._values[uname] = value
+            # at last, setting the value
             self._values[name] = value
         else:
-            raise TypeError("Setting '%s' is not defined for this cast" % name)
+            raise TypeError("Setting '%s' is not defined" % name)
 
     def __delitem__(self, name):
         del self._values[name]
@@ -175,10 +193,10 @@ class CastType(abc.ABCMeta):
         else: # in the case the new class is Cast itself
             attrs['defaults'] = new_defaults
 
-        # create new class
+        # creating new class
         new_cast_class = super(CastType, cls).__new__(cls, name, bases, attrs)
 
-        # wrap *call* to automate logging and context management
+        # wrapping *call* to automate logging and context management
         new_cast_class.call = cls.operation_wrapper(new_cast_class.call, new_cast_class)
 
         return new_cast_class
@@ -244,7 +262,7 @@ class Cast(object):
     defaults = CastSettings(
         mm_to_cast = {},
         mm = Mm(object, object),
-        logs = True,
+        logs = False,
         _schema = {
             'mm_to_cast': {'override': 'update_item'},
             'mm': {'type': Mm, 'customize': 'do_nothing'},
@@ -310,7 +328,7 @@ class Cast(object):
         try:
             return self.settings[name]
         except KeyError:
-            pass
+            return self.__getattribute__(name)
 
     def log(self, message, state='during', throughput=None):
         """
@@ -319,6 +337,7 @@ class Cast(object):
         Args:
             state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place.
         """
+        #TODO: refactor
         if self.logs:
             indent = ' ' * 4 * self._depth
             extra = {

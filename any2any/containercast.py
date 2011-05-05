@@ -1,23 +1,4 @@
 # -*- coding: utf-8 -*-
-#'any2any'
-#Copyright (C) 2011 Sébastien Piquemal @ futurice
-#contact : sebastien.piquemal@futurice.com
-#futurice's website : www.futurice.com
-
-#This program is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-
-#This program is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-
-#You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-"""
 try:
     import abc
 except ImportError:
@@ -35,7 +16,7 @@ class ContainerCast(Cast):
         - `value` the contained object itself
         - `item` a contained object along with its identifier 
 
-    In order to cast containers, this class implements the following flow :
+    In order to cast containers, this class uses the following flow :
 
         #. Iterating on input's items, see :meth:`ContainerCast.iter_input`.
         #. Casting all values, see :meth:`ContainerCast.iter_output`.
@@ -43,9 +24,9 @@ class ContainerCast(Cast):
 
     :class:`ContainerCast` defines the following settings :
 
-        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use on the associated value.
+        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use on the corresponding value.
         - value_cast(Cast). The cast to use on all values.
-        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize on the associated value.
+        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize on the corresponding value.
     """
 
     defaults = CastSettings(
@@ -187,6 +168,7 @@ class FromObject(ContainerCast):
         attrname_to_getter = {},
         include = None,
         exclude = None,
+        include_extra = [],
     )
 
     def get_from_class(self, key):
@@ -208,6 +190,7 @@ class FromObject(ContainerCast):
             set. The set of attributes to include for the cast. Take into account *include* or :meth:`FromObject.attr_names` and *exclude*.
         """
         include = self.include if self.include != None else self.attr_names()
+        include += self.include_extra
         exclude = self.exclude if self.exclude != None else []
         return set(include) - set(exclude)
 

@@ -53,7 +53,7 @@ class ListToList_Test(Container_Test):
                 Mm(int, object): self.MyCast(msg='an int'),
                 Mm(str, object): self.MyCast(msg='a str'),
             },
-            index_to_cast={2: self.MyCast(msg='index 2')}
+            key_to_cast={2: self.MyCast(msg='index 2')}
         )
         ok_(cast.call([1, '3by', 78]) == ['an int 1', 'a str 3by', 'index 2 78'])
 
@@ -79,7 +79,7 @@ class DictToDict_Test(Container_Test):
         """
         cast = DictToDict(
             mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
-            index_to_cast={'a': self.MyCast(msg='index a'),},
+            key_to_cast={'a': self.MyCast(msg='index a'),},
         )
         ok_(cast.call({1: 78, 'a': 'testi', 'b': 1}) == {1: 'an int 78', 'a': 'index a testi', 'b': 'an int 1'})
 
@@ -109,7 +109,7 @@ class ObjectToDict_Test(Container_Test):
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
         cast = ObjectToDict(
             mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
-            index_to_cast={'bb': self.MyCast(msg='index bb'),},
+            key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
         ok_(cast.call(obj) == {'a1': 'an int 90', 'blabla': 'coucou', 'bb': 'index bb bibi'})
 
@@ -154,7 +154,7 @@ class DictToObject_Test(Container_Test):
         cast = DictToObject(
             mm=Mm(dict, self.Object),
             mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
-            index_to_cast={'bb': self.MyCast(msg='index bb'),},
+            key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
         obj = cast.call({'a1': 90, 'blabla': 'coucou', 'bb': 'bibi'})
         ok_(isinstance(obj, self.Object))

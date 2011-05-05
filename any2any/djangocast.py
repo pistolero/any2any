@@ -1,21 +1,4 @@
 # -*- coding: utf-8 -*-
-#'SpitEat'
-#Copyright (C) 2011 Sébastien Piquemal @ futurice
-#contact : sebastien.piquemal@futurice.com
-#futurice's website : www.futurice.com
-
-#This program is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-
-#This program is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-
-#You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import copy
 
 from django.db import models as django_models
@@ -27,6 +10,9 @@ from any2any.base import Cast, CastSettings, Mm, Spz, register
 
 
 class ManagerToList(FromList, ToList, ContainerCast):
+    """
+    Casts a manager to a list of casted elements.
+    """
 
     defaults = CastSettings(
         mm = Mm(list, Spz(list, dict))
@@ -37,6 +23,9 @@ class ManagerToList(FromList, ToList, ContainerCast):
 
 
 class IntrospectMixin(Cast):
+    """
+    Mixin for introspecting a model.
+    """
 
     defaults = CastSettings(
         key_schema = ('id',),
@@ -48,7 +37,8 @@ class IntrospectMixin(Cast):
 
     @property
     def pk_field_name(self):
-        #We get pk's field name from the "super" parent (i.e. the "eldest")
+        # We get pk's field name from the "super" parent (i.e. the "eldest").
+        # This allows to handle MTI nicely (and transparently).
         mod_opts = self.model._meta
         if mod_opts.parents:
             super_parent = filter(lambda p: issubclass(p, django_models.Model), mod_opts.get_parent_list())[0]
@@ -56,39 +46,44 @@ class IntrospectMixin(Cast):
         else:
             return mod_opts.pk.name
 
-    def get_obj_key(self, data):
-        obj_key = []
+    def extract_pk(self, data):
+        # Extracts and returns the primary key from the dictionary *data*, or None
+        key_tuple = []
         for field_name in self.key_schema:
-            if field_name == 'pk':
-                pk = data.get('pk') or data.get(self.pk_field_name)
-                if not pk:
-                    break
+            try:
+                if field_name == 'pk':
+                    value = data.get('pk') or data[self.pk_field_name]
                 else:
-                    obj_key.append(pk)
+                    value = data[field_name]
+            except KeyError:
+                return None
             else:
-                try:
-                    obj_key.append(data[field_name])
-                except KeyError:
-                    return None
-        return tuple(obj_key)
+                key_tuple.append(value)
+        return tuple(key_tuple)
 
     @property
     def fields(self):
-        # TODO: caching
+        # Returns a dictionary {<field_name>: <field>}, with all the fields,
+        # but excluding the pointers used for MTI
+        if self._context and 'fields' in self._context:
+            return self._context['fields']
         mod_opts = self.model._meta
-    
-        #MTI : We exclude the fields (OneToOne) pointing to the parents.
-        exclude_ptr = []
-        parents = mod_opts.parents
-        while parents:
-            oto_field = parents.values()[0]
-            exclude_ptr.append(oto_field.name)
-            parents = oto_field.related.parent_model._meta.parents
-
+        ptr_fields = self.collect_ptrs(self.model)
         all_fields = mod_opts.fields + mod_opts.many_to_many
-        included_fields = filter(lambda field: field.name not in exclude_ptr, all_fields)
-        return dict(zip([f.name for f in included_fields], included_fields))
+        fields = list(set(all_fields) - set(ptr_fields))
+        fields_dict = dict(((f.name, f) for f in fields))
+        # We cache the fields so that next time, no need to search them again
+        if self._context:
+            self._context['fields'] = fields_dict
+        return fields_dict
 
+    def collect_ptrs(self, model):
+        # Recursively collects all the fields pointing to parents of *model*
+        ptr_fields = []
+        for parent_model, ptr_field in model._meta.parents.iteritems():
+            ptr_fields.append(ptr_field)
+            ptr_fields += self.collect_ptrs(parent_model)
+        return ptr_fields
 
 class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
 
@@ -124,10 +119,18 @@ def set_m2m_attr(instance, name, value):
 
 
 class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
+    """
+    This casts transforms a dictionary to a django model.
+
+    :class:`DictToModel` defines the following settings :
+
+        - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
+    """
 
     defaults = CastSettings(
         mm = Mm(dict, django_models.Model),
         class_to_setter = {Spz(list, django_models.Model): set_m2m_attr},
+        create=True,
         _schema = {'class_to_setter': {'override': 'update_item'}}
     )
 
@@ -136,7 +139,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         return self.mm.to
 
     def get_to_class(self, field_name):
-        field = self.fields[field_name]
+        field = self.fields.get(field_name, None)
         # If fk, we return the right model
         if isinstance(field, django_models.ForeignKey):
             return field.rel.to
@@ -152,96 +155,24 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         Returns:
             django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
         """
-        key_tuple = self.get_obj_key(items)
-        key_dict = dict(zip(self.key_schema, key_tuple)) if key_tuple else {'pk': None}
+        key_tuple = self.extract_pk(items) or ()
+        key_dict = dict(zip(self.key_schema, key_tuple)) or {'pk': None}
         try:
             return self.model.objects.get(**key_dict)
         except self.model.DoesNotExist:
-            if key_dict:
-                new_object = self.model(**key_dict)
+            if self.create:
+                return self.model(**key_dict)
             else:
-                new_object = self.model()
-            return new_object
+                raise
         except self.model.MultipleObjectReturned:
             raise ValueError("'%s' is not a valid natural key for '%s', because there are duplicates." %
             (self.key_schema, self.model))
 
     def call(self, inpt):
         obj = ContainerCast.call(self, inpt)
-        obj.save()#because otherwise we cannot handle the foreign keys
+        obj.save()
         return obj
 
-'''
-class ModelSrz(BaseModelSrz):
-
-
-ModelSrz.defaults.get('class_srz_map')[django_models.Model] = ModelSrz()
-
-class NCModelSrz(BaseModelSrz):
-
-    def new_object(self, data=None):
-        """
-        Returns:
-            django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
-        """
-        key_tuple = self.get_obj_key(data)
-        key_dict = dict(zip(self.key_schema, key_tuple)) if key_tuple else {'pk': None}
-        try:
-            return self.custom_for.objects.get(**key_dict)
-        except self.custom_for.DoesNotExist:
-            raise
-        except self.custom_for.MultipleObjectReturned:
-            raise
-NCModelSrz.defaults.get('class_srz_map')[django_models.Model] = NCModelSrz()   
-'''
-'''
-ModelToDict.defaults['mm_to_cast'] = {
-    (GenericForeignKey, object): GenericForeignKeySrz(),
-},
-
-
-class ManyToManyAccessor(NCManyToManyAccessor):
-    def set_attr(self, instance, name, value):
-        instance.save()#because otherwise we cannot handle manytomany
-        super(ManyToManyAccessor, self).set_attr(instance, name, value)
-
-class GenericForeignKeySrz(Srz):
-    def spit(self, obj):
-        mod_opts = obj._meta
-        return (mod_opts.app_label, mod_opts.module_name, obj.pk)
-
-    def eat(self, data, instance=None):
-        ct = ContentType.objects.get(app_label=data[0], model=data[1])
-        return ct.get_object_for_this_type(pk=data[2])
-
-    
-    def default_attr_schema(self, name):
-        mod_opts = self.custom_for._meta
-        #the attribute is a field
-        if name in [field.name for field in mod_opts.fields]:
-            field = mod_opts.get_field(name) 
-            if type(field) == django_models.ForeignKey:
-                return field.rel.to, {'custom_for': field.rel.to}
-            return type(field), {'custom_for': object}#because that's annoying to map fields with types accepted
-        #important to put manytomany after normal fields, because manytomany requires to save the instance
-        elif name in [field.name for field in mod_opts.many_to_many]:
-            field = mod_opts.get_field(name)
-            return Manager, {'custom_for': specialize(list, field.related.parent_model)}
-        else:
-            #Handles GenericForeignKeys
-            class_attr = getattr(self.custom_for, name, None)
-            if class_attr and type(class_attr) == GenericForeignKey:
-                return GenericForeignKey, {'custom_for': django_models.Model}
-            return object, {}
-
-    def eat(self, data, instance=None):
-        obj = super(BaseModelSrz, self).eat(data, instance)
-        obj.save() #because otherwise we cannot handle the foreign keys
-        return obj
-
-
-     
-'''
 register(ManagerToList(), Mm(from_any=django_models.Manager, to=Spz(list, dict)))
 register(ModelToDict(), Mm(from_any=django_models.Model, to=dict))
 register(DictToModel(), Mm(dict, to_any=django_models.Model))

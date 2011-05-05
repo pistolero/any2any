@@ -20,6 +20,10 @@ class IntrospectMixin_Test(object):
             model = Gourmand
             def call(self): pass
         self.gourmand_introspector = Introspect()
+        class Introspect(IntrospectMixin):
+            model = WritingSausage
+            def call(self): pass
+        self.wsausage_introspector = Introspect()
 
     def fields_test(self):
         """
@@ -27,6 +31,7 @@ class IntrospectMixin_Test(object):
         """
         columnist_fields = self.columnist_introspector.fields
         gourmand_fields = self.gourmand_introspector.fields
+        wsausage_fields = self.wsausage_introspector.fields
         ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
         ok_(isinstance(columnist_fields['id'], AutoField))
         ok_(isinstance(columnist_fields['lastname'], CharField))
@@ -36,10 +41,11 @@ class IntrospectMixin_Test(object):
         ok_(isinstance(gourmand_fields['firstname'], CharField))
         ok_(isinstance(gourmand_fields['favourite_dishes'], ManyToManyField))
         ok_(isinstance(gourmand_fields['pseudo'], CharField))
+        ok_(set(wsausage_fields) == set(['id', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
 
     def nk_test(self):
         self.columnist_introspector.settings['key_schema'] = ('firstname', 'lastname')
-        ok_(self.columnist_introspector.get_obj_key({
+        ok_(self.columnist_introspector.extract_pk({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': 806, 'name': "C'est pas sorcier"},

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from django.db.models import ForeignKey, CharField, Model, ManyToManyField, PositiveIntegerField
+from django.db.models import ForeignKey, CharField, Model, ManyToManyField, PositiveIntegerField, IntegerField
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
@@ -30,6 +30,9 @@ class Dish (Model) :
 class Gourmand (Person) :
     pseudo = CharField(max_length=100)
     favourite_dishes = ManyToManyField(Dish)
+
+class WritingSausage(Author, Dish):
+    greasiness = IntegerField()
 
 class Bookmark(Model):
     name = CharField(max_length=100)
