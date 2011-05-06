@@ -260,7 +260,7 @@ class Cast(object):
     defaults = CastSettings(
         mm_to_cast = {},
         mm = Mm(object, object),
-        logs = False,
+        logs = True,
         _schema = {
             'mm_to_cast': {'override': 'update_item'},
             'mm': {'type': Mm, 'customize': 'do_nothing'},

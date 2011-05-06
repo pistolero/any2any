@@ -168,7 +168,7 @@ In order to deserialize an object by using a natural key, you can use the settin
 Deserializing virtual attributes
 ----------------------------------
 
-In order to deserialize virtual attributes you need to use the setting *attrname_to_setter* in order to specify a setter for the attribute. For example :
+To deserialize virtual attributes you need to use the setting *attrname_to_setter* in order to specify a setter for the attribute. For example :
 
     >>> def set_names(obj, name, value):
     ...     firstname, lastname = value.split(' ')

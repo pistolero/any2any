@@ -187,7 +187,7 @@ Debugging
 
 For example, here we create a temporary file, and a :class:`StreamHandler` that will write to this file :
 
-    >>> ffrom tempfile import TemporaryFile
+    >>> from tempfile import TemporaryFile
     >>> import logging
     >>> fd = TemporaryFile()
     >>> h = logging.StreamHandler(fd)
@@ -200,7 +200,7 @@ Then we set the handler's formatter (optional), add our handler to **any2any**'s
 
 Finally, after a few calls, we can check that the logging worked : 
 
-    >>> cast = Identity()
+    >>> cast = Identity(logs=True)
     >>> spitted = cast.call(1)
     >>> fd.seek(0)
     >>> print fd.read()
