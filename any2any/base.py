@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 .. currentmodule:: any2any.base
-
-This module defines the base casts.
 """
 # Logging 
 #====================================

@@ -1,5 +1,4 @@
-"""
-"""
+# -*- coding: utf-8 -*-
 
 class ClassSet(object):
 
@@ -54,19 +53,13 @@ class Metamorphosis(object):
 
         >>> mm = Metamorphosis(Mammal, Human)
 
-    This represents the metamorphosis from any instance of Mammal to an instance of Human.
+    This represents the metamorphosis from a Mammal to a Human.
 
-    Now let's say I want to cast a Shark to a Human ... but, I can get a cast from any Animal, to a Salesman ::
-
-        Mm_I_want =     FROM   Shark   TO   Human
-                                |             A
-                                V             |
-        Mm_I_can_get =  FROM   Animal  TO   Salesman
-
-    I'll say that this will fit my needs, because after all a Shark is an animal, and a Salesman is a Human. In other words :
-
-        >>> Metamorphosis(Shark, Human).included_in(Metamorphosis(Animal, Salesman))
-        True
+    Kwargs:
+        from_(type). Metamorphosis only from type *from_* (and no subclass).
+        to(type). Metamorphosis only to type *to* (and no subclass).
+        from_any(type). Metamorphosis from type *from_any* and subclasses.
+        to_any(type). Metamorphosis from type *to_any* and subclasses.
     """
 
     def __init__(self, from_=None, to=None, from_any=None, to_any=None):
@@ -93,7 +86,7 @@ class Metamorphosis(object):
 
     def pick_closest_in(self, choice_list):
         """
-        .. todo:: if triangle, then random choice will be picked ...
+        Given a list of metamorphoses, returns the one that is the closest to the calling metamorphosis.
         """
         # When picking-up a metamorphosis in choice_list:
         # if 
@@ -115,20 +108,20 @@ class Metamorphosis(object):
             Metamorphosis. The most precise metamorphosis between m1 and m2
         """
         # There are 10 cases (excluding symetric cases):
-        # A) m1 = m2                                        -> None
+        # A) m1 = m2                                    -> None
         #
         # B) m1 C m2
-        #   m1.from < m2.from, m1.to < m2.to        -> m1
-        #   m1.from = m2.from, m1.to < m2.to        -> m1
-        #   m1.from < m2.from, m1.to = m2.to        -> m1
+        #   m1.from < m2.from, m1.to < m2.to            -> m1
+        #   m1.from = m2.from, m1.to < m2.to            -> m1
+        #   m1.from < m2.from, m1.to = m2.to            -> m1
         #
         # C) m1 ? m2
-        #   a) m1.from > m2.from, m1.to < m2.to        -> m1
-        #   b) m1.from ? m2.from, m1.to < m2.to        -> m1
-        #   c) m1.from < m2.from, m1.to ? m2.to        -> m1
-        #   d) m1.from ? m2.from, m1.to ? m2.to        -> None
-        #   e) m1.from ? m2.from, m1.to = m2.to        -> None
-        #   f) m1.from = m2.from, m1.to ? m2.to        -> None
+        #   a) m1.from > m2.from, m1.to < m2.to         -> m1
+        #   b) m1.from ? m2.from, m1.to < m2.to         -> m1
+        #   c) m1.from < m2.from, m1.to ? m2.to         -> m1
+        #   d) m1.from ? m2.from, m1.to ? m2.to         -> None
+        #   e) m1.from ? m2.from, m1.to = m2.to         -> None
+        #   f) m1.from = m2.from, m1.to ? m2.to         -> None
 
         if m1 == m2:# A)
             return None
@@ -144,7 +137,6 @@ class Metamorphosis(object):
 
         else: #C) : d), e), f)
             return None
-        
 
     def __lt__(self, other):
         return self.most_precise(self, other) == self
@@ -176,7 +168,24 @@ Mm = Metamorphosis
 
 
 class Specialization(object):
-    
+    """
+    A class for building specialized classes. For example, this allows to define ``a list of int`` :
+
+        >>> int_list = Spz(list, int)
+        >>> object_list = Spz(list, object)
+        
+    Then, using :meth:`Spz.issubclass` :
+        
+        >>> Spz.issubclass(int_list, list)
+        True
+        >>> Spz.issubclass(list, int_list)
+        False
+        >>> Spz.issubclass(int_list, object_list)
+        True
+        >>> Spz.issubclass(object_list, int_list)
+        False
+    """
+
     def __init__(self, base, feature):
         self.base = base
         self.feature = feature
@@ -204,7 +213,7 @@ Spz = Specialization
 def closest_parent(klass, other_classes):
     """
     Returns:
-        The closer parent of *klass* picked from the list *other_classes*. If no parent was found in *other_classes*, returns *object*.
+        The closest parent of *klass* picked from the list *other_classes*. If no parent was found in *other_classes*, returns *object*.
     """
     #We select only the super classes of *klass*
     candidates = []

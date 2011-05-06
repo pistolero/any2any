@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from base import Cast, CastSettings, Mm, Spz
 from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject
 from types import FunctionType

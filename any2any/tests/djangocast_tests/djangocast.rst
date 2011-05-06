@@ -1,3 +1,6 @@
+Casts for Django
++++++++++++++++++
+
 Basic usage
 #############
 
@@ -114,7 +117,7 @@ ModelToDict
 Selecting the attributes to include
 ------------------------------------
 
-In order to select which fields to take into account, you can use the settings *include* and *exclude* :
+In order to select which fields to serialize, you can use the settings *include*, *exclude* and *include_extra* :
 
 Say, I want to serialize a book but include only the title :
 
@@ -165,7 +168,7 @@ In order to deserialize an object by using a natural key, you can use the settin
 Deserializing virtual attributes
 ----------------------------------
 
-In order to handle virtual attributes you need to use the setting *attrname_to_setter* in order to specify a setter for the attribute. For example :
+In order to deserialize virtual attributes you need to use the setting *attrname_to_setter* in order to specify a setter for the attribute. For example :
 
     >>> def set_names(obj, name, value):
     ...     firstname, lastname = value.split(' ')

@@ -86,10 +86,9 @@ class IntrospectMixin(Cast):
         return ptr_fields
 
 class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
-
-    defaults = CastSettings(
-        mm = Mm(django_models.Model, dict),
-    )
+    """
+    This casts serializes an instance of :class:`Model` to a dictionary.
+    """
 
     @property
     def model(self):
@@ -97,7 +96,7 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
 
     def get_to_class(self, field_name):
         try:
-            # Managers to list, and Models to dict
+            # Managers to list and Models to dict
             return {
                 django_models.ForeignKey: dict,
                 django_models.ManyToManyField: Spz(list, dict),
@@ -110,7 +109,10 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
         return self.fields.keys()
 
 
-def set_m2m_attr(instance, name, value):
+def set_m2m_field(instance, name, value):
+    """
+    Setter for many-to-many fields.
+    """
     instance.save()# Because otherwise we cannot handle manytomany
     manager = getattr(instance, name)
     manager.clear()
@@ -120,7 +122,9 @@ def set_m2m_attr(instance, name, value):
 
 class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
-    This casts transforms a dictionary to a django model.
+    This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to :
+
+        >>> cast = DictToModel(mm=Mm(dict, MyModel))
 
     :class:`DictToModel` defines the following settings :
 
@@ -128,8 +132,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
 
     defaults = CastSettings(
-        mm = Mm(dict, django_models.Model),
-        class_to_setter = {Spz(list, django_models.Model): set_m2m_attr},
+        class_to_setter = {Spz(list, django_models.Model): set_m2m_field},
         create=True,
         _schema = {'class_to_setter': {'override': 'update_item'}}
     )

@@ -1,4 +1,3 @@
-"""
 ..
     >>> import os, sys
     >>> sys.path.append(os.path.abspath('../..'))
@@ -6,6 +5,9 @@
     >>> from any2any.simple import *
 
 .. currentmodule:: any2any.base
+
+Basics
+++++++++
 
 Implementing a :class:`Cast`
 =============================
@@ -15,6 +17,7 @@ Virtual methods
 
 :class:`Cast` is a virtual class, and all subclasses must be provide an implementation of :meth:`Cast.call`. For example :
 
+    >>> from any2any.base import Cast
     >>> class AnyToString(Cast):
     ...     
     ...     def call(self, inpt):
@@ -29,12 +32,13 @@ Defining/overriding settings
 
 Defining or overriding new settings if very straightforward.
 
-    >>> class AnyToString(Cast):
+    >>> from any2any.base import Cast, CastSettings
+    >>> class AnyToBasestring(Cast):
     ...   
     ...     defaults = CastSettings(
     ...         prefix = '',                # new setting *prefix*
     ...         suffix = '',                # new setting *suffix*
-    ...         mm = Mm(object, str),    # override value of Cast's *mm* setting
+    ...         mm = Mm(object, str),       # override value of Cast's *mm* setting
     ...     )
     ...     
     ...     def call(self, inpt):
@@ -44,7 +48,7 @@ Defining or overriding new settings if very straightforward.
 
 The constructor of a cast accepts any defined setting as keyword argument :
 
-    >>> cast = AnyToString(mm=Mm(object, unicode), prefix='value:')
+    >>> cast = AnyToBasestring(mm=Mm(object, unicode), prefix='value:')
     >>> cast(88)
     u'value:88'
 
@@ -56,7 +60,7 @@ Other settings take the class' default value :
 Operation context
 ------------------
 
-When calling a cast, it can be useful for several methods to share data. For this purpose, a context variable is automatically created before each call, and deleted when the call returns :
+When calling a cast, it can be useful for several methods to share data. For this purpose, a *_context* dictionary is automatically created before each call, and deleted when the call returns :
 
     >>> class SomeCast(Cast):
     ...     
@@ -91,6 +95,9 @@ To get a cast suitable for a given metamorphosis use the method :func:`Cast.cast
 
     >>> from any2any.utils import Metamorphosis
     >>> list_cast = cast.cast_for(Metamorphosis(list, list))
+
+**any2any** comes with a set of defaults. For example, :class:`ListToList` is the default cast for casting a list to another list :
+
     >>> isinstance(list_cast, ListToList)
     True
 
@@ -114,7 +121,7 @@ Of course, there wouldn't be much fun if you couldn't configure what cast :meth:
 You can register a cast as global default for a metamorphosis, using the function :func:`register` :
 
     >>> from any2any.base import register
-    >>> class AnyToString(Cast):
+    >>> class AnyToBasestring(Cast):
     ...   
     ...     defaults = CastSettings(
     ...         mm = Mm(object, str),
@@ -124,17 +131,17 @@ You can register a cast as global default for a metamorphosis, using the functio
     ...         output_class = self.mm.to
     ...         return output_class('%s' % inpt)
     ...
-    >>> default_any2str = AnyToString()
+    >>> default_any2str = AnyToBasestring()
     >>> register(default_any2str, Mm(from_any=object, to_any=basestring))
 
 Then :meth:`Cast.cast_for` will pick it if it is the best match
 
     >>> cast = MyCast()
     >>> any2str = cast.cast_for(Mm(int, str))
-    >>> isinstance(any2str, AnyToString)
+    >>> isinstance(any2str, AnyToBasestring)
     True
 
-Note that the serializer returned by :meth:`Cast.cast_for` if not the one you registered :
+Note that the cast returned by :meth:`Cast.cast_for` if not the instance you registered ... it is a copy customized for your needs :
 
     >>> any2str.mm == Mm(int, str)
     True
@@ -180,7 +187,7 @@ Debugging
 
 For example, here we create a temporary file, and a :class:`StreamHandler` that will write to this file :
 
-    >>> from tempfile import TemporaryFile
+    >>> ffrom tempfile import TemporaryFile
     >>> import logging
     >>> fd = TemporaryFile()
     >>> h = logging.StreamHandler(fd)
@@ -203,9 +210,4 @@ Finally, after a few calls, we can check that the logging worked :
     <BLANKLINE>
 
 ..
-    >>> logger.removeHandler(h)  
-"""
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod(optionflags=doctest.REPORT_ONLY_FIRST_FAILURE)
+    >>> logger.removeHandler(h)
