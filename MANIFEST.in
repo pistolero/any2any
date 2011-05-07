@@ -2,3 +2,4 @@ include README.rst
 include LICENSE
 include MANIFEST.in
 recursive-include docs *.rst *.png *.odg *.py
+recursive-include any2any/tests *.rst *.py
