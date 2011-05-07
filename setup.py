@@ -5,14 +5,12 @@ from distutils.core import setup
 
 setup(name='any2any',
       version='0.1',
-      description='A library to write casts',
+      description='A Python library to write casts from any type to any other type (features Django serializers, ...)',
       author='Sébastien Piquemal',
       author_email='sebastien.piquemal@futurice.com',
       url='https://bitbucket.org/sebpiq/any2any',
-      packages=['any2any', 'any2any.tests', 'any2any.tests.djangocast_tests', 'any2any.tests.djangocast_tests.models'],
-      data_files=[
-            ('.', ['LICENSE', 'README.rst']),
-            ('docs', ['docs']),
-      ]
+      packages=['any2any', 'any2any.compat', 'any2any.tests', 'any2any.tests.djangocast_tests', 'any2any.tests.djangocast_tests.models'],
+      license='BSD',
+      classifiers=['Intended Audience :: Developers', 'Framework :: Django', 'Topic :: Utilities' ],
+      long_description='A Python library for magically casting any type (or format) to any other type (or format). any2any helps you with (de)serialization operations, formatting operations, any kind of transformation between two Python objects. any2any is highly and easily customizable, and provides facilities for debugging your transformations. A lot of casts are provided : for Django, ... ; and building blocks to create new ones.',
      )
-
