@@ -31,15 +31,14 @@ class IntrospectMixin(Cast):
         key_schema = ('id',),
     )
 
-    @property
-    def model(self):
+    def get_model(self):
         raise NotImplementedError()
 
     @property
     def pk_field_name(self):
         # We get pk's field name from the "super" parent (i.e. the "eldest").
         # This allows to handle MTI nicely (and transparently).
-        mod_opts = self.model._meta
+        mod_opts = self.get_model()._meta
         if mod_opts.parents:
             super_parent = filter(lambda p: issubclass(p, django_models.Model), mod_opts.get_parent_list())[0]
             return super_parent._meta.pk.name
@@ -67,8 +66,8 @@ class IntrospectMixin(Cast):
         # but excluding the pointers used for MTI
         if self._context and 'fields' in self._context:
             return self._context['fields']
-        mod_opts = self.model._meta
-        ptr_fields = self.collect_ptrs(self.model)
+        mod_opts = self.get_model()._meta
+        ptr_fields = self.collect_ptrs(self.get_model())
         all_fields = mod_opts.fields + mod_opts.many_to_many
         fields = list(set(all_fields) - set(ptr_fields))
         fields_dict = dict(((f.name, f) for f in fields))
@@ -90,8 +89,7 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
     This casts serializes an instance of :class:`Model` to a dictionary.
     """
 
-    @property
-    def model(self):
+    def get_model(self):
         return type(self._context['input'])
 
     def get_to_class(self, field_name):
@@ -138,8 +136,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         _schema = {'class_to_setter': {'override': 'update_item'}}
     )
 
-    @property
-    def model(self):
+    def get_model(self):
         return self.mm.to
 
     def get_to_class(self, field_name):
@@ -161,16 +158,17 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         """
         key_tuple = self.extract_pk(items) or ()
         key_dict = dict(zip(self.key_schema, key_tuple)) or {'pk': None}
+        model = self.get_model()
         try:
-            return self.model.objects.get(**key_dict)
-        except self.model.DoesNotExist:
+            return model.objects.get(**key_dict)
+        except model.DoesNotExist:
             if self.create:
-                return self.model(**key_dict)
+                return model(**key_dict)
             else:
                 raise
-        except self.model.MultipleObjectReturned:
+        except model.MultipleObjectReturned:
             raise ValueError("'%s' is not a valid natural key for '%s', because there are duplicates." %
-            (self.key_schema, self.model))
+            (self.key_schema, model))
 
     def call(self, inpt):
         obj = ContainerCast.call(self, inpt)

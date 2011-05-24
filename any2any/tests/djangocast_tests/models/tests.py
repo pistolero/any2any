@@ -13,17 +13,15 @@ class IntrospectMixin_Test(object):
     def setUp(self):
         # hack to have a model
         class Introspect(IntrospectMixin):
-            model = Columnist
+            defaults = CastSettings(
+                model = Columnist
+            )
             def call(self): pass
-        self.columnist_introspector = Introspect()
-        class Introspect(IntrospectMixin):
-            model = Gourmand
-            def call(self): pass
-        self.gourmand_introspector = Introspect()
-        class Introspect(IntrospectMixin):
-            model = WritingSausage
-            def call(self): pass
-        self.wsausage_introspector = Introspect()
+            def get_model(self):
+                return self.model
+        self.columnist_introspector = Introspect(model=Columnist)
+        self.gourmand_introspector = Introspect(model=Gourmand)
+        self.wsausage_introspector = Introspect(model=WritingSausage)
 
     def fields_test(self):
         """
