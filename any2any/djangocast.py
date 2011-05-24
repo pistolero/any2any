@@ -95,14 +95,15 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
         return type(self._context['input'])
 
     def get_to_class(self, field_name):
-        try:
-            # Managers to list and Models to dict
-            return {
-                django_models.ForeignKey: dict,
-                django_models.ManyToManyField: Spz(list, dict),
-            }[type(self.fields[field_name])]
-        except KeyError:
-            # Identity on the rest
+        field = self.fields.get(field_name, None)
+        # Managers to list
+        if isinstance(field, django_models.ForeignKey):
+            return dict
+        # Models to dict
+        if isinstance(field, django_models.ManyToManyField):
+            return Spz(list, dict)
+        # Identity on the rest
+        else:
             return object
 
     def attr_names(self):
