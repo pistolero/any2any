@@ -2,6 +2,7 @@
 import copy
 
 from django.db import models as django_models
+from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
@@ -93,14 +94,26 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
         return type(self._context['input'])
 
     def get_to_class(self, field_name):
+        model = self.get_model()
         field = self.fields.get(field_name, None)
-        # Managers to list
-        if isinstance(field, django_models.ForeignKey):
-            return dict
-        # Models to dict
-        if isinstance(field, django_models.ManyToManyField):
-            return Spz(list, dict)
-        # Identity on the rest
+        model_attr = getattr(model, field_name, None)
+        if field:
+            # If fk, we return the right model
+            if isinstance(field, django_models.ForeignKey):
+                return dict
+            # If m2m, we want a list of the right model
+            elif isinstance(field, django_models.ManyToManyField):
+                return Spz(list, dict)
+            # Identity on the rest
+            else:
+                return object
+        elif model_attr:
+            # If related manager
+            if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
+            ForeignRelatedObjectsDescriptor)):
+                return Spz(list, dict)
+            else:
+                return object
         else:
             return object
 
@@ -108,16 +121,19 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
         return self.fields.keys()
 
 
-def set_m2m_field(instance, name, value):
+def set_related(instance, name, value):
     """
-    Setter for many-to-many fields.
+    Setter for related managers.
     """
     instance.save()# Because otherwise we cannot handle manytomany
     manager = getattr(instance, name)
-    manager.clear()
-    for element in value:
-        manager.add(element)
-
+    # clear() only provided if the ForeignKey can have a value of null:
+    if hasattr(manager, 'clear'):
+        manager.clear()
+        for element in value:
+            manager.add(element)
+    else:
+        raise TypeError("cannot update if the related ForeignKey cannot be null")
 
 class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
@@ -131,8 +147,8 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
 
     defaults = CastSettings(
-        class_to_setter = {Spz(list, django_models.Model): set_m2m_field},
-        create=True,
+        class_to_setter = {Spz(list, django_models.Model): set_related},
+        create = True,
         _schema = {'class_to_setter': {'override': 'update_item'}}
     )
 
@@ -140,17 +156,38 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         return self.mm.to
 
     def get_to_class(self, field_name):
+        model = self.get_model()
         field = self.fields.get(field_name, None)
-        # If fk, we return the right model
-        if isinstance(field, django_models.ForeignKey):
-            return field.rel.to
-        # If m2m, we want a list of the right model
-        elif isinstance(field, django_models.ManyToManyField):
-            return Spz(list, field.rel.to)
-        # Identity on the rest
+        model_attr = getattr(model, field_name, None)
+        if field:
+            # If fk, we return the right model
+            if isinstance(field, django_models.ForeignKey):
+                return field.rel.to
+            # If m2m, we want a list of the right model
+            elif isinstance(field, django_models.ManyToManyField):
+                return Spz(list, field.rel.to)
+            # Identity on the rest
+            else:
+                return object
+        elif model_attr:
+            # If related manager
+            if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
+            ForeignRelatedObjectsDescriptor)):
+                return Spz(list, model_attr.related.model)
+            else:
+                return object
         else:
             return object
             
+    def get_item_mm(self, key, value):
+        """
+        Returns:
+            Mm. The metamorphosis to apply on item *key*, *value*.
+        """
+        from_ = self.get_from_class(key) or type(value)
+        to = self.get_to_class(key) or object
+        return Mm(from_, to)
+
     def new_object(self, items):
         """
         Returns:

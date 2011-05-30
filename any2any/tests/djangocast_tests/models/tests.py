@@ -60,6 +60,7 @@ class BaseModel(object):
         self.salmon = Dish(name='salmon')
         self.gourmand = Gourmand(pseudo='Taz', firstname='T', lastname='Aznicniev')
         self.journal = Journal(name="C'est pas sorcier") ; self.journal.save()
+        self.journalist = Journalist(firstname='Fred', lastname='Courant', journal=self.journal)
         self.columnist = Columnist(firstname='Jamy', lastname='Gourmaud', journal=self.journal, column='truck')
         self.author.save()
         self.book.save()
@@ -67,6 +68,7 @@ class BaseModel(object):
         self.salmon.save()
         self.gourmand.save()
         self.journal.save()
+        self.journalist.save()
         self.columnist.save()
 
     def tearDown(self):
@@ -76,6 +78,7 @@ class BaseModel(object):
         self.salmon.delete()
         self.gourmand.delete()
         self.columnist.delete()
+        self.journalist.delete()
         self.journal.delete()
 
 class ModelToDict_Test(BaseModel):
@@ -141,6 +144,30 @@ class ModelToDict_Test(BaseModel):
             ]
         })
 
+    def relatedmanager_test(self):
+        """
+        Test ModelToDict.call serializing a reverse relationship (fk, m2m).
+        """
+        journalist_cast = ModelToDict(include=['firstname', 'lastname'])
+        cast = ModelToDict(include_extra=['journalist_set'], exclude=['id'], mm_to_cast={Mm(Journalist, dict): journalist_cast})
+        ok_(cast.call(self.journal) == {
+            'journalist_set': [
+                {'lastname': u'Courant', 'firstname': u'Fred'},
+                {'lastname': u'Gourmaud', 'firstname': u'Jamy'}
+            ],
+            'name': "C'est pas sorcier"
+        })
+
+        self.gourmand.favourite_dishes.add(self.salmon)
+        self.gourmand.save()
+        gourmand_cast = ModelToDict(include=['pseudo'])
+        cast = ModelToDict(include=['gourmand_set', 'name'], mm_to_cast={Mm(Gourmand, dict): gourmand_cast})
+        ok_(cast.call(self.salmon) == {
+            'gourmand_set': [
+                {'pseudo': u'Taz'},
+            ],
+            'name': 'salmon'
+        })
 
 class DictToModel_Test(BaseModel):
     """
@@ -285,6 +312,26 @@ class DictToModel_Test(BaseModel):
         # We check that items were created
         ok_(Gourmand.objects.count() == g_before + 1)
         ok_(Dish.objects.count() == d_before + 1)
+
+    def update_relatedmanager_already_existing_objects_test(self):
+        """
+        Test DictToModel.call updating a reverse relationship (fk, m2m).
+        """
+        cast = DictToModel(mm=Mm(dict, Journal))
+        assert_raises(TypeError, cast.call, {
+            'id': self.journal.id,
+            'journalist_set': [],
+        })
+
+        self.gourmand.save()
+        cast = DictToModel(mm=Mm(dict, Dish))
+        salmon = cast.call({
+            'id': self.salmon.id,
+            'gourmand_set': [
+                {'id': self.gourmand.id},
+            ]
+        })
+        ok_(set(salmon.gourmand_set.all()) == set([self.gourmand]))
 
     def update_object_with_nk_test(self):
         """

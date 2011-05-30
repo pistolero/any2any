@@ -6,6 +6,9 @@ from django.contrib.contenttypes import generic
 class Journal(Model):
     name = CharField(max_length=100)
 
+    def __unicode__(self):
+        return self.name
+
 class Person (Model):
     firstname = CharField(max_length=100)
     lastname = CharField(max_length=100)
@@ -30,6 +33,9 @@ class Dish (Model) :
 class Gourmand (Person) :
     pseudo = CharField(max_length=100)
     favourite_dishes = ManyToManyField(Dish)
+
+    def __unicode__(self):
+        return self.pseudo
 
 class WritingSausage(Author, Dish):
     greasiness = IntegerField()
