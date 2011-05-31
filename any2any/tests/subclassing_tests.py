@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from any2any.base import *
 from nose.tools import assert_raises, ok_
 
@@ -16,14 +17,14 @@ class Cast_subclassing_Test(object):
         class Child(Parent):
             def call(self, inpt):
                 self._context['bla'] = 'woohoo'
-                #When calling like that, the wrapping of Parent.call should be inneficient
-                #and therefore, the context should stay the same ...
+                # When calling like that, the wrapping of Parent.call should be inneficient
+                # and therefore, the context should not be reset ...
                 super(Child, self).call(inpt)
                 #    and not be reset after the parent operation was called
                 memory.append('Child %s' % self._context['bla'])
         
         Child().call(1)
-        ok_(['Parent woohoo', 'Child woohoo'])
+        ok_(memory == ['Parent woohoo', 'Child woohoo'])
 
     def settings_override_test(self):
         """
