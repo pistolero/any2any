@@ -34,13 +34,12 @@ class ContainerCast_Test(object):
 
     def cast_keys_test(self):
         """
-        Test using the keys_cast item to cast all the keys.
+        Test using the key_cast item to cast all the keys.
         """
         class ToStr(Cast):
             def call(self, inpt):
                 return str(inpt)
 
-        to_dict_str_keys = FromDictToDict(value_cast=ToStr())
-        cast = FromDictToDict(keys_cast=to_dict_str_keys)
+        cast = FromDictToDict(key_cast=ToStr())
         ok_(cast({1: 'bla', 2: 'bla', u'blo': None, 'coucou': [1]}) == {'1': 'bla', '2': 'bla', 'blo': None, 'coucou': [1]})
             

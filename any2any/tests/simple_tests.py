@@ -1,3 +1,5 @@
+from datetime import datetime, date
+
 from nose.tools import assert_raises, ok_
 from any2any.base import *
 from any2any.simple import *
@@ -178,3 +180,49 @@ class DictToObject_Test(Container_Test):
         ok_(obj.virt1 == 90)
         ok_(obj.virt2 == 90)
 
+
+class DatetimeToDict_Test(object):
+    """
+    Tests for DatetimeToDict
+    """
+
+    def call_test(self):
+        """
+        Test call for DatetimeToDict.
+        """
+        cast = DatetimeToDict()
+        ok_(cast(datetime(year=1986, month=12, day=8)) == {
+            'year': 1986,
+            'month': 12,
+            'day': 8,
+            'hour': 0,
+            'minute': 0,
+            'second': 0,
+            'microsecond': 0,
+        })
+        ok_(cast(datetime(year=10, month=11, day=1, microsecond=8)) == {
+            'year': 10,
+            'month': 11,
+            'day': 1,
+            'hour': 0,
+            'minute': 0,
+            'second': 0,
+            'microsecond': 8,
+        })
+
+
+class DateToDict_Test(object):
+    """
+    Tests for DateToDict
+    """
+
+    def call_test(self):
+        """
+        Test call for DateToDict.
+        """
+        cast = DateToDict()
+        ok_(cast(date(year=19, month=11, day=28)) == {
+            'year': 19,
+            'month': 11,
+            'day': 28,
+        })

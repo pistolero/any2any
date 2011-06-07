@@ -19,7 +19,23 @@ class Identity(Cast):
         return obj
 
 
-class DictToDict(FromDict, ToDict, ContainerCast):
+class ToType(Cast):
+    """
+    Dumb cast :
+
+        >>> to_int = ToType(mm=Mm(object, int)) # equivalent to >>> int('1')
+        >>> to_int('1')
+        1
+    """
+    defaults = CastSettings(
+        mm = Mm(object, object)
+    )
+
+    def call(self, obj):
+        return self.mm.to(obj)
+
+
+class DictToDict(FromDict, ToDict):
     """
     Dictionaries to dictionaries :
 
@@ -31,7 +47,7 @@ class DictToDict(FromDict, ToDict, ContainerCast):
     )
 
 
-class ListToList(FromList, ToList, ContainerCast):
+class ListToList(FromList, ToList):
     """
     List to list :
 
@@ -43,7 +59,7 @@ class ListToList(FromList, ToList, ContainerCast):
     )
 
 
-class ObjectToDict(FromObject, ToDict, ContainerCast):
+class ObjectToDict(FromObject, ToDict):
     """
     Object to dictionary :
 
@@ -57,7 +73,7 @@ class ObjectToDict(FromObject, ToDict, ContainerCast):
         return filter(lambda name: not isinstance(getattr(inpt, name), FunctionType), names)
 
 
-class DictToObject(FromDict, ToObject, ContainerCast):
+class DictToObject(FromDict, ToObject):
     """
     Dictionary to object :
 
@@ -69,3 +85,40 @@ class DictToObject(FromDict, ToObject, ContainerCast):
     def new_object(self, kwargs):
         return self.mm.to()
 
+
+class DatetimeToDict(FromObject, ToDict):
+    """
+    Datetime to dict:
+
+        >>> cast = DatetimeToDict()
+        >>> cast(datetime(year=1986, month=12, day=8)) == {
+        ...     'year': 1986,
+        ...     'month': 12,
+        ...     'day': 8,
+        ...     'hour': 0,
+        ...     'minute': 0,
+        ...     'second': 0,
+        ...     'microsecond': 0,
+        ... }
+        True
+    """
+    
+    def attr_names(self):
+        return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
+
+
+class DateToDict(FromObject, ToDict):
+    """
+    Date to dict:
+
+        >>> cast = DateToDict()
+        >>> cast(date(year=1984, month=1, day=18)) == {
+        ...     'year': 1984,
+        ...     'month': 1,
+        ...     'day': 18,
+        ... }
+        True
+    """
+    
+    def attr_names(self):
+        return ['year', 'month', 'day']

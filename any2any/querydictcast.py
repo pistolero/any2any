@@ -40,7 +40,7 @@ class OneElemToList(Cast):
     def call(self, inpt):
         return [inpt]
 
-class DictFlatener(FromDict, ToDict):
+class QueryDictCast(FromDict, ToDict):
     """
     Cast for flatening a dictionary with a nested structure.
 
@@ -54,9 +54,9 @@ class DictFlatener(FromDict, ToDict):
     """
 
     defaults = CastSettings(
-        model = None,
         mm_to_cast = {
             Mm(list, object): ListToFirstElem(),
+            Mm(from_any=object, to=list): OneElemToList(),
             Mm(list, list): Identity(),
         },
         list_keys = [],
@@ -71,17 +71,3 @@ class DictFlatener(FromDict, ToDict):
     def value_is_list(self, key):
         return False
 
-
-class DictInflater(FromDict, ToDict):
-    """
-    Cast 
-    """
-
-    defaults = CastSettings(
-        model = None,
-        mm = Mm(dict, Spz(dict, list)), # Will cause all values to be casted to list
-        mm_to_cast = {
-            Mm(from_any=object, to=list): OneElemToList(),
-            Mm(list, list): Identity(),
-        },
-    )

@@ -28,13 +28,13 @@ class ContainerCast(Cast):
         - value_cast(Cast). The cast to use on all values.
         - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize on the corresponding value.
     """
-    #TODO: document keys_cast + item_strip
+    #TODO: document key_cast + item_strip
 
     defaults = CastSettings(
         key_to_cast = {},
         key_to_mm = {},
         value_cast = None,
-        keys_cast = None,
+        key_cast = None,
     )
 
     @abc.abstractmethod
@@ -111,11 +111,9 @@ class ContainerCast(Cast):
 
     def cast_key(self, key):
         """
-        Takes a key as input, casts it with :class:`keys_cast`, and returns it.
+        Takes a key as input, casts it with :class:`key_cast`, and returns it.
         """
-        key_pair_iter = iter([(key, key)])
-        for key, casted_key in self.keys_cast.iter_output(key_pair_iter):
-            return casted_key
+        return self.key_cast(key)
 
     def strip_item(self, key, value):
         """
@@ -138,7 +136,7 @@ class ContainerCast(Cast):
         """
         for key, value in items_iter:
             if self.strip_item(key, value): continue
-            if self.keys_cast: key = self.cast_key(key)
+            if self.key_cast: key = self.cast_key(key)
             cast = self.cast_for_item(key, value)
             yield key, cast(value)
 

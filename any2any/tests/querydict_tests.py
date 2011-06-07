@@ -1,13 +1,13 @@
 from nose.tools import assert_raises, ok_
-from any2any.querydictcast import DictFlatener
+from any2any.querydictcast import QueryDictCast
 
-class DictFlatener_Test(object):
+class QueryDictCast_Test(object):
     """
-    Tests for DictFlatener
+    Tests for QueryDictCast
     """
 
     def call_test(self):
-        cast = DictFlatener(list_keys=['a_list', 'another_list'])
+        cast = QueryDictCast(list_keys=['a_list', 'another_list'])
         ok_(cast({'a_list': [1, 2], 'a_normal_key': [1, 2, 3], 'another_list': []}) == {
             'a_list': [1, 2],
             'a_normal_key': 1,
