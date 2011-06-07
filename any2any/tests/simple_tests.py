@@ -1,4 +1,4 @@
-from datetime import datetime, date
+import datetime
 
 from nose.tools import assert_raises, ok_
 from any2any.base import *
@@ -181,17 +181,17 @@ class DictToObject_Test(Container_Test):
         ok_(obj.virt2 == 90)
 
 
-class DatetimeToDict_Test(object):
+class DateTimeToDict_Test(object):
     """
-    Tests for DatetimeToDict
+    Tests for DateTimeToDict
     """
 
     def call_test(self):
         """
-        Test call for DatetimeToDict.
+        Test call for DateTimeToDict.
         """
-        cast = DatetimeToDict()
-        ok_(cast(datetime(year=1986, month=12, day=8)) == {
+        cast = DateTimeToDict()
+        ok_(cast(datetime.datetime(year=1986, month=12, day=8)) == {
             'year': 1986,
             'month': 12,
             'day': 8,
@@ -200,7 +200,7 @@ class DatetimeToDict_Test(object):
             'second': 0,
             'microsecond': 0,
         })
-        ok_(cast(datetime(year=10, month=11, day=1, microsecond=8)) == {
+        ok_(cast(datetime.datetime(year=10, month=11, day=1, microsecond=8)) == {
             'year': 10,
             'month': 11,
             'day': 1,
@@ -221,8 +221,55 @@ class DateToDict_Test(object):
         Test call for DateToDict.
         """
         cast = DateToDict()
-        ok_(cast(date(year=19, month=11, day=28)) == {
+        ok_(cast(datetime.date(year=19, month=11, day=28)) == {
             'year': 19,
             'month': 11,
             'day': 28,
         })
+
+
+class DictToDateTime_Test(object):
+    """
+    Tests for DictToDateTime
+    """
+
+    def call_test(self):
+        """
+        Test call for DictToDateTime.
+        """
+        cast = DictToDateTime()
+        ok_(cast({
+            'year': 1986,
+            'month': 12,
+            'day': 8,
+            'hour': 0,
+            'minute': 0,
+            'second': 0,
+            'microsecond': 0,
+        }) == datetime.datetime(year=1986, month=12, day=8))
+        ok_(cast({
+            'year': 10,
+            'month': 11,
+            'day': 1,
+            'hour': 0,
+            'minute': 0,
+            'second': 0,
+            'microsecond': 8,
+        }) == datetime.datetime(year=10, month=11, day=1, microsecond=8))
+
+
+class DictToDate_Test(object):
+    """
+    Tests for DictToDate
+    """
+
+    def call_test(self):
+        """
+        Test call for DictToDate.
+        """
+        cast = DictToDate()
+        ok_(cast({
+            'year': 19,
+            'month': 11,
+            'day': 28,
+        }) == datetime.date(year=19, month=11, day=28))

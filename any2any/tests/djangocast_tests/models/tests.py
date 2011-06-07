@@ -60,6 +60,10 @@ class BaseModel(object):
         self.salmon = Dish(name='salmon')
         self.gourmand = Gourmand(pseudo='Taz', firstname='T', lastname='Aznicniev')
         self.journal = Journal(name="C'est pas sorcier") ; self.journal.save()
+        self.issue = Issue(
+            journal=self.journal,
+            issue_date=datetime.date(year=1979, month=11, day=1),
+            last_char_datetime=datetime.datetime(year=1979, month=10, day=29, hour=0, minute=12)) ; self.issue.save()
         self.journalist = Journalist(firstname='Fred', lastname='Courant', journal=self.journal)
         self.columnist = Columnist(firstname='Jamy', lastname='Gourmaud', journal=self.journal, column='truck')
         self.author.save()
@@ -79,6 +83,7 @@ class BaseModel(object):
         self.gourmand.delete()
         self.columnist.delete()
         self.journalist.delete()
+        self.issue.delete()
         self.journal.delete()
 
 class ModelToDict_Test(BaseModel):
@@ -167,6 +172,18 @@ class ModelToDict_Test(BaseModel):
                 {'pseudo': u'Taz'},
             ],
             'name': 'salmon'
+        })
+
+    def date_and_datetime_test(self):
+        """
+        Test ModelToDict.call serializing date and datetime
+        """
+        journal_cast = ModelToDict(include=['name'])
+        cast = ModelToDict(exclude=['id'], key_to_cast={'journal': journal_cast})
+        ok_(cast.call(self.issue) == {
+            'journal': {'name': "C'est pas sorcier"},
+            'issue_date': {'year': 1979, 'month': 11, 'day': 1},
+            'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
         })
 
 class DictToModel_Test(BaseModel):
@@ -368,6 +385,19 @@ class DictToModel_Test(BaseModel):
         # We check that items were created
         ok_(columnist_before + 1 == Columnist.objects.count())
         fred.delete()
+
+    def update_date_and_datetime_test(self):
+        """
+        Test ModelToDict.call serializing date and datetime
+        """
+        cast = DictToModel(mm=Mm(dict, Issue))
+        issue = cast.call({
+            'id': self.issue.pk,
+            'issue_date': {'year': 1865, 'month': 1, 'day': 1},
+            'last_char_datetime': {'year': 1864, 'month': 12, 'day': 31, 'hour': 1},
+        })
+        ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
+        ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 
 
 donttest="""

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import copy
+import datetime
 
-from django.db import models as django_models
+from django.db import models as djmodels
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
@@ -41,7 +42,7 @@ class IntrospectMixin(Cast):
         # This allows to handle MTI nicely (and transparently).
         mod_opts = self.get_model()._meta
         if mod_opts.parents:
-            super_parent = filter(lambda p: issubclass(p, django_models.Model), mod_opts.get_parent_list())[0]
+            super_parent = filter(lambda p: issubclass(p, djmodels.Model), mod_opts.get_parent_list())[0]
             return super_parent._meta.pk.name
         else:
             return mod_opts.pk.name
@@ -85,6 +86,7 @@ class IntrospectMixin(Cast):
             ptr_fields += self.collect_ptrs(parent_model)
         return ptr_fields
 
+
 class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
     """
     This casts serializes an instance of :class:`Model` to a dictionary.
@@ -99,11 +101,14 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
         model_attr = getattr(model, field_name, None)
         if field:
             # If fk, we return the right model
-            if isinstance(field, django_models.ForeignKey):
+            if isinstance(field, djmodels.ForeignKey):
                 return dict
             # If m2m, we want a list of the right model
-            elif isinstance(field, django_models.ManyToManyField):
+            elif isinstance(field, djmodels.ManyToManyField):
                 return Spz(list, dict)
+            # If "complex" Python object, we want a dict
+            elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
+                return dict
             # Identity on the rest
             else:
                 return object
@@ -135,6 +140,7 @@ def set_related(instance, name, value):
     else:
         raise TypeError("cannot update if the related ForeignKey cannot be null")
 
+
 class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
     This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to :
@@ -147,7 +153,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
 
     defaults = CastSettings(
-        class_to_setter = {Spz(list, django_models.Model): set_related},
+        class_to_setter = {Spz(list, djmodels.Model): set_related},
         create = True,
         _schema = {'class_to_setter': {'override': 'update_item'}}
     )
@@ -161,11 +167,17 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         model_attr = getattr(model, field_name, None)
         if field:
             # If fk, we return the right model
-            if isinstance(field, django_models.ForeignKey):
+            if isinstance(field, djmodels.ForeignKey):
                 return field.rel.to
             # If m2m, we want a list of the right model
-            elif isinstance(field, django_models.ManyToManyField):
+            elif isinstance(field, djmodels.ManyToManyField):
                 return Spz(list, field.rel.to)
+            # "Complex" Python types to the right type 
+            elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
+                return {
+                    djmodels.DateTimeField: datetime.datetime,
+                    djmodels.DateField: datetime.date,
+                }[type(field)]
             # Identity on the rest
             else:
                 return object
@@ -212,6 +224,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         obj.save()
         return obj
 
-register(ManagerToList(), Mm(from_any=django_models.Manager, to=Spz(list, dict)))
-register(ModelToDict(), Mm(from_any=django_models.Model, to=dict))
-register(DictToModel(), Mm(dict, to_any=django_models.Model))
+
+register(ManagerToList(), Mm(from_any=djmodels.Manager, to=Spz(list, dict)))
+register(ModelToDict(), Mm(from_any=djmodels.Model, to=dict))
+register(DictToModel(), Mm(dict, to_any=djmodels.Model))

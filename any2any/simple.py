@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import datetime
+
 from base import Cast, CastSettings, Mm, Spz
 from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject
 from types import FunctionType
@@ -86,11 +88,11 @@ class DictToObject(FromDict, ToObject):
         return self.mm.to()
 
 
-class DatetimeToDict(FromObject, ToDict):
+class DateTimeToDict(FromObject, ToDict):
     """
     Datetime to dict:
 
-        >>> cast = DatetimeToDict()
+        >>> cast = DateTimeToDict()
         >>> cast(datetime(year=1986, month=12, day=8)) == {
         ...     'year': 1986,
         ...     'month': 12,
@@ -109,7 +111,7 @@ class DatetimeToDict(FromObject, ToDict):
 
 class DateToDict(FromObject, ToDict):
     """
-    Date to dict:
+    date to dict:
 
         >>> cast = DateToDict()
         >>> cast(date(year=1984, month=1, day=18)) == {
@@ -122,3 +124,54 @@ class DateToDict(FromObject, ToDict):
     
     def attr_names(self):
         return ['year', 'month', 'day']
+
+
+class DateTimeToDict(FromObject, ToDict):
+    """
+    datetime to dict:
+
+        >>> cast = DateTimeToDict()
+        >>> cast(datetime(year=1986, month=12, day=8)) == {
+        ...     'year': 1986,
+        ...     'month': 12,
+        ...     'day': 8,
+        ...     'hour': 0,
+        ...     'minute': 0,
+        ...     'second': 0,
+        ...     'microsecond': 0,
+        ... }
+        True
+    """
+    
+    def attr_names(self):
+        return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
+
+
+class DictToDate(FromDict, ToObject):
+    """
+    dict to date:
+
+        >>> cast = DictToDate()
+        >>> cast(dict(year=1984, month=1, day=18)) == date(year=1984, month=1, day=18)
+        True
+    """
+    
+    def new_object(self, items):
+        new_date = datetime.date(**items)
+        items.clear()
+        return new_date
+
+
+class DictToDateTime(FromDict, ToObject):
+    """
+    dict to datetime:
+
+        >>> cast = DictToDateTime()
+        >>> cast(dict(year=2012, month=4, day=26, second=54)) == datetime(year=2012, month=4, day=26, second=54)
+        True
+    """
+    
+    def new_object(self, items):
+        new_datetime = datetime.datetime(**items)
+        items.clear()
+        return new_datetime

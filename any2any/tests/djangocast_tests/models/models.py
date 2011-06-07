@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from django.db.models import ForeignKey, CharField, Model, ManyToManyField, PositiveIntegerField, IntegerField
+from django.db.models import (ForeignKey, CharField, Model, ManyToManyField,
+PositiveIntegerField, IntegerField, DateField, DateTimeField)
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
@@ -8,6 +9,11 @@ class Journal(Model):
 
     def __unicode__(self):
         return self.name
+
+class Issue(Model):
+    issue_date = DateField()
+    last_char_datetime = DateTimeField()
+    journal = ForeignKey(Journal)
 
 class Person (Model):
     firstname = CharField(max_length=100)

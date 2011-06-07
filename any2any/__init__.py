@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+import datetime
 
-from simple import ListToList, DictToDict, Identity, ObjectToDict, DictToObject
+from simple import (ListToList, DictToDict, Identity, ObjectToDict,
+DictToObject, DateToDict, DateTimeToDict, DictToDate, DictToDateTime)
 from base import register#, cast_map
 from utils import Spz, Mm
 
@@ -22,6 +24,10 @@ register(
 )
 register(ObjectToDict(), Mm(from_any=object, to=dict))
 register(DictToObject(), Mm(from_=dict, to_any=object))
+register(DateToDict(), Mm(datetime.date, dict))
+register(DateTimeToDict(), Mm(datetime.datetime, dict))
+register(DictToDate(), Mm(dict, datetime.date))
+register(DictToDateTime(), Mm(dict, datetime.datetime))
 
 # TODO:
 """
