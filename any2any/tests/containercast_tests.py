@@ -10,6 +10,48 @@ class ContainerCast_Test(object):
     Tests for ContainerCast
     """
 
+    def CSpz_test(self):
+        """
+        Tests for ContainerSpecialization
+        """
+        # Nested specializations
+        ok_(Spz.issubclass( CSpz(list, 
+                                CSpz(list, 
+                                    CSpz(list, str))),
+                            CSpz(list,
+                                CSpz(list,
+                                    CSpz(list, object)))
+        ))
+        ok_(not Spz.issubclass( CSpz(list,
+                                    CSpz(list,
+                                        CSpz(list, object))),
+                                CSpz(list,
+                                    CSpz(list,
+                                        CSpz(list, str)))
+        ))
+        ok_(CSpz.issubclass( CSpz(list,
+                                CSpz(list,
+                                    CSpz(list, object))),
+                            CSpz(list,
+                                CSpz(list, list))
+        ))
+        ok_(Spz.issubclass( CSpz(list,
+                                CSpz(list,
+                                    CSpz(list, object))),
+                            list))
+        ok_(Spz.issubclass( CSpz(list,
+                                CSpz(list,
+                                    CSpz(list, object))),
+                            CSpz(list,
+                                CSpz(list, object))
+        ))
+        ok_(not Spz.issubclass( CSpz(list,
+                                CSpz(list,
+                                    CSpz(list, object))),
+                            CSpz(list,
+                                CSpz(list, int))
+        ))
+
     def strip_item_test(self):
         """
         Test stripping some items from the output

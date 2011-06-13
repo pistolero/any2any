@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 
 class ClassSet(object):
 
@@ -167,7 +168,7 @@ class Metamorphosis(object):
 Mm = Metamorphosis
 
 
-class Specialization(object):
+class Specialization(type):
     """
     A class for building specialized classes. For example, this allows to define ``a list of int`` :
 
@@ -186,21 +187,41 @@ class Specialization(object):
         False
     """
 
-    def __init__(self, base, feature):
+    defaults = {}
+
+    def __new__(cls, *args, **kwargs):
+        new_spz = super(Specialization, cls).__new__(cls)
+        new_spz._features = copy.copy(cls.defaults)
+        return new_spz
+
+    def __init__(self, base, **features):
         self.base = base
-        self.feature = feature
+        unknown_features = set(features) - set(self._features)
+        if unknown_features:
+            raise TypeError("%s are not valid features for %s"\
+            % (','.join(unknown_features), type(self)))
+        self._features.update(features)
+
+    def __getattr__(self, name):
+        try:
+            return self._features[name]
+        except KeyError:
+            return self.__getattribute__(name)
+
+    def issuperclass(self, C):
+        if isinstance(C, Spz):
+            return Spz.issubclass(C.base, self.base)
+        else:
+            return False
 
     @staticmethod
-    def issubclass(c1, c2):
-        c1_is_spz, c2_is_spz = isinstance(c1, Spz), isinstance(c2, Spz)
-        if c1_is_spz and c2_is_spz:
-            return Spz.issubclass(c1.base, c2.base) and Spz.issubclass(c1.feature, c2.feature)
-        elif c1_is_spz:
-            return issubclass(c1.base, c2)
-        elif c2_is_spz:
-            return False
+    def issubclass(C1, C2):
+        if isinstance(C2, Spz):
+            return C2.issuperclass(C1)
+        elif isinstance(C1, Spz):
+            return issubclass(C1.base, C2)
         else:
-            return issubclass(c1, c2)
+            return issubclass(C1, C2)
 
     def __repr__(self):
         return 'Spz(%s, %s)' % (self.base, self.feature)

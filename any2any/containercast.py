@@ -6,6 +6,24 @@ except ImportError:
 from base import Cast, CastSettings, Mm, Spz
 from utils import closest_parent
 
+
+class ContainerSpecialization(Specialization):
+    """
+    Specialization for container types. For example, the following stands for "a list of int" :
+
+        >>> my_container_type = CSpz(list, value_type=int)
+    """
+
+    defaults = {'value_type': object}
+
+    def issuperclass(self, C):
+        if super(CSpz, self).issuperclass(C) and isinstance(C, CSpz):
+            return Spz.issubclass(C.value_type, self.value_type)
+        else:
+            return False
+CSpz = ContainerSpecialization
+
+
 class ContainerCast(Cast):
     """
     Base cast for metamorphosing `from` and `to` containers-like objects. By "container", we mean any object that holds other objects. This actually means : any Python object (because an object contains attributes), any kind of sequence, any kind of mapping, ...

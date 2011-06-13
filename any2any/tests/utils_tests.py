@@ -144,6 +144,12 @@ class Specialization_Test(object):
     Tests for the Specialization class
     """  
 
+    def subclassing_test(self):
+        """
+        Test subclassing Specialization
+        """
+        
+
     def issubclass_test(self):
         """
         Test Specialization.issubclass
@@ -153,46 +159,7 @@ class Specialization_Test(object):
         ok_(not Spz.issubclass(object, int))
         ok_(Spz.issubclass(object, object))
         # specialization + built-in type
-        ok_(Spz.issubclass(Spz(list, int), list))
-        ok_(not Spz.issubclass(list, Spz(list, int)))
-        # specialization only
-        ok_(Spz.issubclass(Spz(list, int), Spz(list, int)))
-        ok_(Spz.issubclass(Spz(list, int), Spz(list, object)))
-        ok_(not Spz.issubclass(Spz(list, object), Spz(list, int)))
-        # Nested specializations
-        ok_(Spz.issubclass( Spz(list, 
-                                Spz(list, 
-                                    Spz(list, str))),
-                            Spz(list,
-                                Spz(list,
-                                    Spz(list, object)))
-        ))
-        ok_(not Spz.issubclass( Spz(list,
-                                    Spz(list,
-                                        Spz(list, object))),
-                                Spz(list,
-                                    Spz(list,
-                                        Spz(list, str)))
-        ))
-        ok_(Spz.issubclass( Spz(list,
-                                Spz(list,
-                                    Spz(list, object))),
-                            Spz(list,
-                                Spz(list, list))
-        ))
-        ok_(Spz.issubclass( Spz(list,
-                                Spz(list,
-                                    Spz(list, object))),
-                            list))
-        ok_(Spz.issubclass( Spz(list,
-                                Spz(list,
-                                    Spz(list, object))),
-                            Spz(list,
-                                Spz(list, object))
-        ))
-        ok_(not Spz.issubclass( Spz(list,
-                                Spz(list,
-                                    Spz(list, object))),
-                            Spz(list,
-                                Spz(list, int))
-        ))
+        ok_(Spz.issubclass(Spz(str), str))
+        ok_(not Spz.issubclass(str, Spz(str)))
+        ok_(Spz.issubclass(Spz(str), Spz(str)))
+        ok_(Spz.issubclass(Spz(Spz(str)), Spz(str)))
