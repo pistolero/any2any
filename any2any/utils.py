@@ -67,7 +67,7 @@ class Metamorphosis(object):
         from_any(type). Metamorphosis from type *from_any* and subclasses.
         to_any(type). Metamorphosis from type *to_any* and subclasses.
     """
-
+    #TODO: refactor for having sets, and single mm (for mm setting of casts)
     def __init__(self, from_=None, to=None, from_any=None, to_any=None):
         if from_any and from_:
             raise TypeError("Arguments 'from_any' and 'from_' cannot be provided at the same time")
@@ -196,7 +196,7 @@ class Specialization(abc.ABCMeta):
     defaults = {}
 
     def __new__(cls, base, **features):
-        name = 'SpzOf%s' % base.__name__
+        name = 'SpzOf%s' % base.__name__.capitalize()
         bases = (base,)
         attrs = copy.copy(cls.defaults)
         new_spz = super(Specialization, cls).__new__(cls, name, bases, attrs)

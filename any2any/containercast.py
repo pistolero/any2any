@@ -49,12 +49,16 @@ class ContainerCast(Cast):
         - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize on the corresponding value.
     """
     #TODO: document key_cast + item_strip
+    #TODO: key_cast is ugly ...
 
     defaults = CastSettings(
         key_to_cast = {},
         key_to_mm = {},
         value_cast = None,
         key_cast = None,
+        _schema = {
+            'key_cast': {'customize': 'do_nothing'},
+        },
     )
 
     @abc.abstractmethod
@@ -72,25 +76,30 @@ class ContainerCast(Cast):
     def get_from_class(self, key):
         """
         Returns:
-            type or None. The type of the value associated with *key* if it is known `a priori` (without knowing the input), or None.
+            type or NotImplemented. The type of the value associated with *key* if it is known `a priori` (without knowing the input), or `NotImplemented` to let the cast guess.
         """
-        return
+        return NotImplemented
 
     @abc.abstractmethod
     def get_to_class(self, key):
         """
         Returns:
-            type or None. Type the value associated with *key* must be casted to, if it is known `a priori` (without knowing the input), or None.
+            type or NotImplemented. Type the value associated with *key* must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
         """
-        return
+        return NotImplemented
 
     def get_item_mm(self, key, value):
         """
         Returns:
             Mm. The metamorphosis to apply on item *key*, *value*.
         """
-        from_ = self.get_from_class(key) or type(value)
-        to = self.get_to_class(key) or object
+        from_ = self.get_from_class(key)
+        to = self.get_to_class(key)
+        # If NotImplemented, we make guesses
+        if from_ == NotImplemented:
+            from_ = type(value)
+        if to == NotImplemented:
+            to = object
         return Mm(from_, to)
 
     @abc.abstractmethod
@@ -133,7 +142,13 @@ class ContainerCast(Cast):
         """
         Takes a key as input, casts it with :class:`key_cast`, and returns it.
         """
-        return self.key_cast(key)
+        return self._get_key_cast()(key)
+
+    def _get_key_cast(self):
+        if not hasattr(self, '_custom_key_cast'):
+            self._custom_key_cast = self.key_cast.copy({'mm': self.mm})
+        return self._custom_key_cast
+            
 
     def strip_item(self, key, value):
         """
@@ -172,7 +187,7 @@ class FromDict(ContainerCast):
         return inpt.iteritems()
 
     def get_from_class(self, key):
-        return self.mm.to.value_type if isinstance(self.mm.from_, Spz) else None
+        return self.mm.from_.value_type if isinstance(self.mm.from_, ContainerType) else NotImplemented
 
 
 class ToDict(ContainerCast):
@@ -181,7 +196,7 @@ class ToDict(ContainerCast):
         return dict(items_iter)
 
     def get_to_class(self, key):
-        return self.mm.to.value_type if isinstance(self.mm.to, Spz) else None
+        return self.mm.to.value_type if isinstance(self.mm.to, ContainerType) else NotImplemented
 
 
 class FromList(ContainerCast):
@@ -190,7 +205,7 @@ class FromList(ContainerCast):
         return enumerate(inpt) 
 
     def get_from_class(self, key):
-        return self.mm.to.value_type if isinstance(self.mm.from_, Spz) else None
+        return self.mm.from_.value_type if isinstance(self.mm.from_, ContainerType) else NotImplemented
 
 
 class ToList(ContainerCast):
@@ -199,7 +214,7 @@ class ToList(ContainerCast):
         return [value for key, value in items_iter]
 
     def get_to_class(self, key):
-        return self.mm.to.value_type if isinstance(self.mm.to, Spz) else None
+        return self.mm.to.value_type if isinstance(self.mm.to, ContainerType) else NotImplemented
 
 
 class FromObject(ContainerCast):
@@ -213,7 +228,7 @@ class FromObject(ContainerCast):
     )
 
     def get_from_class(self, key):
-        return None
+        return NotImplemented
 
     @abc.abstractmethod
     def attr_names(self):
@@ -245,7 +260,10 @@ class FromObject(ContainerCast):
             return self.attrname_to_getter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self.get_from_class(name) or object
+            attr_class = self.get_from_class(name)
+            # If NotImplemented, we guess ...
+            if attr_class == NotImplemented:
+                attr_class = object
             parent = closest_parent(attr_class, self.class_to_getter.keys())
             return self.class_to_getter[parent]
 
@@ -258,7 +276,7 @@ class ToObject(ContainerCast):
     )
 
     def get_to_class(self, key):
-        return None
+        return NotImplemented
 
     @abc.abstractmethod
     def new_object(self, items):
@@ -284,7 +302,10 @@ class ToObject(ContainerCast):
             return self.attrname_to_setter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self.get_to_class(name) or object
+            attr_class = self.get_to_class(name)
+            # If NotImplemented, we guess ...
+            if attr_class == NotImplemented:
+                attr_class = object
             parent = closest_parent(attr_class, self.class_to_setter.keys())
             return self.class_to_setter[parent]
 
