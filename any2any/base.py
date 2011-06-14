@@ -136,13 +136,15 @@ class CastSettings(collections.MutableMapping):
         return iter(self._values)
 
     def __copy__(self):
-        settings_dict = dict(self.iteritems())
-        settings_dict['_schema'] = self._schema.copy()
-        return self.__class__(**settings_dict)
+        copied = {'_schema': self._schema.copy()}
+        for name, value in self.iteritems():
+            copied[name] = copy.copy(value)
+        return self.__class__(**copied)
 
     def override(self, settings):
         """
-        Updates the calling instance and its schema with *settings*. The updating behaviour is taken from `_schema`. This method shall be used for inheritance of settings between two classes.
+        Updates the calling instance and its schema with *settings*. The updating behaviour is taken from `_schema`.
+        This method shall be used for inheritance of settings between two classes.
         """
         # Handling schema updating
         if isinstance(settings, CastSettings):
@@ -150,17 +152,18 @@ class CastSettings(collections.MutableMapping):
                 if name in self._schema:
                     self._schema[name].update(value)
                 else:
-                    self._schema[name] = value
+                    self._schema[name] = copy.copy(value)
         # Handling settings updating
-        for name, value in settings.items():
+        for name, value in copy.copy(settings).items():
             meth = self._schema[name].get('override', '__setitem__')
             getattr(self, meth)(name, value)
 
     def customize(self, settings):
         """
-        Updates the calling instance with *settings*. The updating behaviour is taken from `_schema`. This method shall be used for transmission of settings between two cast instances.
+        Updates the calling instance with *settings*. The updating behaviour is taken from `_schema`.
+        This method shall be used for transmission of settings between two cast instances.
         """
-        for name, value in settings.items():
+        for name, value in copy.copy(settings).items():
             try:
                 meth = self._schema[name].get('customize', '__setitem__')
             except KeyError:

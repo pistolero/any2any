@@ -253,11 +253,3 @@ def closest_parent(klass, other_classes):
     else:
         return sorted(candidates, key=K)[0]
 
-
-def copied_values(dict_iter):
-    for name, value in dict_iter:
-        try:
-            yield name, copy.copy(value)
-        except:
-            yield name, value
-    raise StopIteration

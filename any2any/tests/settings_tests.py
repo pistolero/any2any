@@ -94,9 +94,9 @@ class CastSettings_Test(object):
         ok_(not settings_copy._values is self.settings._values)
         ok_(settings_copy._schema == self.settings._schema)
         ok_(not settings_copy._schema is self.settings._schema)
-        ok_(settings_copy._values['more'] is self.settings._values['more'])
-        ok_(settings_copy._values['another'] is self.settings._values['another'])
-        ok_(settings_copy._values['a_setting'] is self.settings._values['a_setting'])
+        ok_(not settings_copy._values['more'] is self.settings._values['more']) # Because dict are copied
+        ok_(settings_copy._values['another'] is self.settings._values['another']) # Because int is immutable
+        ok_(not settings_copy._values['a_setting'] is self.settings._values['a_setting'])
 
     def delegate_test(self):
         """
