@@ -2,13 +2,14 @@
 import datetime
 
 from simple import (ListToList, DictToDict, Identity, ObjectToDict,
-DictToObject, DateToDict, DateTimeToDict, DictToDate, DictToDateTime)
+DictToObject, DateToDict, DateTimeToDict, DictToDate, DictToDateTime, ContainerType)
 from base import register#, cast_map
 from utils import Spz, Mm
 
 register(Identity(), Mm(from_any=object, to_any=object))
+
 register(
-    ListToList(mm=Mm(Spz(list, object), Spz(list, object))),
+    ListToList(),
     Mm(from_any=list, to_any=list),
 )
 #TODO:
@@ -19,7 +20,7 @@ register(
 )
 """
 register(
-    DictToDict(mm=Mm(Spz(dict, object), Spz(dict, object))),
+    DictToDict(),
     Mm(from_any=dict, to_any=dict),
 )
 register(ObjectToDict(), Mm(from_any=object, to=dict))

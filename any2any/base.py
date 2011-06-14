@@ -136,7 +136,7 @@ class CastSettings(collections.MutableMapping):
         return iter(self._values)
 
     def __copy__(self):
-        settings_dict = dict(copied_values(self.items())) # TODO: Why oh why ?
+        settings_dict = dict(self.iteritems())
         settings_dict['_schema'] = self._schema.copy()
         return self.__class__(**settings_dict)
 

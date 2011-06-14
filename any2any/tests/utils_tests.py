@@ -143,23 +143,24 @@ class Specialization_Test(object):
     """
     Tests for the Specialization class
     """  
-
+    '''
     def subclassing_test(self):
         """
         Test subclassing Specialization
         """
-        
+        class MySpecialization()
+    '''
 
     def issubclass_test(self):
         """
         Test Specialization.issubclass
         """
         # built-in types
-        ok_(Spz.issubclass(int, object))
-        ok_(not Spz.issubclass(object, int))
-        ok_(Spz.issubclass(object, object))
+        ok_(issubclass(int, object))
+        ok_(not issubclass(object, int))
+        ok_(issubclass(object, object))
         # specialization + built-in type
-        ok_(Spz.issubclass(Spz(str), str))
-        ok_(not Spz.issubclass(str, Spz(str)))
-        ok_(Spz.issubclass(Spz(str), Spz(str)))
-        ok_(Spz.issubclass(Spz(Spz(str)), Spz(str)))
+        ok_(issubclass(Spz(str), str))
+        ok_(not issubclass(str, Spz(str)))
+        ok_(issubclass(Spz(str), Spz(str)))
+        ok_(issubclass(Spz(Spz(str)), Spz(str)))

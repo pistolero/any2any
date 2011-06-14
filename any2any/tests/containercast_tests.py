@@ -1,55 +1,65 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
-from any2any.containercast import ToDict, FromDict
+from any2any.containercast import ToDict, FromDict, ContainerType
 from any2any.base import Cast
 
 class FromDictToDict(ToDict, FromDict): pass
+
+ListOfObjects = ContainerType(list, value_type=object)
+ListOfStr = ContainerType(list, value_type=str)
+ListOfInt = ContainerType(list, value_type=int)
 
 class ContainerCast_Test(object):
     """
     Tests for ContainerCast
     """
 
-    def CSpz_test(self):
+    def ContainerType_test(self):
         """
         Tests for ContainerSpecialization
         """
         # Nested specializations
-        ok_(Spz.issubclass( CSpz(list, 
-                                CSpz(list, 
-                                    CSpz(list, str))),
-                            CSpz(list,
-                                CSpz(list,
-                                    CSpz(list, object)))
+        ok_(issubclass( 
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfStr
+            )),
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            ))
         ))
-        ok_(not Spz.issubclass( CSpz(list,
-                                    CSpz(list,
-                                        CSpz(list, object))),
-                                CSpz(list,
-                                    CSpz(list,
-                                        CSpz(list, str)))
+        ok_(not issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfStr
+            ))
         ))
-        ok_(CSpz.issubclass( CSpz(list,
-                                CSpz(list,
-                                    CSpz(list, object))),
-                            CSpz(list,
-                                CSpz(list, list))
+        ok_(issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=list
+            ))
         ))
-        ok_(Spz.issubclass( CSpz(list,
-                                CSpz(list,
-                                    CSpz(list, object))),
-                            list))
-        ok_(Spz.issubclass( CSpz(list,
-                                CSpz(list,
-                                    CSpz(list, object))),
-                            CSpz(list,
-                                CSpz(list, object))
+        ok_(issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            list
         ))
-        ok_(not Spz.issubclass( CSpz(list,
-                                CSpz(list,
-                                    CSpz(list, object))),
-                            CSpz(list,
-                                CSpz(list, int))
+        ok_(issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ListOfObjects)
+        ))
+        ok_(not issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ListOfInt)
         ))
 
     def strip_item_test(self):

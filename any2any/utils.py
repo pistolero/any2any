@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import copy
+try:
+    import abc
+except ImportError:
+    from compat import abc
+
 
 class ClassSet(object):
 
@@ -25,7 +30,7 @@ class ClassSet(object):
         # B) self.klass < other.klass
         if other.singleton:
             return False
-        elif Spz.issubclass(self.klass, other.klass) and not other == self:
+        elif issubclass(self.klass, other.klass) and not other == self:
             return True
         else:
             return False
@@ -33,7 +38,7 @@ class ClassSet(object):
     def __gt__(self, other):
         if self.singleton:
             return False
-        elif Spz.issubclass(other.klass, self.klass) and not other == self:
+        elif issubclass(other.klass, self.klass) and not other == self:
             return True
         else:
             return False
@@ -168,66 +173,56 @@ class Metamorphosis(object):
 Mm = Metamorphosis
 
 
-class Specialization(type):
+class Specialization(abc.ABCMeta):
     """
     A class for building specialized classes. For example, this allows to define ``a list of int`` :
 
         >>> int_list = Spz(list, int)
         >>> object_list = Spz(list, object)
         
-    Then, using :meth:`Spz.issubclass` :
+    Then, using :meth:`issubclass` :
         
-        >>> Spz.issubclass(int_list, list)
+        >>> issubclass(int_list, list)
         True
-        >>> Spz.issubclass(list, int_list)
+        >>> issubclass(list, int_list)
         False
-        >>> Spz.issubclass(int_list, object_list)
+        >>> issubclass(int_list, object_list)
         True
-        >>> Spz.issubclass(object_list, int_list)
+        >>> issubclass(object_list, int_list)
         False
     """
+    #TODO: rewrite doc
 
     defaults = {}
 
-    def __new__(cls, *args, **kwargs):
-        new_spz = super(Specialization, cls).__new__(cls)
-        new_spz._features = copy.copy(cls.defaults)
+    def __new__(cls, base, **features):
+        name = 'SpzOf%s' % base.__name__
+        bases = (base,)
+        attrs = copy.copy(cls.defaults)
+        new_spz = super(Specialization, cls).__new__(cls, name, bases, attrs)
+        new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz
 
     def __init__(self, base, **features):
-        self.base = base
-        unknown_features = set(features) - set(self._features)
+        unknown_features = set(features) - set(self.defaults)
         if unknown_features:
             raise TypeError("%s are not valid features for %s"\
             % (','.join(unknown_features), type(self)))
-        self._features.update(features)
+        for name, value in features.items():
+            setattr(self, name, value)
 
-    def __getattr__(self, name):
-        try:
-            return self._features[name]
-        except KeyError:
-            return self.__getattribute__(name)
+    def features(self):
+        for name in self.defaults.keys():
+            return name, getattr(self, name) 
 
-    def issuperclass(self, C):
-        if isinstance(C, Spz):
-            return Spz.issubclass(C.base, self.base)
-        else:
-            return False
-
-    @staticmethod
-    def issubclass(C1, C2):
-        if isinstance(C2, Spz):
-            return C2.issuperclass(C1)
-        elif isinstance(C1, Spz):
-            return issubclass(C1.base, C2)
-        else:
-            return issubclass(C1, C2)
-
-    def __repr__(self):
-        return 'Spz(%s, %s)' % (self.base, self.feature)
+    def __subclasshook__(self, C):
+        return NotImplemented
 
     def __eq__(self, other):
-        return Spz.issubclass(self, other) and Spz.issubclass(other, self) 
+        if isinstance(other, Specialization):
+            return (self.__bases__ == other.__bases__) and (self.features() == other.features())
+        else:
+            return False  
 Spz = Specialization
 
 
@@ -239,7 +234,7 @@ def closest_parent(klass, other_classes):
     #We select only the super classes of *klass*
     candidates = []
     for oclass in other_classes:
-        if Spz.issubclass(klass, oclass):
+        if issubclass(klass, oclass):
             candidates.append(oclass)
 
     #This is used to sort the list and take the closer parent of *klass*
@@ -247,11 +242,11 @@ def closest_parent(klass, other_classes):
         def __init__(self, klass):
             self.klass = klass
         def __lt__(self, other):
-            return Spz.issubclass(self.klass, other.klass)
+            return issubclass(self.klass, other.klass)
         def __eq__(self, other):
             return self.klass == other.klass
         def __gt__(self, other):
-            return Spz.issubclass(other.klass, klass.klass)
+            return issubclass(other.klass, klass.klass)
     
     if not candidates:
         return object

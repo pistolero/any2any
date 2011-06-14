@@ -3,25 +3,27 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, CastSettings, Mm, Spz
-from utils import closest_parent
+from base import Cast, CastSettings, Mm
+from utils import closest_parent, Spz
 
 
-class ContainerSpecialization(Specialization):
+class ContainerType(Spz):
     """
     Specialization for container types. For example, the following stands for "a list of int" :
 
-        >>> my_container_type = CSpz(list, value_type=int)
+        >>> my_container_type = ContainerType(list, value_type=int)
     """
 
     defaults = {'value_type': object}
-
-    def issuperclass(self, C):
-        if super(CSpz, self).issuperclass(C) and isinstance(C, CSpz):
-            return Spz.issubclass(C.value_type, self.value_type)
+    
+    def __subclasshook__(self, C):
+        if super(ContainerType, self).__subclasshook__(C) and isinstance(C, ContainerType):
+            return issubclass(C.value_type, self.value_type)
         else:
             return False
-CSpz = ContainerSpecialization
+
+    def __repr__(self):
+        return '%sOf%s' % (self.__base__.__name__.capitalize(), self.value_type.__name__.capitalize())
 
 
 class ContainerCast(Cast):
@@ -170,7 +172,7 @@ class FromDict(ContainerCast):
         return inpt.iteritems()
 
     def get_from_class(self, key):
-        return self.mm.to.feature if isinstance(self.mm.from_, Spz) else None
+        return self.mm.to.value_type if isinstance(self.mm.from_, Spz) else None
 
 
 class ToDict(ContainerCast):
@@ -179,7 +181,7 @@ class ToDict(ContainerCast):
         return dict(items_iter)
 
     def get_to_class(self, key):
-        return self.mm.to.feature if isinstance(self.mm.to, Spz) else None
+        return self.mm.to.value_type if isinstance(self.mm.to, Spz) else None
 
 
 class FromList(ContainerCast):
@@ -188,7 +190,7 @@ class FromList(ContainerCast):
         return enumerate(inpt) 
 
     def get_from_class(self, key):
-        return self.mm.to.feature if isinstance(self.mm.from_, Spz) else None
+        return self.mm.to.value_type if isinstance(self.mm.from_, Spz) else None
 
 
 class ToList(ContainerCast):
@@ -197,7 +199,7 @@ class ToList(ContainerCast):
         return [value for key, value in items_iter]
 
     def get_to_class(self, key):
-        return self.mm.to.feature if isinstance(self.mm.to, Spz) else None
+        return self.mm.to.value_type if isinstance(self.mm.to, Spz) else None
 
 
 class FromObject(ContainerCast):

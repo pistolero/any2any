@@ -2,7 +2,7 @@
 import datetime
 
 from base import Cast, CastSettings, Mm, Spz
-from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject
+from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject, ContainerType
 from types import FunctionType
 
 
@@ -13,9 +13,6 @@ class Identity(Cast):
         >>> Identity()('1')
         '1'
     """
-    defaults = CastSettings(
-        mm = Mm(object, object)
-    )
 
     def call(self, obj):
         return obj
@@ -29,9 +26,6 @@ class ToType(Cast):
         >>> to_int('1')
         1
     """
-    defaults = CastSettings(
-        mm = Mm(object, object)
-    )
 
     def call(self, obj):
         return self.mm.to(obj)
@@ -44,9 +38,7 @@ class DictToDict(FromDict, ToDict):
         >>> DictToDict()({'1': anObject1, 2: anObject2})
         {'1': 'its casted version 1', 2: 'its casted version 2'}
     """
-    defaults = CastSettings(
-        mm = Mm(dict, Spz(dict, object))
-    )
+    pass
 
 
 class ListToList(FromList, ToList):
@@ -56,9 +48,7 @@ class ListToList(FromList, ToList):
         >>> ListToList()([anObject1, anObject2])
         ['its casted version 1', 'its casted version 2']
     """
-    defaults = CastSettings(
-        mm = Mm(list, Spz(list, object))
-    )
+    pass
 
 
 class ObjectToDict(FromObject, ToDict):
