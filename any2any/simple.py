@@ -22,13 +22,13 @@ class ToType(Cast):
     """
     Dumb cast :
 
-        >>> to_int = ToType(mm=Mm(object, int)) # equivalent to >>> int('1')
+        >>> to_int = ToType(to=int) # equivalent to >>> int('1')
         >>> to_int('1')
         1
     """
 
     def call(self, obj):
-        return self.mm.to(obj)
+        return self.to(obj)
 
 
 class DictToDict(FromDict, ToDict):
@@ -69,13 +69,13 @@ class DictToObject(FromDict, ToObject):
     """
     Dictionary to object :
 
-        >>> cast = ObjectToDict(mm=Mm(from=dict, to=SomeObject))
+        >>> cast = DictToObject(to=SomeObject)
         >>> cast({'attr1': 'its casted value 1', 'attr2': 'its casted value 2'})
         <SomeObject>
     """
 
     def new_object(self, kwargs):
-        return self.mm.to()
+        return self.to()
 
 
 class DateTimeToDict(FromObject, ToDict):

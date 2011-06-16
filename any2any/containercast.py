@@ -146,7 +146,10 @@ class ContainerCast(Cast):
 
     def _get_key_cast(self):
         if not hasattr(self, '_custom_key_cast'):
-            self._custom_key_cast = self.key_cast.copy({'mm': self.mm})
+            self._custom_key_cast = self.key_cast.copy({
+                'from_': self.from_,
+                'to': self.to
+            })
         return self._custom_key_cast
             
 
@@ -187,7 +190,7 @@ class FromDict(ContainerCast):
         return inpt.iteritems()
 
     def get_from_class(self, key):
-        return self.mm.from_.value_type if isinstance(self.mm.from_, ContainerType) else NotImplemented
+        return self.from_.value_type if isinstance(self.from_, ContainerType) else NotImplemented
 
 
 class ToDict(ContainerCast):
@@ -196,7 +199,7 @@ class ToDict(ContainerCast):
         return dict(items_iter)
 
     def get_to_class(self, key):
-        return self.mm.to.value_type if isinstance(self.mm.to, ContainerType) else NotImplemented
+        return self.to.value_type if isinstance(self.to, ContainerType) else NotImplemented
 
 
 class FromList(ContainerCast):
@@ -205,7 +208,7 @@ class FromList(ContainerCast):
         return enumerate(inpt) 
 
     def get_from_class(self, key):
-        return self.mm.from_.value_type if isinstance(self.mm.from_, ContainerType) else NotImplemented
+        return self.from_.value_type if isinstance(self.from_, ContainerType) else NotImplemented
 
 
 class ToList(ContainerCast):
@@ -214,7 +217,7 @@ class ToList(ContainerCast):
         return [value for key, value in items_iter]
 
     def get_to_class(self, key):
-        return self.mm.to.value_type if isinstance(self.mm.to, ContainerType) else NotImplemented
+        return self.to.value_type if isinstance(self.to, ContainerType) else NotImplemented
 
 
 class FromObject(ContainerCast):

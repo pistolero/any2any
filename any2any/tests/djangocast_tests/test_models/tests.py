@@ -195,7 +195,7 @@ class DictToModel_Test(BaseModel):
         """
         Simple test DictToModel.call
         """
-        cast = DictToModel(mm=Mm(dict, Author))
+        cast = DictToModel(to=Author)
         authors_before = Author.objects.count()
         james = cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JC Ballard'})
         james = Author.objects.get(pk = james.pk)
@@ -211,7 +211,7 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize already existing object with an already existing foreignkey 
         """
-        book_cast = DictToModel(mm=Mm(dict, Book))
+        book_cast = DictToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
         book = book_cast.call({
@@ -232,7 +232,7 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize new object with new foreignkey with automatically picked PK. 
         """
-        book_cast = DictToModel(mm=Mm(dict, Book))
+        book_cast = DictToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
         book = book_cast.call({
@@ -256,7 +256,7 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize new object with new foreignkey, PK provided. 
         """
-        book_cast = DictToModel(mm=Mm(dict, Book))
+        book_cast = DictToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
         book = book_cast.call({
@@ -284,7 +284,7 @@ class DictToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand_cast = DictToModel(mm=Mm(dict, Gourmand))
+        gourmand_cast = DictToModel(to=Gourmand)
         gourmand = gourmand_cast.call({
             'id': self.gourmand.pk,
             'pseudo': 'Taaaaz',
@@ -311,7 +311,7 @@ class DictToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand_cast = DictToModel(mm=Mm(dict, Gourmand))
+        gourmand_cast = DictToModel(to=Gourmand)
         gourmand = gourmand_cast.call({
             'pseudo': 'Touz',
             'favourite_dishes': [
@@ -334,14 +334,14 @@ class DictToModel_Test(BaseModel):
         """
         Test DictToModel.call updating a reverse relationship (fk, m2m).
         """
-        cast = DictToModel(mm=Mm(dict, Journal))
+        cast = DictToModel(to=Journal)
         assert_raises(TypeError, cast.call, {
             'id': self.journal.id,
             'journalist_set': [],
         })
 
         self.gourmand.save()
-        cast = DictToModel(mm=Mm(dict, Dish))
+        cast = DictToModel(to=Dish)
         salmon = cast.call({
             'id': self.salmon.id,
             'gourmand_set': [
@@ -355,7 +355,7 @@ class DictToModel_Test(BaseModel):
         Test update an object with its natural key, natural key already existing.
         """
         columnist_before = Columnist.objects.count()
-        columnist_cast = DictToModel(mm=Mm(dict, Columnist), key_schema=('firstname', 'lastname'))
+        columnist_cast = DictToModel(to=Columnist, key_schema=('firstname', 'lastname'))
         jamy = columnist_cast.call({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
@@ -372,7 +372,7 @@ class DictToModel_Test(BaseModel):
         Test deserialize and create an object with its natural key.
         """
         columnist_before = Columnist.objects.count()
-        columnist_cast = DictToModel(mm=Mm(dict, Columnist), key_schema=('firstname', 'lastname'))
+        columnist_cast = DictToModel(to=Columnist, key_schema=('firstname', 'lastname'))
         fred = columnist_cast.call({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
@@ -390,7 +390,7 @@ class DictToModel_Test(BaseModel):
         """
         Test ModelToDict.call serializing date and datetime
         """
-        cast = DictToModel(mm=Mm(dict, Issue))
+        cast = DictToModel(to=Issue)
         issue = cast.call({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},

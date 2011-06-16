@@ -55,7 +55,7 @@ Converting a dictionary to an object
 
 This time, to create a cast we need to specify which metamorphosis it should realize, i.e., what is the model to deserialize the data to. For example, with the same author as before :
 
-    >>> cast = DictToModel(mm=Mm(dict, Author))
+    >>> cast = DictToModel(to=Author)
     >>> before = Author.objects.count()
     >>> author = cast({'firstname': 'John', 'lastname': 'Steinbeck'})
     >>> Author.objects.count() == before + 1 # An author was created
@@ -79,7 +79,7 @@ By specifying the id, you can now update this same author. Notice that no new ob
 
 You can also prevent the cast from creating an author at all, by setting the *create* setting of the cast to False. Then, exisiting objects are still updated :
 
-    >>> cast = DictToModel(mm=Mm(dict, Author), create=False)
+    >>> cast = DictToModel(to=Author, create=False)
     >>> before = Author.objects.count()
     >>> author = cast({'firstname': 'JC', 'lastname': 'Ballard', 'id': author.pk})
     >>> Author.objects.count() == before # No author was created
@@ -95,7 +95,7 @@ But if the object doesn't exist, :class:`DoesNotExist` error will be thrown :
 
 Of course, once again you can deserialize foreign-keys at any depth :
 
-    >>> cast = DictToModel(mm=Mm(dict, Book))
+    >>> cast = DictToModel(to=Book)
     >>> books_before = Book.objects.count() ; authors_before = Author.objects.count()
     >>> book = cast({
     ...     'author': {'firstname': 'George', 'lastname': 'Orwell'},
@@ -157,7 +157,7 @@ Deserializing with a natural key
 
 In order to deserialize an object by using a natural key, you can use the setting *key_schema*. For example, if I want to refer to my authors only by the pair ``(<firstname>, <lastname>)`` :
 
-    >>> cast = DictToModel(mm=Mm(dict, Author), key_schema=('firstname', 'lastname'))
+    >>> cast = DictToModel(to=Author, key_schema=('firstname', 'lastname'))
     >>> before = Author.objects.count()
     >>> author = cast({'firstname': 'George', 'lastname': 'Orwell', 'nickname': 'Jojo'})
     >>> Author.objects.count() == before # No author was created
@@ -175,7 +175,7 @@ To deserialize virtual attributes you need to use the setting *attrname_to_sette
     ...     obj.firstname = firstname
     ...     obj.lastname = lastname
     ...     
-    >>> cast = DictToModel(mm=Mm(dict, Author), attrname_to_setter={'combined_names': set_names})
+    >>> cast = DictToModel(to=Author, attrname_to_setter={'combined_names': set_names})
     >>> author = cast({'combined_names': 'Boris Vian'})
     >>> author.firstname, author.lastname
     ('Boris', 'Vian')
@@ -218,8 +218,8 @@ Setting a cast for a given attribute
 
 If you want to override the default behaviour only for a given attribute, you can use the setting *key_to_cast*. For example, say we want to deserialize authors by using the natural key ``(<firstname>, <lastname>)`` (see example above) :
 
-    >>> author_cast = DictToModel(mm=Mm(dict, Author), key_schema=('firstname', 'lastname'))
-    >>> book_cast = DictToModel(mm=Mm(dict, Book), key_to_cast={'author': author_cast})
+    >>> author_cast = DictToModel(to=Author, key_schema=('firstname', 'lastname'))
+    >>> book_cast = DictToModel(to=Book, key_to_cast={'author': author_cast})
     >>> author_before = Author.objects.count() ; book_before = Book.objects.count()
     >>> book = book_cast({
     ...     'title': 'Animal farm',

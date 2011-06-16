@@ -2,6 +2,10 @@
 """
 .. currentmodule:: any2any.base
 """
+# TODO : defaults declarable with just a dict
+# TODO : make Mm internal (out of sight), maybe to should be mandatory
+# TODO: 'input' instead of 'context'
+ 
 # Logging 
 #====================================
 # TODO : even cooler logging (html page with cast settings and so on)
@@ -236,11 +240,11 @@ class Cast(object):
 
     defaults = CastSettings(
         mm_to_cast = {},
-        mm = Mm(object, object),
+        from_=None,
+        to=None,
         logs = True,
         _schema = {
             'mm_to_cast': {'override': 'copy_and_update'},
-            'mm': {'type': Mm, 'customize': 'do_nothing'},
         },
     )
 
@@ -255,7 +259,14 @@ class Cast(object):
         self.settings.update(settings)
 
     def __repr__(self):
-        return '.'.join([self.__class__.__module__, '%s(%s)' % (self.__class__.__name__, self.mm)]) 
+        return '.'.join([self.__class__.__module__, '%s(%s->%s)' % (self.__class__.__name__, self.from_, self.to)]) 
+
+    @property
+    def from_(self):
+        if self.settings['from_'] == None:
+            return type(self.input)
+        else:
+            return self.settings['from_']
 
     def cast_for(self, mm):
         """
@@ -271,7 +282,7 @@ class Cast(object):
         closest_mm = mm.pick_closest_in(choices.keys())
         cast = choices[closest_mm]
         # builds a customized version of the cast, override settings
-        new_cast = cast.copy({'mm': mm})
+        new_cast = cast.copy({'from_': mm.from_, 'to': mm.to})
         new_cast._depth = cast._depth + 1
         new_cast.settings.customize(self.settings)
         return new_cast

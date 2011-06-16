@@ -18,7 +18,7 @@ class ManagerToList(FromList, ToList, ContainerCast):
     """
 
     defaults = CastSettings(
-        mm = Mm(list, ListOfDicts)
+        to = ListOfDicts
     )
 
     def iter_input(self, inpt):
@@ -146,7 +146,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
     This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to :
 
-        >>> cast = DictToModel(mm=Mm(dict, MyModel))
+        >>> cast = DictToModel(to=MyModel)
 
     :class:`DictToModel` defines the following settings :
 
@@ -160,7 +160,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     )
 
     def get_model(self):
-        return self.mm.to
+        return self.to
 
     def get_to_class(self, field_name):
         model = self.get_model()

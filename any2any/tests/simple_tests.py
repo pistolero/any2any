@@ -143,7 +143,7 @@ class DictToObject_Test(Container_Test):
         """
         Test call
         """
-        cast = DictToObject(mm=Mm(dict, self.Object))
+        cast = DictToObject(to=self.Object)
         obj = cast.call({'a1': 90, 'blabla': 'coucou'})
         ok_(isinstance(obj, self.Object))
         ok_(obj.a1 == 90)
@@ -154,7 +154,7 @@ class DictToObject_Test(Container_Test):
         Test call, with a custom cast for attributes
         """
         cast = DictToObject(
-            mm=Mm(dict, self.Object),
+            to=self.Object,
             mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
@@ -172,7 +172,7 @@ class DictToObject_Test(Container_Test):
             obj.virt1 = value
             obj.virt2 = value
         cast = DictToObject(
-            mm=Mm(dict, self.Object),
+            to=self.Object,
             attrname_to_setter={'a': set_my_virtual_attr},
         )
         obj = cast.call({'a': 90})
