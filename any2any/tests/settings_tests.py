@@ -10,7 +10,7 @@ class CastSettings_Test(object):
     def setUp(self):
         self.settings = CastSettings(
             _schema={
-                'a_setting': {'override': 'update_item', 'customize': 'update_item'},
+                'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
                 'another': {'type': int},
             },
             a_setting={'a': 1, 'b': 2},
@@ -29,7 +29,7 @@ class CastSettings_Test(object):
             'more': {'c': 'C'},
         })
         ok_(self.settings._schema == {
-            'a_setting': {'override': 'update_item', 'customize': 'update_item'},
+            'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
             'another': {'type': int},
             'more': {},
         })
@@ -61,7 +61,7 @@ class CastSettings_Test(object):
         ok_(self.settings._values['moremore'] == {'D': 'd'})
         ok_(self.settings._values['more'] == {'c': 'C'})
         ok_(self.settings._schema == {
-            'a_setting': {'override': 'update_item', 'customize': 'update_item'},
+            'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
             'moremore': {1: 2},
             'more': {},
             'another': {'type': int},
@@ -80,7 +80,7 @@ class CastSettings_Test(object):
         ok_(not 'moremore' in self.settings._values)
         ok_(self.settings._values['more'] == {'c': 'C'})
         ok_(self.settings._schema == {
-            'a_setting': {'override': 'update_item', 'customize': 'update_item'},
+            'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
             'another': {'type': int},
             'more': {},
         })
@@ -94,21 +94,7 @@ class CastSettings_Test(object):
         ok_(not settings_copy._values is self.settings._values)
         ok_(settings_copy._schema == self.settings._schema)
         ok_(not settings_copy._schema is self.settings._schema)
-        ok_(not settings_copy._values['more'] is self.settings._values['more']) # Because dict are copied
-        ok_(settings_copy._values['another'] is self.settings._values['another']) # Because int is immutable
-        ok_(not settings_copy._values['a_setting'] is self.settings._values['a_setting'])
-
-    def delegate_test(self):
-        """
-        Test delegation between two settings
-        """
-        settings = CastSettings(
-            _schema={'a_setting': {}, 'moremore': {'delegate': 'a_setting'}, 'another': {'delegate': 'a_setting'}},
-        )
-        settings['moremore'] = 78
-        ok_(settings._values['a_setting'] == 78)
-        ok_(settings._values.get('another', None) == None)
-        settings['a_setting'] = 56
-        ok_(settings._values['moremore'] == 56)
-        ok_(settings._values['another'] == 56)
+        ok_(settings_copy._values['more'] is self.settings._values['more'])
+        ok_(settings_copy._values['another'] is self.settings._values['another'])
+        ok_(settings_copy._values['a_setting'] is self.settings._values['a_setting'])
 

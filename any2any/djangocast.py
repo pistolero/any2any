@@ -7,9 +7,10 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.simple import FromList, ToList, ContainerCast, FromObject, ToDict, FromDict, ToObject
+from any2any.containercast import FromList, ToList, ContainerCast, FromObject, ToDict, FromDict, ToObject, ContainerType
 from any2any.base import Cast, CastSettings, Mm, Spz, register
 
+ListOfDicts = ContainerType(list, value_type=dict)
 
 class ManagerToList(FromList, ToList, ContainerCast):
     """
@@ -17,7 +18,7 @@ class ManagerToList(FromList, ToList, ContainerCast):
     """
 
     defaults = CastSettings(
-        mm = Mm(list, Spz(list, dict))
+        mm = Mm(list, ListOfDicts)
     )
 
     def iter_input(self, inpt):
@@ -105,7 +106,7 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
                 return dict
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):
-                return Spz(list, dict)
+                return ListOfDicts
             # If "complex" Python object, we want a dict
             elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
                 return dict
@@ -116,7 +117,7 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
             # If related manager
             if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
-                return Spz(list, dict)
+                return ListOfDicts
             else:
                 return object
         else:
@@ -153,9 +154,9 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
     """
 
     defaults = CastSettings(
-        class_to_setter = {Spz(list, djmodels.Model): set_related},
+        class_to_setter = {ContainerType(list, value_type=djmodels.Model): set_related},
         create = True,
-        _schema = {'class_to_setter': {'override': 'update_item'}}
+        _schema = {'class_to_setter': {'override': 'copy_and_update'}}
     )
 
     def get_model(self):
@@ -171,7 +172,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
                 return field.rel.to
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):
-                return Spz(list, field.rel.to)
+                return ContainerType(list, value_type=field.rel.to)
             # "Complex" Python types to the right type 
             elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
                 return {
@@ -185,20 +186,11 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
             # If related manager
             if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
-                return Spz(list, model_attr.related.model)
+                return ContainerType(list, value_type=model_attr.related.model)
             else:
                 return object
         else:
             return object
-            
-    def get_item_mm(self, key, value):
-        """
-        Returns:
-            Mm. The metamorphosis to apply on item *key*, *value*.
-        """
-        from_ = self.get_from_class(key) or type(value)
-        to = self.get_to_class(key) or object
-        return Mm(from_, to)
 
     def new_object(self, items):
         """
@@ -225,6 +217,6 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         return obj
 
 
-register(ManagerToList(), Mm(from_any=djmodels.Manager, to=Spz(list, dict)))
+register(ManagerToList(), Mm(from_any=djmodels.Manager, to=ListOfDicts))
 register(ModelToDict(), Mm(from_any=djmodels.Model, to=dict))
 register(DictToModel(), Mm(dict, to_any=djmodels.Model))

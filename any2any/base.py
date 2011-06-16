@@ -26,7 +26,7 @@ import collections
 from functools import wraps
 from types import FunctionType
 
-from utils import Mm, Spz, copied_values
+from utils import Mm, Spz
 
 mm_to_cast = {}
 """
@@ -59,42 +59,22 @@ class CastSettings(collections.MutableMapping):
 
     - *override* : method to use when overriding the setting :
 
-        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'override': 'update_item'}})
+        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'override': 'copy_and_update'}})
         >>> c.override({'my_setting': {'b': 2}})
         >>> c['my_setting'] == {'a': 1, 'b': 2}
         True
 
     - *customize* : method to use when customizing the setting :
 
-        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'customize': 'update_item'}})
+        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'customize': 'copy_and_update'}})
         >>> c.customize({'my_setting': {'b': 2}})
         >>> c['my_setting'] == {'a': 1, 'b': 2}
         True
-    """
-    """
-    - *delegate* : synchronizes two settings together :
-
-        >>> c1 = CastSettings(my_setting=1)
-        >>> c2 = CastSettings(another_setting=56, _schema={'another_setting': {'delegate': 'my_setting'}})
-        >>> c1.override(c2)
-        >>> c['my_setting'] == 56
-        True
-        >>> c['another_setting'] = 59
-        >>> c['my_setting']
-        59
     """
     def __init__(self, _schema={}, **settings):
         # initializing the schema
         self._schema = dict.fromkeys(settings, {})
         self._schema.update(_schema)
-        for name, value in _schema.items():
-            # TODO: Not quite working yet, cause problems with overriding
-            if 'delegate' in value:
-                delegate = value['delegate']
-                if not delegate in self:
-                    raise ValueError("Invalid 'delegate', setting '%s' is not defined" % delegate)
-                _delegated_by = self._schema[delegate].setdefault('_delegated_by', [])
-                _delegated_by.append(name)
         # initializing the values
         self._values = dict()
         self.update(settings)
@@ -111,13 +91,7 @@ class CastSettings(collections.MutableMapping):
             type_check = self._schema[name].get('type', None)
             if type_check and not isinstance(value, type_check):
                 raise TypeError("Value for setting '%s' must be of type '%s'" % (name, type_check))
-            # handling delegation
-            delegate = self._schema[name].get('delegate', None)
-            _delegated_by = self._schema[name].get('_delegated_by', [])
-            to_update = _delegated_by + ([delegate] if delegate else [])
-            for uname in to_update:
-                self._values[uname] = value
-            # at last, setting the value
+            # setting the value
             self._values[name] = value
         else:
             raise TypeError("Setting '%s' is not defined" % name)
@@ -136,9 +110,9 @@ class CastSettings(collections.MutableMapping):
         return iter(self._values)
 
     def __copy__(self):
+        # Only shallow copy is realized
         copied = {'_schema': self._schema.copy()}
-        for name, value in self.iteritems():
-            copied[name] = copy.copy(value)
+        copied.update(self)
         return self.__class__(**copied)
 
     def override(self, settings):
@@ -171,10 +145,10 @@ class CastSettings(collections.MutableMapping):
             else:
                 getattr(self, meth)(name, value)   
 
-    def update_item(self, name, value):
-        new_value = self.get(name, None)
+    def copy_and_update(self, name, value):
+        new_value = copy.copy(self.get(name, None))
         if new_value: new_value.update(value)
-        self[name] = new_value or value
+        self[name] = new_value or copy.copy(value)
 
     def do_nothing(self, name, value):
         pass
@@ -265,7 +239,7 @@ class Cast(object):
         mm = Mm(object, object),
         logs = True,
         _schema = {
-            'mm_to_cast': {'override': 'update_item'},
+            'mm_to_cast': {'override': 'copy_and_update'},
             'mm': {'type': Mm, 'customize': 'do_nothing'},
         },
     )

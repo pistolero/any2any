@@ -21,7 +21,7 @@ DATABASES = {
 ROOT_URLCONF = 'tests.urls'
 
 INSTALLED_APPS = (
-    'djangocast_tests.models',
+    'djangocast_tests.test_models',
     'django.contrib.contenttypes',
     'django_nose',
 )

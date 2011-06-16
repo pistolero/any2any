@@ -6,7 +6,7 @@ Basic usage
 
 First, we'll import our casts, and a few models we'll demontrate with :
 
-    >>> from models.models import Author, Book, Dish, Gourmand
+    >>> from djangocast_tests.test_models.models import Author, Book, Dish, Gourmand
     >>> from any2any.djangocast import ModelToDict, DictToModel, Mm
 
 Converting an object to a dictionary
