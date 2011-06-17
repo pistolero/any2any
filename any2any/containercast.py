@@ -3,15 +3,15 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, Mm
-from utils import closest_parent, Spz
+from base import Cast
+from utils import closest_parent, SpecializedType, Mm
 
 
-class ContainerType(Spz):
+class ContainerType(SpecializedType):
     """
     Specialization for container types. For example, the following stands for "a list of int" :
 
-        >>> my_container_type = ContainerType(list, value_type=int)
+        >>> ListOfInt = ContainerType(list, value_type=int)
     """
 
     defaults = {'value_type': object}
@@ -28,7 +28,10 @@ class ContainerType(Spz):
 
 class ContainerCast(Cast):
     """
-    Base cast for metamorphosing `from` and `to` containers-like objects. By "container", we mean any object that holds other objects. This actually means : any Python object (because an object contains attributes), any kind of sequence, any kind of mapping, ...
+    Base cast for metamorphosing `from` and `to` containers-like objects.
+    By "container", we mean any object that holds other objects.
+    This basically means : any Python object (because an object contains attributes),
+    any kind of sequence, any kind of mapping, ...
 
     Let's use the same terms as for Python dictionaries and call :
 
@@ -44,9 +47,9 @@ class ContainerCast(Cast):
 
     :class:`ContainerCast` defines the following settings :
 
-        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use on the corresponding value.
+        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use.
         - value_cast(Cast). The cast to use on all values.
-        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize on the corresponding value.
+        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize.
     """
     #TODO: document key_cast + item_strip
     #TODO: key_cast is ugly ...
@@ -160,7 +163,7 @@ class ContainerCast(Cast):
             value (object). Item's value, before casting.
 
         Returns:
-            bool. True if the item should be stripped from the output, False to keep it.
+            bool. True to strip the item, False to keep it.
         """
         return False
 

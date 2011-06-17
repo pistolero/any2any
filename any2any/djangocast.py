@@ -8,7 +8,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any.containercast import FromList, ToList, ContainerCast, FromObject, ToDict, FromDict, ToObject, ContainerType
-from any2any.base import Cast, Mm, Spz, register
+from any2any.base import Cast, register
+from any2any.utils import Mm
 
 ListOfDicts = ContainerType(list, value_type=dict)
 

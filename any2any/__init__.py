@@ -4,7 +4,7 @@ import datetime
 from simple import (ListToList, DictToDict, Identity, ObjectToDict,
 DictToObject, DateToDict, DateTimeToDict, DictToDate, DictToDateTime, ContainerType)
 from base import register#, cast_map
-from utils import Spz, Mm
+from utils import Mm
 
 register(Identity(), Mm(from_any=object, to_any=object))
 

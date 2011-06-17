@@ -3,7 +3,8 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, Mm, Spz
+from base import Cast
+from utils import Mm
 from containercast import FromDict, ToDict
 from simple import Identity
 

@@ -7,7 +7,8 @@ Basic usage
 First, we'll import our casts, and a few models we'll demontrate with :
 
     >>> from djangocast_tests.test_models.models import Author, Book, Dish, Gourmand
-    >>> from any2any.djangocast import ModelToDict, DictToModel, Mm
+    >>> from any2any.djangocast import ModelToDict, DictToModel
+    >>> from any2any.utils import Mm
 
 Converting an object to a dictionary
 =====================================
@@ -200,7 +201,8 @@ Say we want all the authors to be serialized to their complete name. To do that,
 
 And set it as default for all instances of Author :
 
-    >>> from any2any.base import register, Mm
+    >>> from any2any.base import register
+    >>> from any2any.utils import Mm
     >>> register(author_cast, Mm(Author, dict))
 
 Now, when serializing a book, the author will be only a name :

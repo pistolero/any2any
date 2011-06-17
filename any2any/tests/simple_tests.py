@@ -2,6 +2,7 @@ import datetime
 
 from nose.tools import assert_raises, ok_
 from any2any.base import *
+from any2any.utils import *
 from any2any.simple import *
 
 class Identity_Test(object):

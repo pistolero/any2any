@@ -21,8 +21,6 @@ class ClassSet(object):
     def __ne__(self, other):
         return not self == other
 
-    # NB : We cannot use total_ordering,
-    # because there are cases where two sets are not comparable
     def __lt__(self, other):
         # *other* can include self, only if *other* is not a singleton.
         # So there are only 2 cases where self < other:
@@ -67,7 +65,7 @@ class Metamorphosis(object):
         from_any(type). Metamorphosis from type *from_any* and subclasses.
         to_any(type). Metamorphosis from type *to_any* and subclasses.
     """
-    #TODO: refactor for having sets, and single mm (for mm setting of casts)
+    #TODO: refactor for having sets, and single mm
     def __init__(self, from_=None, to=None, from_any=None, to_any=None):
         if from_any and from_:
             raise TypeError("Arguments 'from_any' and 'from_' cannot be provided at the same time")
@@ -173,25 +171,11 @@ class Metamorphosis(object):
 Mm = Metamorphosis
 
 
-class Specialization(abc.ABCMeta):
+class SpecializedType(abc.ABCMeta):
     """
-    A class for building specialized classes. For example, this allows to define ``a list of int`` :
-
-        >>> int_list = Spz(list, int)
-        >>> object_list = Spz(list, object)
-        
-    Then, using :meth:`issubclass` :
-        
-        >>> issubclass(int_list, list)
-        True
-        >>> issubclass(list, int_list)
-        False
-        >>> issubclass(int_list, object_list)
-        True
-        >>> issubclass(object_list, int_list)
-        False
+    A metaclass for building specialized types.
     """
-    #TODO: rewrite doc
+    #TODO: improve
 
     defaults = {}
 
@@ -199,7 +183,7 @@ class Specialization(abc.ABCMeta):
         name = 'SpzOf%s' % base.__name__.capitalize()
         bases = (base,)
         attrs = copy.copy(cls.defaults)
-        new_spz = super(Specialization, cls).__new__(cls, name, bases, attrs)
+        new_spz = super(SpecializedType, cls).__new__(cls, name, bases, attrs)
         new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz
 
@@ -219,13 +203,12 @@ class Specialization(abc.ABCMeta):
         return NotImplemented
 
     def __eq__(self, other):
-        if isinstance(other, Specialization):
+        if isinstance(other, SpecializedType):
             return (self.__bases__ == other.__bases__) and (self.features() == other.features())
         else:
-            return False  
-Spz = Specialization
+            return False
 
-
+            
 def closest_parent(klass, other_classes):
     """
     Returns:
@@ -252,4 +235,3 @@ def closest_parent(klass, other_classes):
         return object
     else:
         return sorted(candidates, key=K)[0]
-

@@ -28,8 +28,6 @@ import collections
 from functools import wraps
 from types import FunctionType
 
-from utils import Mm, Spz
-
 mm_to_cast = {}
 """
 dict. This dictionary maps a :class:`Mm` to a :class:`Cast`. This is any2any's global default mapping.
@@ -50,14 +48,8 @@ class CastSettings(collections.MutableMapping):
         >>> c['my_other_setting']
         1
 
-    The constructor optionally takes a keyword `_schema` that allows to configure different things for a given setting. For each setting, the schema can contain :
-
-    - *type* : an exception is thrown if the setting's value isn't an instance of `type` :
-
-        >>> c = CastSettings(my_setting=1, _schema={'my_setting': {'type': int}})
-        >>> c['my_setting'] = 'a' #doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-        TypeError: message
+    The constructor optionally takes a keyword `_schema` that allows to configure different things for a given setting.
+    For each setting, the schema can contain :
 
     - *override* : method to use when overriding the setting :
 
@@ -89,11 +81,6 @@ class CastSettings(collections.MutableMapping):
 
     def __setitem__(self, name, value):
         if name in self:
-            # handling type checking
-            type_check = self._schema[name].get('type', None)
-            if type_check and not isinstance(value, type_check):
-                raise TypeError("Value for setting '%s' must be of type '%s'" % (name, type_check))
-            # setting the value
             self._values[name] = value
         else:
             raise TypeError("Setting '%s' is not defined" % name)
@@ -118,10 +105,8 @@ class CastSettings(collections.MutableMapping):
         return self.__class__(**copied)
 
     def override(self, settings):
-        """
-        Updates the calling instance and its schema with *settings*. The updating behaviour is taken from `_schema`.
-        This method shall be used for inheritance of settings between two classes.
-        """
+        # Updates the calling instance and its schema with *settings*.
+        # This method is used for inheritance of settings between two classes.
         # Handling schema updating
         if isinstance(settings, CastSettings):
             _schema = settings._schema
@@ -141,10 +126,8 @@ class CastSettings(collections.MutableMapping):
             getattr(self, meth)(name, value)
 
     def customize(self, settings):
-        """
-        Updates the calling instance with *settings*. The updating behaviour is taken from `_schema`.
-        This method shall be used for transmission of settings between two cast instances.
-        """
+        # Updates the calling instance with *settings*.
+        # This method is used for transmission of settings between two cast instances.
         for name, value in copy.copy(settings).items():
             try:
                 meth = self._schema[name].get('customize', '__setitem__')
@@ -229,11 +212,12 @@ class Cast(object):
 
         - mm_to_cast(dict). ``{<mm>: <cast>}``. It allows to specify which cast :meth:`Cast.cast_for` should pick for a given metamorphosis (see also : :ref:`How<configuring-cast_for>` to use *mm_to_cast*).
 
-        - mm(:class:`utils.Mm`). The metamorphosis the cast is customized for.
+        - to(type). The type to cast to.
+        
+        - from_(type). The type to cast from. If not given, the type of the input is used.
 
         - logs(bool). If True, the cast writes debug to :var:`logger`.
     """
-    #TODO: doc
 
     __metaclass__ = CastType
 
@@ -272,7 +256,7 @@ class Cast(object):
     def cast_for(self, mm):
         """
         Returns:
-            Cast. A cast suitable for metamorphosis *mm*, and overriden with calling cast's settings.
+            Cast. A cast suitable for metamorphosis *mm*, and customized with calling cast's settings.
 
         .. seealso:: :ref:`How<configuring-cast_for>` to control the behaviour of *cast_for*.
         """

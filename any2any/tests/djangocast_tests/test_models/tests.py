@@ -13,7 +13,7 @@ class IntrospectMixin_Test(object):
     def setUp(self):
         # hack to have a model
         class Introspect(IntrospectMixin):
-            defaults = CastSettings(
+            defaults = dict(
                 model = Columnist
             )
             def call(self): pass

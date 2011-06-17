@@ -160,7 +160,7 @@ class Specialization_Test(object):
         ok_(not issubclass(object, int))
         ok_(issubclass(object, object))
         # specialization + built-in type
-        ok_(issubclass(Spz(str), str))
-        ok_(not issubclass(str, Spz(str)))
-        ok_(issubclass(Spz(str), Spz(str)))
-        ok_(issubclass(Spz(Spz(str)), Spz(str)))
+        ok_(issubclass(SpecializedType(str), str))
+        ok_(not issubclass(str, SpecializedType(str)))
+        ok_(issubclass(SpecializedType(str), SpecializedType(str)))
+        ok_(issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
