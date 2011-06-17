@@ -2,9 +2,7 @@
 """
 .. currentmodule:: any2any.base
 """
-# TODO : defaults declarable with just a dict
 # TODO : make Mm internal (out of sight), maybe to should be mandatory
-# TODO: 'input' instead of 'context'
  
 # Logging 
 #====================================
@@ -126,11 +124,17 @@ class CastSettings(collections.MutableMapping):
         """
         # Handling schema updating
         if isinstance(settings, CastSettings):
-            for name, value in settings._schema.items():
-                if name in self._schema:
-                    self._schema[name].update(value)
-                else:
-                    self._schema[name] = copy.copy(value)
+            _schema = settings._schema
+        elif isinstance(settings, dict):
+            _schema = settings.pop('_schema', {})
+        for name, value in _schema.items():
+            if name in self._schema:
+                self._schema[name].update(value)
+            else:
+                self._schema[name] = copy.copy(value)
+        # Create default schema for all settings
+        for name in settings:
+            self._schema.setdefault(name, {})
         # Handling settings updating
         for name, value in copy.copy(settings).items():
             meth = self._schema[name].get('override', '__setitem__')
@@ -160,24 +164,18 @@ class CastSettings(collections.MutableMapping):
 
 class CastType(abc.ABCMeta):
 
-    def __new__(cls, name, bases, attrs):
+    def __new__(cls, name, bases, attrs):        
         # handling multiple inheritance of defaults
-        new_defaults = attrs.pop('defaults', CastSettings())
+        new_defaults = attrs.pop('defaults', {})
+        attrs['defaults'] = CastSettings()
         cast_bases = filter(lambda b: isinstance(b, CastType), bases)
-        if cast_bases:
-            attrs['defaults'] = CastSettings()
-            for base in reversed(cast_bases):
-                attrs['defaults'].override(base.defaults)
-            attrs['defaults'].override(new_defaults)
-        else: # in the case the new class is Cast itself
-            attrs['defaults'] = new_defaults
-
+        for base in reversed(cast_bases):
+            attrs['defaults'].override(base.defaults)
+        attrs['defaults'].override(new_defaults)
         # creating new class
         new_cast_class = super(CastType, cls).__new__(cls, name, bases, attrs)
-
         # wrapping *call* to automate logging and context management
         new_cast_class.call = cls.operation_wrapper(new_cast_class.call, new_cast_class)
-
         return new_cast_class
 
     # NB : For all wrappers, we should avoid raising errors if it is not justified ... not to mix-up the user. 
@@ -235,16 +233,19 @@ class Cast(object):
 
         - logs(bool). If True, the cast writes debug to :var:`logger`.
     """
+    #TODO: doc
 
     __metaclass__ = CastType
 
-    defaults = CastSettings(
+    defaults = dict(
         mm_to_cast = {},
-        from_=None,
-        to=None,
+        from_ = None,
+        to = None,
         logs = True,
         _schema = {
             'mm_to_cast': {'override': 'copy_and_update'},
+            'to': {'customize': 'do_nothing'},
+            'from_': {'customize': 'do_nothing'},
         },
     )
 

@@ -3,7 +3,7 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, CastSettings, Mm
+from base import Cast, Mm
 from utils import closest_parent, Spz
 
 
@@ -51,7 +51,7 @@ class ContainerCast(Cast):
     #TODO: document key_cast + item_strip
     #TODO: key_cast is ugly ...
 
-    defaults = CastSettings(
+    defaults = dict(
         key_to_cast = {},
         key_to_mm = {},
         value_cast = None,
@@ -222,7 +222,7 @@ class ToList(ContainerCast):
 
 class FromObject(ContainerCast):
     
-    defaults = CastSettings(
+    defaults = dict(
         class_to_getter = {object: getattr,},
         attrname_to_getter = {},
         include = None,
@@ -273,7 +273,7 @@ class FromObject(ContainerCast):
 
 class ToObject(ContainerCast):
     
-    defaults = CastSettings(
+    defaults = dict(
         class_to_setter = {object: setattr,},
         attrname_to_setter = {}
     )

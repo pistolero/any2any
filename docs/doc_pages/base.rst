@@ -33,22 +33,22 @@ Defining/overriding settings
 Defining or overriding new settings if very straightforward.
 
     >>> from any2any.base import Cast, CastSettings
-    >>> class AnyToBasestring(Cast):
+    >>> class AnyToAnyBasestring(Cast):
     ...   
     ...     defaults = CastSettings(
     ...         prefix = '',                # new setting *prefix*
     ...         suffix = '',                # new setting *suffix*
-    ...         mm = Mm(object, str),       # override value of Cast's *mm* setting
+    ...         to = str,                   # override value of Cast's *to* setting
     ...     )
     ...     
     ...     def call(self, inpt):
-    ...         output_class = self.mm.to
+    ...         output_class = self.to
     ...         return output_class('%s%s%s' % (self.prefix, inpt, self.suffix))
     ... 
 
 The constructor of a cast accepts any defined setting as keyword argument :
 
-    >>> cast = AnyToBasestring(mm=Mm(object, unicode), prefix='value:')
+    >>> cast = AnyToAnyBasestring(to=unicode, prefix='value:')
     >>> cast(88)
     u'value:88'
 
@@ -121,31 +121,31 @@ Of course, there wouldn't be much fun if you couldn't configure what cast :meth:
 You can register a cast as global default for a metamorphosis, using the function :func:`register` :
 
     >>> from any2any.base import register
-    >>> class AnyToBasestring(Cast):
+    >>> class AnyToAnyBasestring(Cast):
     ...   
     ...     defaults = CastSettings(
-    ...         mm = Mm(object, str),
+    ...         to = str,
     ...     )
     ...     
     ...     def call(self, inpt):
-    ...         output_class = self.mm.to
+    ...         output_class = self.to
     ...         return output_class('%s' % inpt)
     ...
-    >>> default_any2str = AnyToBasestring()
+    >>> default_any2str = AnyToAnyBasestring()
     >>> register(default_any2str, Mm(from_any=object, to_any=basestring))
 
 Then :meth:`Cast.cast_for` will pick it if it is the best match
 
     >>> cast = MyCast()
     >>> any2str = cast.cast_for(Mm(int, str))
-    >>> isinstance(any2str, AnyToBasestring)
+    >>> isinstance(any2str, AnyToAnyBasestring)
     True
 
 Note that the cast returned by :meth:`Cast.cast_for` if not the instance you registered ... it is a copy customized for your needs :
 
-    >>> any2str.mm == Mm(int, str)
+    >>> any2str.from_ == int
     True
-    >>> default_any2str.mm == Mm(object, str)
+    >>> default_any2str.from_ == None
     True
 
 This allows the returned cast to be a little more clever, and output the requested type :
@@ -204,8 +204,8 @@ Finally, after a few calls, we can check that the logging worked :
     >>> spitted = cast.call(1)
     >>> fd.seek(0)
     >>> print fd.read()
-    any2any.simple.Identity(Mm(<type 'object'>, <type 'object'>)).call <= 1
-    any2any.simple.Identity(Mm(<type 'object'>, <type 'object'>)).call => 1
+    any2any.simple.Identity(None->None).call <= 1
+    any2any.simple.Identity(None->None).call => 1
     <BLANKLINE>
     <BLANKLINE>
 

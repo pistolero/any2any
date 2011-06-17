@@ -8,7 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any.containercast import FromList, ToList, ContainerCast, FromObject, ToDict, FromDict, ToObject, ContainerType
-from any2any.base import Cast, CastSettings, Mm, Spz, register
+from any2any.base import Cast, Mm, Spz, register
 
 ListOfDicts = ContainerType(list, value_type=dict)
 
@@ -17,7 +17,7 @@ class ManagerToList(FromList, ToList, ContainerCast):
     Casts a manager to a list of casted elements.
     """
 
-    defaults = CastSettings(
+    defaults = dict(
         to = ListOfDicts
     )
 
@@ -30,7 +30,7 @@ class IntrospectMixin(Cast):
     Mixin for introspecting a model.
     """
 
-    defaults = CastSettings(
+    defaults = dict(
         key_schema = ('id',),
     )
 
@@ -153,7 +153,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
     """
 
-    defaults = CastSettings(
+    defaults = dict(
         class_to_setter = {ContainerType(list, value_type=djmodels.Model): set_related},
         create = True,
         _schema = {'class_to_setter': {'override': 'copy_and_update'}}
@@ -169,6 +169,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
         if field:
             # If fk, we return the right model
             if isinstance(field, djmodels.ForeignKey):
+                #import pdb ; pdb.set_trace()
                 return field.rel.to
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):

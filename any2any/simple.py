@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 
-from base import Cast, CastSettings, Mm, Spz
+from base import Cast, Mm, Spz
 from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject, ContainerType
 from types import FunctionType
 

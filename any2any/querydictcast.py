@@ -3,7 +3,7 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, CastSettings, Mm, Spz
+from base import Cast, Mm, Spz
 from containercast import FromDict, ToDict
 from simple import Identity
 
@@ -53,7 +53,7 @@ class QueryDictCast(FromDict, ToDict):
         True
     """
 
-    defaults = CastSettings(
+    defaults = dict(
         mm_to_cast = {
             Mm(list, object): ListToFirstElem(),
             Mm(from_any=object, to=list): OneElemToList(),
