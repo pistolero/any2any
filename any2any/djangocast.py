@@ -95,7 +95,7 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
     """
 
     def get_model(self):
-        return type(self._context['input'])
+        return self.from_
 
     def get_to_class(self, field_name):
         model = self.get_model()
@@ -119,10 +119,9 @@ class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
             if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
                 return ListOfDicts
-            else:
-                return object
         else:
-            return object
+            pass
+        return NotImplemented
 
     def attr_names(self):
         return self.fields.keys()
@@ -189,10 +188,9 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
             if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
                 return ContainerType(list, value_type=model_attr.related.model)
-            else:
-                return object
         else:
-            return object
+            pass
+        return NotImplemented
 
     def new_object(self, items):
         """

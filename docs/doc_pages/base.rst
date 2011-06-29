@@ -204,8 +204,8 @@ Finally, after a few calls, we can check that the logging worked :
     >>> spitted = cast.call(1)
     >>> fd.seek(0)
     >>> print fd.read()
-    any2any.simple.Identity(None->None).call <= 1
-    any2any.simple.Identity(None->None).call => 1
+    any2any.simple.Identity(<type 'int'>->None).call <= 1
+    any2any.simple.Identity(<type 'int'>->None).call => 1
     <BLANKLINE>
     <BLANKLINE>
 

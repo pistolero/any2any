@@ -7,6 +7,7 @@
 # Logging 
 #====================================
 # TODO : even cooler logging (html page with cast settings and so on)
+# TODO : rename to 'debug', and have a simpler way to activate that
 # anyways, logging needs a bit refactoring.
 import logging
 
@@ -105,7 +106,7 @@ class CastSettings(collections.MutableMapping):
         return self.__class__(**copied)
 
     def override(self, settings):
-        # Updates the calling instance and its schema with *settings*.
+        # Performes override of the calling instance and its schema with *settings*.
         # This method is used for inheritance of settings between two classes.
         # Handling schema updating
         if isinstance(settings, CastSettings):
@@ -126,11 +127,11 @@ class CastSettings(collections.MutableMapping):
             getattr(self, meth)(name, value)
 
     def customize(self, settings):
-        # Updates the calling instance with *settings*.
+        # Customizes the calling instance with *settings*.
         # This method is used for transmission of settings between two cast instances.
         for name, value in copy.copy(settings).items():
             try:
-                meth = self._schema[name].get('customize', '__setitem__')
+                meth = self._schema[name].get('customize', 'do_nothing')
             except KeyError:
                 pass #TODO : propagation of setting breaks if different cast type in between ...
             else:
@@ -191,13 +192,15 @@ class CastType(abc.ABCMeta):
             # context management : should be first, because logging might use it.
             self._context = {'input': args[0] if args else None}
             # logging
-            self.log('%s.%s' % (self, operation.__name__) + ' <= ' + repr(args[0] if args else None), 'start', throughput=args[0] if args else None)
+            if self.logs:
+                self.log('%s.%s' % (self, operation.__name__) + ' <= ' + repr(args[0] if args else None), 'start', throughput=args[0] if args else None)
             # the actual operation
             returned = operation(self, *args, **kwargs)
             # logging
-            self.log('%s.%s' % (self, operation.__name__) + ' => ' + repr(returned), 'end', throughput=returned)
-            if self._depth == 0:
-                self.log('')
+            if self.logs:
+                self.log('%s.%s' % (self, operation.__name__) + ' => ' + repr(returned), 'end', throughput=returned)
+                if self._depth == 0:
+                    self.log('')
             # context management
             self._context = None
             return returned
@@ -225,11 +228,10 @@ class Cast(object):
         mm_to_cast = {},
         from_ = None,
         to = None,
-        logs = True,
+        logs = False,
         _schema = {
-            'mm_to_cast': {'override': 'copy_and_update'},
-            'to': {'customize': 'do_nothing'},
-            'from_': {'customize': 'do_nothing'},
+            'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
+            'logs': {'customize': '__setitem__'},
         },
     )
 
@@ -244,12 +246,12 @@ class Cast(object):
         self.settings.update(settings)
 
     def __repr__(self):
-        return '.'.join([self.__class__.__module__, '%s(%s->%s)' % (self.__class__.__name__, self.from_, self.to)]) 
+        return '%s.%s(%s->%s)' % (self.__class__.__module__, self.__class__.__name__, self.from_, self.to) 
 
     @property
     def from_(self):
-        if self.settings['from_'] == None:
-            return type(self.input)
+        if self.settings['from_'] == None and self._context:
+            return type(self._context['input'])
         else:
             return self.settings['from_']
 

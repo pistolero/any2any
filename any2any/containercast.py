@@ -59,9 +59,6 @@ class ContainerCast(Cast):
         key_to_mm = {},
         value_cast = None,
         key_cast = None,
-        _schema = {
-            'key_cast': {'customize': 'do_nothing'},
-        },
     )
 
     @abc.abstractmethod
@@ -96,6 +93,10 @@ class ContainerCast(Cast):
         Returns:
             Mm. The metamorphosis to apply on item *key*, *value*.
         """
+        # try to get mm from `key_to_mm`
+        if key in self.key_to_mm:
+            return self.key_to_mm[key]
+        # otherwise, builds it by getting `from_` and `to`. 
         from_ = self.get_from_class(key)
         to = self.get_to_class(key)
         # If NotImplemented, we make guesses
@@ -125,20 +126,18 @@ class ContainerCast(Cast):
             #. finally, the method gets the metamorphosis to apply on the item and a suitable cast by calling :meth:`Cast.cast_for`.  
         """
         self.log('Item %s' % key)
-        #try to get serializer with the per-attribute map
+        mm = self.get_item_mm(key, value)
+        # try to get cast with the per-key map
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
-            cast = cast.copy()
+            cast = cast.copy({'from_': mm.from_, 'to': mm.to})
         elif self.value_cast:
-            return self.value_cast
-        #otherwise try to build it by getting attribute's class
+            cast = self.value_cast.copy({'from_': mm.from_, 'to': mm.to})
+        # otherwise try to get it by getting item's `mm` and calling `cast_for`.
         else:
-            if key in self.key_to_mm:
-                mm = self.key_to_mm[key]
-            else:
-                mm = self.get_item_mm(key, value)
             cast = self.cast_for(mm)
-        cast._context = self._context.copy()# TODO: USELESS ?
+        cast._depth = self._depth + 1
+        #cast._context = self._context.copy()# TODO: USELESS ?
         return cast
 
     def cast_key(self, key):
@@ -271,7 +270,7 @@ class FromObject(ContainerCast):
             if attr_class == NotImplemented:
                 attr_class = object
             parent = closest_parent(attr_class, self.class_to_getter.keys())
-            return self.class_to_getter[parent]
+            return self.class_to_getter.get(parent, getattr)
 
 
 class ToObject(ContainerCast):
@@ -313,5 +312,5 @@ class ToObject(ContainerCast):
             if attr_class == NotImplemented:
                 attr_class = object
             parent = closest_parent(attr_class, self.class_to_setter.keys())
-            return self.class_to_setter[parent]
+            return self.class_to_setter.get(parent, setattr)
 
