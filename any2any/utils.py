@@ -67,16 +67,16 @@ class Metamorphosis(object):
     """
     #TODO: refactor for having sets, and single mm
     def __init__(self, from_=None, to=None, from_any=None, to_any=None):
-        if from_any and from_:
+        if not from_any and not from_:
+            from_any = object
+        elif from_any and from_:
             raise TypeError("Arguments 'from_any' and 'from_' cannot be provided at the same time")
-        elif not from_any and not from_:
-            raise TypeError("You must provide 'from_' or 'from_any'")
         else:
             pass
-        if to_any and to:
+        if not to_any and not to:
+            to_any = object
+        elif to_any and to:
             raise TypeError("Arguments 'to_any' and 'to' cannot be provided at the same time")
-        elif not to_any and not to:
-            raise TypeError("You must provide 'to' or 'to_any'")
         else:
             pass
         # Sets used for easier comparison 

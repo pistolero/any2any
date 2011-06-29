@@ -23,8 +23,8 @@ register(
     DictToDict(),
     Mm(from_any=dict, to_any=dict),
 )
-register(ObjectToDict(), Mm(from_any=object, to=dict))
-register(DictToObject(), Mm(from_=dict, to_any=object))
+register(ObjectToDict(), Mm(to=dict))
+register(DictToObject(), Mm(from_=dict))
 register(DateToDict(), Mm(datetime.date, dict))
 register(DateTimeToDict(), Mm(datetime.datetime, dict))
 register(DictToDate(), Mm(dict, datetime.date))
