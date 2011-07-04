@@ -4,7 +4,7 @@ import datetime
 from base import Cast
 from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject, ContainerType
 from types import FunctionType
-
+from combine import FromConcatDict, ToConcatDict
 
 class Identity(Cast):
     """
@@ -165,3 +165,10 @@ class DictToDateTime(FromDict, ToObject):
         new_datetime = datetime.datetime(**items)
         items.clear()
         return new_datetime
+
+
+class ConcatDict(FromConcatDict, ToConcatDict):
+    """
+    """
+    def get_route(self, key, value):
+        return 0

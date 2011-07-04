@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 try:
     import abc
 except ImportError:
@@ -130,9 +131,12 @@ class ContainerCast(Cast):
         # try to get cast with the per-key map
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
-            cast = cast.copy({'from_': mm.from_, 'to': mm.to})
+            cast = copy.copy(cast)
+            cast.settings.customize({'from_': mm.from_, 'to': mm.to})
         elif self.value_cast:
-            cast = self.value_cast.copy({'from_': mm.from_, 'to': mm.to})
+            cast = self.value_cast
+            cast = copy.copy(cast)
+            cast.settings.customize({'from_': mm.from_, 'to': mm.to})
         # otherwise try to get it by getting item's `mm` and calling `cast_for`.
         else:
             cast = self.cast_for(mm)
@@ -148,7 +152,8 @@ class ContainerCast(Cast):
 
     def _get_key_cast(self):
         if not hasattr(self, '_custom_key_cast'):
-            self._custom_key_cast = self.key_cast.copy({
+            self._custom_key_cast = copy.copy(self.key_cast)
+            self._custom_key_cast.settings.customize({
                 'from_': self.from_,
                 'to': self.to
             })

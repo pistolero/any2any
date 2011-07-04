@@ -274,3 +274,24 @@ class DictToDate_Test(object):
             'month': 11,
             'day': 28,
         }) == datetime.date(year=19, month=11, day=28))
+
+
+class ConcatDict_Test(object):
+    """
+    Tests for ConcatDict
+    """
+
+    def call_test(self):
+        """
+        Test call for ConcatDict
+        """
+        DictOfStr = ContainerType(dict, value_type=str)
+        cast0 = DictToDict()
+        cast1 = DictToDict(to=DictOfStr, value_cast=ToType())
+        cast = ConcatDict(key_to_route={'a': 1, 'b': 0, 'c': 1}, operands=[cast0, cast1])
+        print cast({
+            'a': 987, 'b': 88, 'c': 34
+        }), cast0.value_cast
+        ok_(cast({
+            'a': 987, 'b': 88, 'c': 34
+        }) == {'a': '987', 'b': 88, 'c': '34'})

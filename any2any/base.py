@@ -232,6 +232,8 @@ class Cast(object):
         _schema = {
             'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
             'logs': {'customize': '__setitem__'},
+            'from_': {'customize': '__setitem__'},
+            'to': {'customize': '__setitem__'},
         },
     )
 
@@ -269,18 +271,10 @@ class Cast(object):
         closest_mm = mm.pick_closest_in(choices.keys())
         cast = choices[closest_mm]
         # builds a customized version of the cast, override settings
-        new_cast = cast.copy({'from_': mm.from_, 'to': mm.to})
+        new_cast = copy.copy(cast)
         new_cast._depth = cast._depth + 1
         new_cast.settings.customize(self.settings)
-        return new_cast
-
-    def copy(self, settings={}):
-        """
-        Returns:
-            Cast. A copy of the calling cast, with settings set to *settings*.
-        """
-        new_cast = copy.copy(self)
-        new_cast.settings.update(settings)
+        new_cast.settings.customize({'from_': mm.from_, 'to': mm.to})
         return new_cast
 
     @abc.abstractmethod

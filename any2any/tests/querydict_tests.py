@@ -7,6 +7,9 @@ class QueryDictCast_Test(object):
     """
 
     def call_test(self):
+        """
+        Test QueryDictCast.call
+        """
         cast = QueryDictCast(list_keys=['a_list', 'another_list'])
         ok_(cast({'a_list': [1, 2], 'a_normal_key': [1, 2, 3], 'another_list': []}) == {
             'a_list': [1, 2],
@@ -17,5 +20,4 @@ class QueryDictCast_Test(object):
             'a_list': [1],
             'a_normal_key': None,
         })
-
-
+        

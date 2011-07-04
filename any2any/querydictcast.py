@@ -6,7 +6,7 @@ except ImportError:
 from base import Cast
 from utils import Mm
 from containercast import FromDict, ToDict
-from simple import Identity
+from simple import Identity, ListToList
 
 class ListToFirstElem(Cast):
     """
@@ -28,7 +28,6 @@ class ListToFirstElem(Cast):
     def no_elem_error(self):
         pass
 
-
 class OneElemToList(Cast):
     """
     Object to a list of one element :
@@ -40,6 +39,16 @@ class OneElemToList(Cast):
 
     def call(self, inpt):
         return [inpt]
+
+class ListToListStripEmpty(ListToList):
+
+    defaults = {
+        'empty_value': '_empty'
+    }
+    
+    def strip_item(self, key, value):
+        if value == self.empty_value:
+            return True
 
 class QueryDictCast(FromDict, ToDict):
     """
@@ -56,8 +65,8 @@ class QueryDictCast(FromDict, ToDict):
 
     defaults = dict(
         mm_to_cast = {
-            Mm(list, object): ListToFirstElem(),
-            Mm(from_any=object, to=list): OneElemToList(),
+            Mm(from_=list): ListToFirstElem(),
+            Mm(to=list): OneElemToList(),
             Mm(list, list): Identity(),
         },
         list_keys = [],
