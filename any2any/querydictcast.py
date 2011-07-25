@@ -5,7 +5,7 @@ except ImportError:
     from compat import abc
 from base import Cast
 from utils import Mm
-from containercast import FromDict, ToDict
+from containercast import FromDict, ToDict, CastItems
 from simple import Identity, ListToList
 
 class ListToFirstElem(Cast):
@@ -50,7 +50,7 @@ class ListToListStripEmpty(ListToList):
         if value == self.empty_value:
             return True
 
-class QueryDictCast(FromDict, ToDict):
+class QueryDictCast(FromDict, CastItems, ToDict):
     """
     Cast for flatening a dictionary with a nested structure.
 

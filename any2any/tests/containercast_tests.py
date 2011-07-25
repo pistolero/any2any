@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
-from any2any.containercast import ToDict, FromDict, ContainerType
+from any2any.containercast import ToDict, FromDict, CastItems, ContainerType
 from any2any.base import Cast
 
-class FromDictToDict(ToDict, FromDict): pass
+class FromDictToDict(ToDict, CastItems, FromDict): pass
 
 ListOfObjects = ContainerType(list, value_type=object)
 ListOfStr = ContainerType(list, value_type=str)
 ListOfInt = ContainerType(list, value_type=int)
 
-class ContainerCast_Test(object):
+class ContainerType_Test(object):
     """
-    Tests for ContainerCast
+    Tests for ContainerType
     """
 
-    def ContainerType_test(self):
+    def issubclass_test(self):
         """
         Tests for ContainerSpecialization
         """
@@ -61,6 +61,11 @@ class ContainerCast_Test(object):
             )),
             ContainerType(list, value_type=ListOfInt)
         ))
+
+class CastItems_Test(object):
+    """
+    Test mixin CastItems
+    """
 
     def strip_item_test(self):
         """

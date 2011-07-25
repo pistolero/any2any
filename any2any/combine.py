@@ -4,40 +4,27 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast
+from containercast import ContainerCast
 
-class CombineCast(Cast):
+class RouteToOperands(ContainerCast):
 
     defaults = dict(
         operands = []
     )
-        
-    @abc.abstractmethod
-    def iter_input(self, inpt):
-        return
 
-    @abc.abstractmethod
-    def build_output(self, values_iter):
-        return
+    def iter_output(self, items_iter):
+        for key, value in items_iter:            
+            yield key, self.operands[key](value)
 
-    def iter_output(self, values_iter):
-        for ind, value in enumerate(values_iter):            
-            yield self.operands[ind](value) 
+class ConcatDict(ContainerCast):
 
-    def call(self, inpt):
-        iter_input = self.iter_input(inpt)
-        iter_ouput = self.iter_output(iter_input)
-        return self.build_output(iter_ouput)
-
-class ToConcatDict(CombineCast):
-
-    def build_output(self, values_iter):
+    def build_output(self, items_iter):
         concat_dict = {}
-        for value in values_iter:
+        for key, value in items_iter:
             concat_dict.update(value)
         return concat_dict
 
-class FromConcatDict(CombineCast):
+class SplitDict(ContainerCast):
     
     defaults = dict(
         key_to_route = {}
@@ -48,7 +35,7 @@ class FromConcatDict(CombineCast):
         for key, value in inpt.iteritems():
             ind = self.route(key, value)
             dict_list[ind][key] = value
-        return iter(dict_list)
+        return enumerate(dict_list)
     
     @abc.abstractmethod
     def get_route(self, key, value):

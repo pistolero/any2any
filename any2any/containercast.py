@@ -26,7 +26,6 @@ class ContainerType(SpecializedType):
     def __repr__(self):
         return '%sOf%s' % (self.__base__.__name__.capitalize(), self.value_type.__name__.capitalize())
 
-
 class ContainerCast(Cast):
     """
     Base cast for metamorphosing `from` and `to` containers-like objects.
@@ -52,15 +51,7 @@ class ContainerCast(Cast):
         - value_cast(Cast). The cast to use on all values.
         - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize.
     """
-    #TODO: document key_cast + item_strip
-    #TODO: key_cast is ugly ...
-
-    defaults = dict(
-        key_to_cast = {},
-        key_to_mm = {},
-        value_cast = None,
-        key_cast = None,
-    )
+    # TODO: rewrite doc
 
     @abc.abstractmethod
     def iter_input(self, inpt):
@@ -74,6 +65,27 @@ class ContainerCast(Cast):
         return
 
     @abc.abstractmethod
+    def iter_output(self, items_iter):
+        """
+        Args:
+            items_iter(iterator). An iterator on input's items.
+
+        Returns:
+            iterator. An iterator on casted items.
+        """
+        return
+
+    @abc.abstractmethod
+    def build_output(self, items_iter):
+        """
+        Args:
+            items_iter(iterator). ``(<key>, <casted_value>)``. Iterator on casted items.
+
+        Returns:
+            object. The casted object in its final shape.
+        """
+        return
+
     def get_from_class(self, key):
         """
         Returns:
@@ -81,13 +93,31 @@ class ContainerCast(Cast):
         """
         return NotImplemented
 
-    @abc.abstractmethod
     def get_to_class(self, key):
         """
         Returns:
             type or NotImplemented. Type the value associated with *key* must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
         """
         return NotImplemented
+
+    def call(self, inpt):
+        iter_input = self.iter_input(inpt)
+        iter_ouput = self.iter_output(iter_input)
+        return self.build_output(iter_ouput)
+
+class CastItems(ContainerCast):
+    """
+    """
+    #TODO: document
+    #TODO: document key_cast + item_strip
+    #TODO: key_cast is ugly ...
+
+    defaults = dict(
+        key_to_cast = {},
+        key_to_mm = {},
+        value_cast = None,
+        key_cast = None,
+    )
 
     def get_item_mm(self, key, value):
         """
@@ -106,17 +136,6 @@ class ContainerCast(Cast):
         if to == NotImplemented:
             to = object
         return Mm(from_, to)
-
-    @abc.abstractmethod
-    def build_output(self, items_iter):
-        """
-        Args:
-            items_iter(iterator). ``(<key>, <casted_value>)``. Iterator on casted items.
-
-        Returns:
-            object. The casted object in its final shape.
-        """
-        return
 
     def cast_for_item(self, key, value):
         """
@@ -184,11 +203,6 @@ class ContainerCast(Cast):
             if self.key_cast: key = self.cast_key(key)
             cast = self.cast_for_item(key, value)
             yield key, cast(value)
-
-    def call(self, inpt):
-        iter_input = self.iter_input(inpt)
-        iter_ouput = self.iter_output(iter_input)
-        return self.build_output(iter_ouput)
 
 
 class FromDict(ContainerCast):

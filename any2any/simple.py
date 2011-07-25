@@ -2,9 +2,9 @@
 import datetime
 
 from base import Cast
-from containercast import ContainerCast, FromDict, ToDict, FromList, ToList, FromObject, ToObject, ContainerType
+from containercast import FromDict, ToDict, FromList, ToList, FromObject, ToObject, ContainerType, CastItems
 from types import FunctionType
-from combine import FromConcatDict, ToConcatDict
+from combine import ConcatDict, SplitDict, RouteToOperands
 
 class Identity(Cast):
     """
@@ -31,7 +31,7 @@ class ToType(Cast):
         return self.to(obj)
 
 
-class DictToDict(FromDict, ToDict):
+class DictToDict(FromDict, CastItems, ToDict):
     """
     Dictionaries to dictionaries :
 
@@ -41,7 +41,7 @@ class DictToDict(FromDict, ToDict):
     pass
 
 
-class ListToList(FromList, ToList):
+class ListToList(FromList, CastItems, ToList):
     """
     List to list :
 
@@ -51,7 +51,7 @@ class ListToList(FromList, ToList):
     pass
 
 
-class ObjectToDict(FromObject, ToDict):
+class ObjectToDict(FromObject, CastItems, ToDict):
     """
     Object to dictionary :
 
@@ -65,7 +65,7 @@ class ObjectToDict(FromObject, ToDict):
         return filter(lambda name: not isinstance(getattr(inpt, name), FunctionType), names)
 
 
-class DictToObject(FromDict, ToObject):
+class DictToObject(FromDict, CastItems, ToObject):
     """
     Dictionary to object :
 
@@ -78,7 +78,7 @@ class DictToObject(FromDict, ToObject):
         return self.to()
 
 
-class DateTimeToDict(FromObject, ToDict):
+class DateTimeToDict(FromObject, CastItems, ToDict):
     """
     Datetime to dict:
 
@@ -99,7 +99,7 @@ class DateTimeToDict(FromObject, ToDict):
         return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
 
-class DateToDict(FromObject, ToDict):
+class DateToDict(FromObject, CastItems, ToDict):
     """
     date to dict:
 
@@ -116,7 +116,7 @@ class DateToDict(FromObject, ToDict):
         return ['year', 'month', 'day']
 
 
-class DateTimeToDict(FromObject, ToDict):
+class DateTimeToDict(FromObject, CastItems, ToDict):
     """
     datetime to dict:
 
@@ -137,7 +137,7 @@ class DateTimeToDict(FromObject, ToDict):
         return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
 
-class DictToDate(FromDict, ToObject):
+class DictToDate(FromDict, CastItems, ToObject):
     """
     dict to date:
 
@@ -152,7 +152,7 @@ class DictToDate(FromDict, ToObject):
         return new_date
 
 
-class DictToDateTime(FromDict, ToObject):
+class DictToDateTime(FromDict, CastItems, ToObject):
     """
     dict to datetime:
 
@@ -167,7 +167,7 @@ class DictToDateTime(FromDict, ToObject):
         return new_datetime
 
 
-class ConcatDict(FromConcatDict, ToConcatDict):
+class ConcatDict(SplitDict, RouteToOperands, ConcatDict):
     """
     """
     def get_route(self, key, value):

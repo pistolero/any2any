@@ -7,13 +7,13 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.containercast import FromList, ToList, ContainerCast, FromObject, ToDict, FromDict, ToObject, ContainerType
+from any2any.containercast import CastItems, FromList, ToList, FromObject, ToDict, FromDict, ToObject, ContainerType
 from any2any.base import Cast, register
 from any2any.utils import Mm
 
 ListOfDicts = ContainerType(list, value_type=dict)
 
-class ManagerToList(FromList, ToList, ContainerCast):
+class ManagerToList(FromList, CastItems, ToList):
     """
     Casts a manager to a list of casted elements.
     """
@@ -89,7 +89,7 @@ class IntrospectMixin(Cast):
         return ptr_fields
 
 
-class ModelToDict(FromObject, ToDict, IntrospectMixin, ContainerCast):
+class ModelToDict(FromObject, CastItems, ToDict, IntrospectMixin):
     """
     This casts serializes an instance of :class:`Model` to a dictionary.
     """
@@ -142,7 +142,7 @@ def set_related(instance, name, value):
         raise TypeError("cannot update if the related ForeignKey cannot be null")
 
 
-class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
+class DictToModel(FromDict, CastItems, ToObject, IntrospectMixin):
     """
     This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to :
 
@@ -212,7 +212,7 @@ class DictToModel(FromDict, ToObject, IntrospectMixin, ContainerCast):
             (self.key_schema, model))
 
     def call(self, inpt):
-        obj = ContainerCast.call(self, inpt)
+        obj = super(DictToModel, self).call(inpt)
         obj.save()
         return obj
 
