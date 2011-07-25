@@ -37,9 +37,8 @@ class SplitDict(ContainerCast):
             dict_list[ind][key] = value
         return enumerate(dict_list)
     
-    @abc.abstractmethod
     def get_route(self, key, value):
-        return
+        raise ValueError("Couldn't find route for key '%s'" % key)
 
     def route(self, key, value):
         if key in self.key_to_route:

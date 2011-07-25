@@ -198,7 +198,12 @@ class DictToModel(FromDict, CastItems, ToObject, IntrospectMixin):
             django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
         """
         key_tuple = self.extract_pk(items) or ()
-        key_dict = dict(zip(self.key_schema, key_tuple)) or {'pk': None}
+        key_dict = dict(zip(self.key_schema, key_tuple))
+        if not key_dict:
+            if self.create:
+                key_dict = {'pk': None}
+            else:
+                raise ValueError("Input doesn't contain key for getting object")
         model = self.get_model()
         try:
             return model.objects.get(**key_dict)
