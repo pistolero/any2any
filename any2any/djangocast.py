@@ -169,7 +169,6 @@ class DictToModel(FromDict, CastItems, ToObject, IntrospectMixin):
         if field:
             # If fk, we return the right model
             if isinstance(field, djmodels.ForeignKey):
-                #import pdb ; pdb.set_trace()
                 return field.rel.to
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):
@@ -193,10 +192,6 @@ class DictToModel(FromDict, CastItems, ToObject, IntrospectMixin):
         return NotImplemented
 
     def new_object(self, items):
-        """
-        Returns:
-            django.db.models.Model. An instance of the model associated with the serializer (see :attr:`model`). Only the primary key is handled from *data*, if it is provided. It can be provided as *pk* property name, or as an explicit field name (e.g. *id*).
-        """
         key_tuple = self.extract_pk(items) or ()
         key_dict = dict(zip(self.key_schema, key_tuple))
         if not key_dict:
@@ -213,7 +208,7 @@ class DictToModel(FromDict, CastItems, ToObject, IntrospectMixin):
             else:
                 raise
         except model.MultipleObjectReturned:
-            raise ValueError("'%s' is not a valid natural key for '%s', because there are duplicates." %
+            raise ValueError("'%s' is not unique for '%s'" %
             (self.key_schema, model))
 
     def call(self, inpt):

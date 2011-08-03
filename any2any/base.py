@@ -6,6 +6,7 @@
  
 # Logging 
 #====================================
+# TODO : refactor logging
 # TODO : even cooler logging (html page with cast settings and so on)
 # TODO : rename to 'debug', and have a simpler way to activate that
 # anyways, logging needs a bit refactoring.
@@ -27,7 +28,6 @@ except ImportError:
     from compat import abc
 import collections
 from functools import wraps
-from types import FunctionType
 
 mm_to_cast = {}
 """
@@ -152,8 +152,8 @@ class CastType(abc.ABCMeta):
         # handling multiple inheritance of defaults
         new_defaults = attrs.pop('defaults', {})
         attrs['defaults'] = CastSettings()
-        cast_bases = filter(lambda b: isinstance(b, CastType), bases)
-        for base in reversed(cast_bases):
+        parents = [b for b in bases if isinstance(b, CastType)]
+        for base in reversed(parents):
             attrs['defaults'].override(base.defaults)
         attrs['defaults'].override(new_defaults)
         # creating new class
@@ -161,6 +161,8 @@ class CastType(abc.ABCMeta):
         # wrapping *call* to automate logging and context management
         new_cast_class.call = cls.operation_wrapper(new_cast_class.call, new_cast_class)
         return new_cast_class
+
+    # TODO: this whole wrapping thing is ugly
 
     # NB : For all wrappers, we should avoid raising errors if it is not justified ... not to mix-up the user. 
     # For example, if we had `_wrapped_func(self, inpt, *args, **kwargs)`, and we call `func` without a
@@ -304,7 +306,6 @@ class Cast(object):
         Args:
             state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place.
         """
-        #TODO: refactor
         if self.logs:
             indent = ' ' * 4 * self._depth
             extra = {

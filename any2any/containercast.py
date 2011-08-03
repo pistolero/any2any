@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# TODO: rewrite doc
 import copy
 try:
     import abc
@@ -7,6 +8,8 @@ except ImportError:
 from base import Cast
 from utils import closest_parent, SpecializedType, Mm
 
+# Abstract ContainerCast + ContainerType
+#========================================
 
 class ContainerType(SpecializedType):
     """
@@ -28,30 +31,14 @@ class ContainerType(SpecializedType):
 
 class ContainerCast(Cast):
     """
-    Base cast for metamorphosing `from` and `to` containers-like objects.
-    By "container", we mean any object that holds other objects.
-    This basically means : any Python object (because an object contains attributes),
-    any kind of sequence, any kind of mapping, ...
-
-    Let's use the same terms as for Python dictionaries and call :
-
-        - `key` a contained object identifier
-        - `value` the contained object itself
-        - `item` a contained object along with its identifier 
+    Abstract base cast for metamorphosing `from` and `to` containers-like objects, and complex objects.
 
     In order to cast containers, this class uses the following flow :
 
-        #. Iterating on input's items, see :meth:`ContainerCast.iter_input`.
-        #. Casting all values, see :meth:`ContainerCast.iter_output`.
-        #. Building output with casted items, see :meth:`ContainerCast.build_output`.
-
-    :class:`ContainerCast` defines the following settings :
-
-        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use.
-        - value_cast(Cast). The cast to use on all values.
-        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize.
+        1. Iterating on input's items, see :meth:`ContainerCast.iter_input`.
+        2. Casting all items, see :meth:`ContainerCast.iter_output`.
+        3. Building output with casted items, see :meth:`ContainerCast.build_output`.
     """
-    # TODO: rewrite doc
 
     @abc.abstractmethod
     def iter_input(self, inpt):
@@ -105,8 +92,19 @@ class ContainerCast(Cast):
         iter_ouput = self.iter_output(iter_input)
         return self.build_output(iter_ouput)
 
+# Mixins
+#========================================
+
 class CastItems(ContainerCast):
     """
+    Mixin for ContainerCast. Implements :meth:`ContainerCast.iter_output`.
+
+    :class:`CastItems` defines the following settings :
+
+        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use.
+        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize.
+        - value_cast(Cast). The cast to use on all values.
+        - key_cast(Cast). The cast to use on all keys.
     """
     #TODO: document
     #TODO: document key_cast + item_strip
@@ -118,6 +116,13 @@ class CastItems(ContainerCast):
         value_cast = None,
         key_cast = None,
     )
+
+    def iter_output(self, items_iter):
+        for key, value in items_iter:
+            if self.strip_item(key, value): continue
+            if self.key_cast: key = self.cast_key(key)
+            cast = self.cast_for_item(key, value)
+            yield key, cast(value)
 
     def get_item_mm(self, key, value):
         """
@@ -139,11 +144,12 @@ class CastItems(ContainerCast):
 
     def cast_for_item(self, key, value):
         """
-        This method allows to select the cast to use for a given item. The lookup order is the following :
+        Returns:
+            Cast. The cast to use for item *key*, *value*. The lookup order is the following :
 
-            #. setting :attr:`key_to_cast`
-            #. setting :attr:`value_cast`
-            #. finally, the method gets the metamorphosis to apply on the item and a suitable cast by calling :meth:`Cast.cast_for`.  
+                1. setting :attr:`key_to_cast`
+                2. setting :attr:`value_cast`
+                3. finally, the method gets the metamorphosis to apply on the item and a suitable cast by calling :meth:`Cast.cast_for`.  
         """
         self.log('Item %s' % key)
         mm = self.get_item_mm(key, value)
@@ -160,7 +166,6 @@ class CastItems(ContainerCast):
         else:
             cast = self.cast_for(mm)
         cast._depth = self._depth + 1
-        #cast._context = self._context.copy()# TODO: USELESS ?
         return cast
 
     def cast_key(self, key):
@@ -190,21 +195,6 @@ class CastItems(ContainerCast):
         """
         return False
 
-    def iter_output(self, items_iter):
-        """
-        Args:
-            items_iter(iterator). An iterator on input's items.
-
-        Returns:
-            iterator. An iterator on casted items.
-        """
-        for key, value in items_iter:
-            if self.strip_item(key, value): continue
-            if self.key_cast: key = self.cast_key(key)
-            cast = self.cast_for_item(key, value)
-            yield key, cast(value)
-
-
 class FromDict(ContainerCast):
     
     def iter_input(self, inpt):
@@ -212,7 +202,6 @@ class FromDict(ContainerCast):
 
     def get_from_class(self, key):
         return self.from_.value_type if isinstance(self.from_, ContainerType) else NotImplemented
-
 
 class ToDict(ContainerCast):
     
@@ -222,7 +211,6 @@ class ToDict(ContainerCast):
     def get_to_class(self, key):
         return self.to.value_type if isinstance(self.to, ContainerType) else NotImplemented
 
-
 class FromList(ContainerCast):
     
     def iter_input(self, inpt):
@@ -231,7 +219,6 @@ class FromList(ContainerCast):
     def get_from_class(self, key):
         return self.from_.value_type if isinstance(self.from_, ContainerType) else NotImplemented
 
-
 class ToList(ContainerCast):
     
     def build_output(self, items_iter):
@@ -239,7 +226,6 @@ class ToList(ContainerCast):
 
     def get_to_class(self, key):
         return self.to.value_type if isinstance(self.to, ContainerType) else NotImplemented
-
 
 class FromObject(ContainerCast):
     
@@ -291,7 +277,6 @@ class FromObject(ContainerCast):
             parent = closest_parent(attr_class, self.class_to_getter.keys())
             return self.class_to_getter.get(parent, getattr)
 
-
 class ToObject(ContainerCast):
     
     defaults = dict(
@@ -333,3 +318,42 @@ class ToObject(ContainerCast):
             parent = closest_parent(attr_class, self.class_to_setter.keys())
             return self.class_to_setter.get(parent, setattr)
 
+class RouteToOperands(ContainerCast):
+
+    defaults = dict(
+        operands = []
+    )
+
+    def iter_output(self, items_iter):
+        for key, value in items_iter:            
+            yield key, self.operands[key](value)
+
+class ConcatDict(ContainerCast):
+
+    def build_output(self, items_iter):
+        concat_dict = {}
+        for key, value in items_iter:
+            concat_dict.update(value)
+        return concat_dict
+
+class SplitDict(ContainerCast):
+    
+    defaults = dict(
+        key_to_route = {}
+    )
+
+    def iter_input(self, inpt):
+        dict_list = [dict() for o in self.operands]
+        for key, value in inpt.iteritems():
+            ind = self.route(key, value)
+            dict_list[ind][key] = value
+        return enumerate(dict_list)
+    
+    def get_route(self, key, value):
+        raise ValueError("Couldn't find route for key '%s'" % key)
+
+    def route(self, key, value):
+        if key in self.key_to_route:
+            return self.key_to_route[key]
+        else:
+            return self.get_route(key, value)
