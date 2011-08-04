@@ -142,8 +142,7 @@ Let's add something to the output, for example the model name. As the model name
     ...     return obj.__class__.__name__.lower()
     ... 
     >>> cast = ModelToDict(
-    ...     include=['title'], # just to simplify the output
-    ...     include_extra=['model_name'],
+    ...     include=['title', 'model_name'],
     ...     attrname_to_getter={'model_name': get_model_name}
     ... )
     >>> book = Book.objects.get(title='1984')
