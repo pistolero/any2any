@@ -2,13 +2,12 @@
 """
 .. currentmodule:: any2any.base
 """
-# TODO : make Mm internal (out of sight), maybe to should be mandatory
  
 # Logging 
 #====================================
-# TODO : refactor logging
-# TODO : even cooler logging (html page with cast settings and so on)
+# TODO : cooler logging (html page with cast settings and so on)
 # TODO : rename to 'debug', and have a simpler way to activate that
+# TODO : better way of documenting settings
 # anyways, logging needs a bit refactoring.
 import logging
 
@@ -87,8 +86,8 @@ class CastSettings(collections.MutableMapping):
             raise TypeError("Setting '%s' is not defined" % name)
 
     def __delitem__(self, name):
-        del self._values[name]
-        del self._schema[name]
+        self._values.pop(name, None)
+        self._schema.pop(name, None)
 
     def __contains__(self, name):
         return name in self._schema
@@ -106,7 +105,7 @@ class CastSettings(collections.MutableMapping):
         return self.__class__(**copied)
 
     def override(self, settings):
-        # Performes override of the calling instance and its schema with *settings*.
+        # Performs override of the calling instance and its schema with *settings*.
         # This method is used for inheritance of settings between two classes.
         # Handling schema updating
         if isinstance(settings, CastSettings):
@@ -159,54 +158,35 @@ class CastType(abc.ABCMeta):
         # creating new class
         new_cast_class = super(CastType, cls).__new__(cls, name, bases, attrs)
         # wrapping *call* to automate logging and context management
-        new_cast_class.call = cls.operation_wrapper(new_cast_class.call, new_cast_class)
+        new_cast_class.call = cls.wrap_call(new_cast_class)
         return new_cast_class
 
-    # TODO: this whole wrapping thing is ugly
-
-    # NB : For all wrappers, we should avoid raising errors if it is not justified ... not to mix-up the user. 
-    # For example, if we had `_wrapped_func(self, inpt, *args, **kwargs)`, and we call `func` without a
-    # parameter, the error will be raised from the wrapper, which will result in a confusing error message:
-    #     TypeError: _wrapped_func() takes exactly 2 arguments (1 given)
-    # That's why we prefer using `_wrapped_func(self, *args, **kwargs)`
-
-    # NB2 : The wrappers use a hack to avoid executing the wrapping code when the operation is called with
-    #     super(MyCast, self).operation(*args, **kwargs) 
-    # `meta_wrapper(operation, cast_class)` builds a decorator that by-passes
-    # all the wrapping code if `cast_class != type(self)`.
-
     @classmethod
-    def meta_wrapper(cls, operation, cast_class):
-        def _decorator(wrapped_operation):
-            def _wrapped_again(self, *args, **kwargs):
-                if (type(self) == cast_class):
-                    return wrapped_operation(self, *args, **kwargs)
-                else:
-                    return operation(self, *args, **kwargs)
-            return _wrapped_again
-        return _decorator
-
-    @classmethod
-    def operation_wrapper(cls, operation, cast_class):
-        @wraps(operation)
-        @cls.meta_wrapper(operation, cast_class)
-        def _wrapped_operation(self, *args, **kwargs):
-            # context management : should be first, because logging might use it.
-            self._context = {'input': args[0] if args else None}
-            # logging
-            if self.logs:
-                self.log('%s.%s' % (self, operation.__name__) + ' <= ' + repr(args[0] if args else None), 'start', throughput=args[0] if args else None)
-            # the actual operation
-            returned = operation(self, *args, **kwargs)
-            # logging
-            if self.logs:
-                self.log('%s.%s' % (self, operation.__name__) + ' => ' + repr(returned), 'end', throughput=returned)
-                if self._depth == 0:
-                    self.log('')
-            # context management
-            self._context = None
-            return returned
-        return _wrapped_operation
+    def wrap_call(cls, cast_class):
+        call = cast_class.call
+        @wraps(call)
+        def _wrapped_call(self, *args, **kwargs):
+            # Following is a hack to avoid executing the wrapping code when doing :
+            #     super(MyCast, self).call(*args, **kwargs)
+            if (type(self) == cast_class):
+                # context management : should be first, because logging might use it.
+                self._context = {'input': args[0] if args else None}
+                # logging
+                if self.logs:
+                    self.log('%s.%s' % (self, call.__name__) + ' <= ' + repr(args[0] if args else None))
+                # the actual call
+                returned = call(self, *args, **kwargs)
+                # logging
+                if self.logs:
+                    self.log('%s.%s' % (self, call.__name__) + ' => ' + repr(returned))
+                    if self._depth == 0:
+                        self.log('')
+                # context management
+                self._context = None
+                return returned
+            else:
+                return call(self, *args, **kwargs)
+        return _wrapped_call
 
 
 class Cast(object):
@@ -290,7 +270,6 @@ class Cast(object):
         return self.call(inpt)
 
     def __copy__(self):
-        # TODO : this doesn't copy _schema ... should it ?
         return self.__class__(**copy.copy(self.settings))
 
     def __getattr__(self, name):
@@ -299,19 +278,12 @@ class Cast(object):
         except KeyError:
             return self.__getattribute__(name)
 
-    def log(self, message, state='during', throughput=None):
+    def log(self, message):
         """
         Logs a message to **any2any**'s logger.
 
         Args:
             state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place.
         """
-        if self.logs:
-            indent = ' ' * 4 * self._depth
-            extra = {
-                'cast': self,
-                'throughput': throughput,
-                'settings': self.settings,
-                'state': state,
-            }
-            logger.debug(indent + message, extra=extra)
+        indent = ' ' * 4 * self._depth
+        logger.debug(indent + message)

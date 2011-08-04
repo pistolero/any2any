@@ -2,7 +2,8 @@
 import datetime
 
 from base import Cast
-from containercast import FromDict, ToDict, FromList, ToList, FromObject, ToObject, ContainerType, CastItems, ConcatDict, SplitDict, RouteToOperands
+from daccasts import (FromMapping, ToMapping, FromIterable, ToIterable, FromObject, ToObject,
+ContainerType, CastItems, ConcatDict, SplitDict, RouteToOperands)
 from types import FunctionType
 
 class Identity(Cast):
@@ -30,31 +31,31 @@ class ToType(Cast):
         return self.to(obj)
 
 
-class DictToDict(FromDict, CastItems, ToDict):
+class MappingToMapping(FromMapping, CastItems, ToMapping):
     """
     Dictionaries to dictionaries :
 
-        >>> DictToDict()({'1': anObject1, 2: anObject2})
+        >>> MappingToMapping()({'1': anObject1, 2: anObject2})
         {'1': 'its casted version 1', 2: 'its casted version 2'}
     """
     pass
 
 
-class ListToList(FromList, CastItems, ToList):
+class IterableToIterable(FromIterable, CastItems, ToIterable):
     """
     List to list :
 
-        >>> ListToList()([anObject1, anObject2])
+        >>> IterableToIterable()([anObject1, anObject2])
         ['its casted version 1', 'its casted version 2']
     """
     pass
 
 
-class ObjectToDict(FromObject, CastItems, ToDict):
+class ObjectToMapping(FromObject, CastItems, ToMapping):
     """
     Object to dictionary :
 
-        >>> ObjectToDict()(anObject)
+        >>> ObjectToMapping()(anObject)
         {'attr1': 'its casted value', 'attr2': 'its casted value'}
     """
 
@@ -64,7 +65,7 @@ class ObjectToDict(FromObject, CastItems, ToDict):
         return filter(lambda name: not isinstance(getattr(inpt, name), FunctionType), names)
 
 
-class DictToObject(FromDict, CastItems, ToObject):
+class DictToObject(FromMapping, CastItems, ToObject):
     """
     Dictionary to object :
 
@@ -77,11 +78,11 @@ class DictToObject(FromDict, CastItems, ToObject):
         return self.to()
 
 
-class DateTimeToDict(FromObject, CastItems, ToDict):
+class DateTimeToMapping(FromObject, CastItems, ToMapping):
     """
     Datetime to dict:
 
-        >>> cast = DateTimeToDict()
+        >>> cast = DateTimeToMapping()
         >>> cast(datetime(year=1986, month=12, day=8)) == {
         ...     'year': 1986,
         ...     'month': 12,
@@ -98,11 +99,11 @@ class DateTimeToDict(FromObject, CastItems, ToDict):
         return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
 
-class DateToDict(FromObject, CastItems, ToDict):
+class DateToMapping(FromObject, CastItems, ToMapping):
     """
     date to dict:
 
-        >>> cast = DateToDict()
+        >>> cast = DateToMapping()
         >>> cast(date(year=1984, month=1, day=18)) == {
         ...     'year': 1984,
         ...     'month': 1,
@@ -115,11 +116,11 @@ class DateToDict(FromObject, CastItems, ToDict):
         return ['year', 'month', 'day']
 
 
-class DateTimeToDict(FromObject, CastItems, ToDict):
+class DateTimeToMapping(FromObject, CastItems, ToMapping):
     """
     datetime to dict:
 
-        >>> cast = DateTimeToDict()
+        >>> cast = DateTimeToMapping()
         >>> cast(datetime(year=1986, month=12, day=8)) == {
         ...     'year': 1986,
         ...     'month': 12,
@@ -136,7 +137,7 @@ class DateTimeToDict(FromObject, CastItems, ToDict):
         return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
 
-class DictToDate(FromDict, CastItems, ToObject):
+class DictToDate(FromMapping, CastItems, ToObject):
     """
     dict to date:
 
@@ -151,7 +152,7 @@ class DictToDate(FromDict, CastItems, ToObject):
         return new_date
 
 
-class DictToDateTime(FromDict, CastItems, ToObject):
+class DictToDateTime(FromMapping, CastItems, ToObject):
     """
     dict to datetime:
 

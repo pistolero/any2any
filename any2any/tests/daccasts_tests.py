@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
-from any2any.containercast import ToDict, FromDict, CastItems, ContainerType
+from any2any.daccasts import ToMapping, FromMapping, CastItems, ContainerType
 from any2any.base import Cast
 
-class FromDictToDict(ToDict, CastItems, FromDict): pass
+class FromDictToDict(ToMapping, CastItems, FromMapping):
+
+    defaults = dict(to=dict)
 
 ListOfObjects = ContainerType(list, value_type=object)
 ListOfStr = ContainerType(list, value_type=str)

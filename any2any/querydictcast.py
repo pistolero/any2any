@@ -5,8 +5,8 @@ except ImportError:
     from compat import abc
 from base import Cast
 from utils import Mm
-from containercast import FromDict, ToDict, CastItems
-from simple import Identity, ListToList
+from daccasts import FromMapping, ToMapping, CastItems
+from simple import Identity, IterableToIterable
 
 class ListToFirstElem(Cast):
     """
@@ -40,17 +40,17 @@ class OneElemToList(Cast):
     def call(self, inpt):
         return [inpt]
 
-class ListToListStripEmpty(ListToList):
+class IterableToIterableStripEmpty(IterableToIterable):
 
-    defaults = {
-        'empty_value': '_empty'
-    }
+    defaults = dict(
+        empty_value = '_empty'
+    )
     
     def strip_item(self, key, value):
         if value == self.empty_value:
             return True
 
-class QueryDictCast(FromDict, CastItems, ToDict):
+class QueryDictCast(FromMapping, CastItems, ToMapping):
     """
     Cast for flatening a dictionary with a nested structure.
 
@@ -64,6 +64,7 @@ class QueryDictCast(FromDict, CastItems, ToDict):
     """
 
     defaults = dict(
+        to = dict,
         mm_to_cast = {
             Mm(from_=list): ListToFirstElem(),
             Mm(to=list): OneElemToList(),

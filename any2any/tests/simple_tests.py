@@ -32,16 +32,16 @@ class Container_Test(object):
         self.MyCast = MyCast
 
 
-class ListToList_Test(Container_Test):
+class IterableToIterable_Test(Container_Test):
     """
-    Tests for ListToList
+    Tests for IterableToIterable
     """
 
     def call_test(self):
         """
         Test call
         """
-        cast = ListToList()
+        cast = IterableToIterable(to=list)
         a_list = [1, 'a']
         other_list = cast.call(a_list)
         ok_(other_list == a_list)
@@ -51,7 +51,8 @@ class ListToList_Test(Container_Test):
         """
         Test call, with a custom cast for the list elements
         """
-        cast = ListToList(
+        cast = IterableToIterable(
+            to=list,
             mm_to_cast={
                 Mm(int, object): self.MyCast(msg='an int'),
                 Mm(str, object): self.MyCast(msg='a str'),
@@ -61,9 +62,9 @@ class ListToList_Test(Container_Test):
         ok_(cast.call([1, '3by', 78]) == ['an int 1', 'a str 3by', 'index 2 78'])
 
 
-class DictToDict_Test(Container_Test):
+class MappingToMapping_Test(Container_Test):
     """
-    Tests for DictToDict
+    Tests for MappingToMapping
     """
 
     def call_test(self):
@@ -71,7 +72,7 @@ class DictToDict_Test(Container_Test):
         Test call
         """
         a_dict = {1: 78, 'a': 'testi', 'b': 1.89}
-        cast = DictToDict()
+        cast = MappingToMapping(to=dict)
         other_dict = cast.call(a_dict)
         ok_(other_dict == a_dict)
         ok_(not other_dict is a_dict)
@@ -80,20 +81,21 @@ class DictToDict_Test(Container_Test):
         """
         Test call, with a custom cast for the dict elements
         """
-        cast = DictToDict(
+        cast = MappingToMapping(
+            to=dict,
             mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
             key_to_cast={'a': self.MyCast(msg='index a'),},
         )
         ok_(cast.call({1: 78, 'a': 'testi', 'b': 1}) == {1: 'an int 78', 'a': 'index a testi', 'b': 'an int 1'})
 
 
-class ObjectToDict_Test(Container_Test):
+class ObjectToMapping_Test(Container_Test):
     """
-    Tests for ObjectToDict
+    Tests for ObjectToMapping
     """
 
     def setUp(self):
-        super(ObjectToDict_Test, self).setUp()
+        super(ObjectToMapping_Test, self).setUp()
         class Object(object): pass
         self.Object = Object
 
@@ -102,7 +104,7 @@ class ObjectToDict_Test(Container_Test):
         Test call
         """
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
-        cast = ObjectToDict()
+        cast = ObjectToMapping(to=dict)
         ok_(cast.call(obj) == {'a1': 90, 'blabla': 'coucou'})
 
     def custom_cast_for_elems_test(self):
@@ -110,7 +112,8 @@ class ObjectToDict_Test(Container_Test):
         Test call, with a custom cast for attributes
         """
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
-        cast = ObjectToDict(
+        cast = ObjectToMapping(
+            to=dict,
             mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
@@ -123,7 +126,8 @@ class ObjectToDict_Test(Container_Test):
         obj = self.Object() ; obj.a = 90
         def get_my_virtual_attr(obj, name):
             return 'virtual %s' % obj.a
-        cast = ObjectToDict(
+        cast = ObjectToMapping(
+            to=dict,
             attrname_to_getter={'virtual_a': get_my_virtual_attr},
             include=['a', 'virtual_a'],
         )
@@ -182,16 +186,16 @@ class DictToObject_Test(Container_Test):
         ok_(obj.virt2 == 90)
 
 
-class DateTimeToDict_Test(object):
+class DateTimeToMapping_Test(object):
     """
-    Tests for DateTimeToDict
+    Tests for DateTimeToMapping
     """
 
     def call_test(self):
         """
-        Test call for DateTimeToDict.
+        Test call for DateTimeToMapping.
         """
-        cast = DateTimeToDict()
+        cast = DateTimeToMapping(to=dict)
         ok_(cast(datetime.datetime(year=1986, month=12, day=8)) == {
             'year': 1986,
             'month': 12,
@@ -212,16 +216,16 @@ class DateTimeToDict_Test(object):
         })
 
 
-class DateToDict_Test(object):
+class DateToMapping_Test(object):
     """
-    Tests for DateToDict
+    Tests for DateToMapping
     """
 
     def call_test(self):
         """
-        Test call for DateToDict.
+        Test call for DateToMapping.
         """
-        cast = DateToDict()
+        cast = DateToMapping(to=dict)
         ok_(cast(datetime.date(year=19, month=11, day=28)) == {
             'year': 19,
             'month': 11,
@@ -286,12 +290,9 @@ class ConcatDict_Test(object):
         Test call for ConcatDict
         """
         DictOfStr = ContainerType(dict, value_type=str)
-        cast0 = DictToDict()
-        cast1 = DictToDict(to=DictOfStr, value_cast=ToType())
-        cast = ConcatDict(key_to_route={'a': 1, 'b': 0, 'c': 1}, operands=[cast0, cast1])
-        print cast({
-            'a': 987, 'b': 88, 'c': 34
-        }), cast0.value_cast
+        cast0 = MappingToMapping(to=dict)
+        cast1 = MappingToMapping(to=DictOfStr, value_cast=ToType())
+        cast = ConcatDict(key_to_route={'a': 1, 'b': 0, 'c': 1}, operands=[cast0, cast1], to=dict)
         ok_(cast({
             'a': 987, 'b': 88, 'c': 34
         }) == {'a': '987', 'b': 88, 'c': '34'})

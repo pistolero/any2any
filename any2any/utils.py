@@ -183,6 +183,7 @@ class SpecializedType(abc.ABCMeta):
         name = 'SpzOf%s' % base.__name__.capitalize()
         bases = (base,)
         attrs = copy.copy(cls.defaults)
+        attrs['base'] = base #TODO : not good, because if base is a SpecializedType ?
         new_spz = super(SpecializedType, cls).__new__(cls, name, bases, attrs)
         new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz

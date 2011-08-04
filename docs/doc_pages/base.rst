@@ -15,7 +15,7 @@ Implementing a :class:`Cast`
 Virtual methods
 ------------------
 
-:class:`Cast` is a virtual class, and all subclasses must be provide an implementation of :meth:`Cast.call`. For example :
+:class:`Cast` is a virtual class, and all subclasses must provide an implementation of :meth:`Cast.call`. For example :
 
     >>> from any2any.base import Cast
     >>> class AnyToString(Cast):
@@ -30,7 +30,7 @@ Virtual methods
 Defining/overriding settings
 ------------------------------
 
-Defining or overriding new settings if very straightforward.
+Defining or overriding new settings is very straightforward.
 
     >>> from any2any.base import Cast, CastSettings
     >>> class AnyToAnyBasestring(Cast):
@@ -96,9 +96,9 @@ To get a cast suitable for a given metamorphosis use the method :func:`Cast.cast
     >>> from any2any.utils import Metamorphosis
     >>> list_cast = cast.cast_for(Metamorphosis(list, list))
 
-**any2any** comes with a set of defaults. For example, :class:`ListToList` is the default cast for casting a list to another list :
+**any2any** comes with a set of defaults. For example, :class:`IterableToIterable` is the default cast for casting a list to another list :
 
-    >>> isinstance(list_cast, ListToList)
+    >>> isinstance(list_cast, IterableToIterable)
     True
 
 The cast :class:`Identity` is always used as a fallback in case there isn't a better choice :
@@ -141,7 +141,7 @@ Then :meth:`Cast.cast_for` will pick it if it is the best match
     >>> isinstance(any2str, AnyToAnyBasestring)
     True
 
-Note that the cast returned by :meth:`Cast.cast_for` if not the instance you registered ... it is a copy customized for your needs :
+Note that the cast returned by :meth:`Cast.cast_for` is not the instance you registered ... it is a copy customized for your needs :
 
     >>> any2str.from_ == int
     True
