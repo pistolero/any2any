@@ -19,7 +19,7 @@ With pip ::
 Running tests
 ===============
 
-First, you need to install :mod:`nose` and :mod:`django-nose`.
+First, you need to install `nose` and `django-nose` (they are both available on pypi).
 
 Then, go to ``any2any/any2any/tests`` and run ::
 
