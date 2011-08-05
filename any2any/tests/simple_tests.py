@@ -54,8 +54,8 @@ class IterableToIterable_Test(Container_Test):
         cast = IterableToIterable(
             to=list,
             mm_to_cast={
-                Mm(int, object): self.MyCast(msg='an int'),
-                Mm(str, object): self.MyCast(msg='a str'),
+                Mm(from_=int): self.MyCast(msg='an int'),
+                Mm(from_=str): self.MyCast(msg='a str'),
             },
             key_to_cast={2: self.MyCast(msg='index 2')}
         )
@@ -83,7 +83,7 @@ class MappingToMapping_Test(Container_Test):
         """
         cast = MappingToMapping(
             to=dict,
-            mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
+            mm_to_cast={Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'a': self.MyCast(msg='index a'),},
         )
         ok_(cast.call({1: 78, 'a': 'testi', 'b': 1}) == {1: 'an int 78', 'a': 'index a testi', 'b': 'an int 1'})
@@ -114,7 +114,7 @@ class ObjectToMapping_Test(Container_Test):
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
         cast = ObjectToMapping(
             to=dict,
-            mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
+            mm_to_cast={Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
         ok_(cast.call(obj) == {'a1': 'an int 90', 'blabla': 'coucou', 'bb': 'index bb bibi'})
@@ -160,7 +160,7 @@ class MappingToObject_Test(Container_Test):
         """
         cast = MappingToObject(
             to=self.Object,
-            mm_to_cast={Mm(int, object): self.MyCast(msg='an int'),},
+            mm_to_cast={Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
         obj = cast.call({'a1': 90, 'blabla': 'coucou', 'bb': 'bibi'})

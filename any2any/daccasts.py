@@ -65,6 +65,7 @@ class DivideAndConquerCast(Cast):
         Returns:
             type or NotImplemented. The type of the value associated with *key* if it is known `a priori` (without knowing the input), or *NotImplemented* to let the cast guess.
         """
+        # TODO: Name sucks
         return NotImplemented
 
     def get_to_class(self, key):
@@ -72,6 +73,7 @@ class DivideAndConquerCast(Cast):
         Returns:
             type or NotImplemented. Type the value associated with *key* must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
         """
+        # TODO: Name sucks
         return NotImplemented
 
     def call(self, inpt):
@@ -121,7 +123,7 @@ class CastItems(DivideAndConquerCast):
         if from_ == NotImplemented:
             from_ = type(value)
         if to == NotImplemented:
-            to = object
+            return Mm(from_=from_, to_any=object)
         return Mm(from_, to)
 
     def cast_for_item(self, key, value):
@@ -137,11 +139,11 @@ class CastItems(DivideAndConquerCast):
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
             cast = copy.copy(cast)
-            cast.settings.customize({'from_': mm.from_, 'to': mm.to})
+            cast.set_mm(mm)
         elif self.value_cast:
             cast = self.value_cast
             cast = copy.copy(cast)
-            cast.settings.customize({'from_': mm.from_, 'to': mm.to})
+            cast.set_mm(mm)
         # otherwise try to get it by getting item's *mm* and calling *cast_for*.
         else:
             cast = self.cast_for(mm)

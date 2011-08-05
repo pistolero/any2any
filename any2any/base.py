@@ -230,8 +230,6 @@ class Cast(object):
         _schema = {
             'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
             'logs': {'customize': '__setitem__'},
-            'from_': {'customize': '__setitem__'},
-            'to': {'customize': '__setitem__'},
         },
     )
 
@@ -250,10 +248,11 @@ class Cast(object):
 
     @property
     def from_(self):
-        if self.settings['from_'] == None and 'input' in self._context:
+        from_ = self.settings['from_']
+        if from_ == None and 'input' in self._context:
             return type(self._context['input'])
         else:
-            return self.settings['from_']
+            return from_
 
     def cast_for(self, mm):
         """
@@ -274,9 +273,17 @@ class Cast(object):
             new_cast = copy.copy(cast)
             new_cast._depth = cast._depth + 1
             new_cast.settings.customize(self.settings)
-            new_cast.settings.customize({'from_': mm.from_, 'to': mm.to})
+            new_cast.set_mm(mm)
             cached[mm] = new_cast
         return cached[mm]
+
+    def set_mm(self, mm):
+        # Sets *from_* and *to* for the calling cast only if they 
+        # are unique classes (not *from_any* or *to_any*).
+        if mm.from_:
+            self.settings['from_'] = mm.from_
+        if mm.to:
+            self.settings['to'] = mm.to
 
     @abc.abstractmethod
     def call(self, inpt):
