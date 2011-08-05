@@ -2,7 +2,7 @@
 import datetime
 
 from simple import (IterableToIterable, MappingToMapping, Identity, ObjectToMapping,
-DictToObject, DateToMapping, DateTimeToMapping, DictToDate, DictToDateTime, ContainerType)
+MappingToObject, DateToMapping, DateTimeToMapping, MappingToDate, MappingToDateTime, ContainerType)
 from base import register#, cast_map
 from utils import Mm
 
@@ -22,11 +22,11 @@ register(
     Mm(from_any=dict, to_any=dict),
 )
 register(ObjectToMapping(), Mm(to=dict))
-register(DictToObject(), Mm(from_=dict))
+register(MappingToObject(), Mm(from_=dict))
 register(DateToMapping(), Mm(datetime.date, dict))
 register(DateTimeToMapping(), Mm(datetime.datetime, dict))
-register(DictToDate(), Mm(dict, datetime.date))
-register(DictToDateTime(), Mm(dict, datetime.datetime))
+register(MappingToDate(), Mm(dict, datetime.date))
+register(MappingToDateTime(), Mm(dict, datetime.datetime))
 
 # TODO:
 """

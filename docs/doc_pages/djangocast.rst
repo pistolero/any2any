@@ -32,14 +32,14 @@ And it also serializes nicely foreign-keys at any depth :
     ... }
     True
 
-And many-to-many relationships as well :
+... many-to-many relationships :
 
     >>> foiegras = Dish(name='Foie gras') ; salmon = Dish(name='salmon') ; foiegras.save() ; salmon.save()
-    >>> gourmand = Gourmand(pseudo='Taz', firstname='T', lastname='Aznicniev') ; gourmand.save()
-    >>> gourmand.favourite_dishes.add(salmon)
-    >>> gourmand.favourite_dishes.add(foiegras)
-    >>> cast(gourmand) == {
-    ...     'id': gourmand.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
+    >>> taz = Gourmand(pseudo='Taz', firstname='T', lastname='Aznicniev') ; taz.save()
+    >>> taz.favourite_dishes.add(salmon)
+    >>> taz.favourite_dishes.add(foiegras)
+    >>> cast(taz) == {
+    ...     'id': taz.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
     ...     'favourite_dishes': [
     ...         {'id': foiegras.pk, 'name': 'Foie gras'},
     ...         {'id': salmon.pk, 'name': 'salmon'},
@@ -47,9 +47,39 @@ And many-to-many relationships as well :
     ... }
     True
 
+and reverse relationships (i.e. ForeignKeys and ManyToManyFields) :
+
+    >>> willy = Gourmand(pseudo='Willy', firstname='Free', lastname='William') ; willy.save()
+    >>> willy.favourite_dishes.add(salmon)
+    >>> willy.save()
+    >>> cast = ModelToDict(include_extra=['gourmand_set']) # You have to add it explicitely to the output
+    >>> cast(salmon) == {
+    ...     'id': salmon.pk, 'name': 'salmon',
+    ...     'gourmand_set': [
+    ...         {
+    ...             'id': taz.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
+    ...             'favourite_dishes': [
+    ...                 {'id': foiegras.pk, 'name': 'Foie gras'},
+    ...                 {'id': salmon.pk, 'name': 'salmon'},
+    ...             ]
+    ...         },
+    ...         {
+    ...             'id': willy.pk, 'pseudo': 'Willy', 'firstname': 'Free', 'lastname': 'William',
+    ...             'favourite_dishes': [
+    ...                 {'id': salmon.pk, 'name': 'salmon'},
+    ...             ]
+    ...         },
+    ...     ]
+    ... }
+    True
+
+Notice that in this case, you have to ask explicitely to serialize the attribute *gourmand_set*, by setting *include_extra*.
+
+Notice also that the output is pretty busy, as :class:`ModelToDict` will - by default - serialize all many-to-many relationships. But of course you can :ref:`control this behaviour<selecting_cast>`. 
+
 ..
     >>> foiegras.delete() ; salmon.delete()
-    >>> gourmand.delete()
+    >>> taz.delete() ; willy.delete()
 
 Converting a dictionary to an object
 ======================================
@@ -106,7 +136,7 @@ Of course, once again you can deserialize foreign-keys at any depth :
     ... # An author and a book were created
     (True, True)
 
-And the same thing goes for many-to-many relationships.
+And the same thing goes for many-to-many relationships and reverse relationships.
 
 
 Customizing the casts
@@ -180,6 +210,8 @@ To deserialize virtual attributes you need to use the setting *attrname_to_sette
     >>> author.firstname, author.lastname
     ('Boris', 'Vian')
 
+.. _selecting_cast:
+
 Both
 ======
 
@@ -198,17 +230,30 @@ Say we want all the authors to be serialized to their complete name. To do that,
     ...
     >>> author_cast = AuthorCast()
 
-And set it as default for all instances of Author :
+And tell our cast to use it for all instances of Author :
 
-    >>> from any2any.base import register
     >>> from any2any.utils import Mm
-    >>> register(author_cast, Mm(Author, dict))
+    >>> book_cast = ModelToDict(mm_to_cast={
+    ...     Mm(Author, dict): author_cast # metamorphosis : Author -> dict
+    ... })
 
-Now, when serializing a book, the author will be only a name :
+The setting *mm_to_cast* maps a metamorphosis to a cast instance. So everytime ``book_cast`` needs to change an Author into a dict, ``author_cast`` will be called.
+
+And now, when serializing a book, the author will be only a name :
 
     >>> book = Book.objects.get(title='1984')
-    >>> cast = ModelToDict()
-    >>> cast(book) == {
+    >>> book_cast(book) == {
+    ...     'author': 'George Orwell',
+    ...     'title': '1984', 'id': book.pk, 'comments': '',
+    ... }
+    True
+
+Another solution is to set our AuthorCast as global default for all instances of Author :
+
+    >>> from any2any.base import register
+    >>> register(author_cast, Mm(Author, dict))
+    >>> book_cast = ModelToDict()
+    >>> book_cast(book) == {
     ...     'author': 'George Orwell',
     ...     'title': '1984', 'id': book.pk, 'comments': '',
     ... }

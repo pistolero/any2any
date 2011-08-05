@@ -3,7 +3,7 @@ import datetime
 
 from base import Cast
 from daccasts import (FromMapping, ToMapping, FromIterable, ToIterable, FromObject, ToObject,
-ContainerType, CastItems, ConcatDict, SplitDict, RouteToOperands)
+ContainerType, CastItems, ConcatMapping, SplitMapping, RouteToOperands)
 from types import FunctionType
 
 class Identity(Cast):
@@ -65,11 +65,11 @@ class ObjectToMapping(FromObject, CastItems, ToMapping):
         return filter(lambda name: not isinstance(getattr(inpt, name), FunctionType), names)
 
 
-class DictToObject(FromMapping, CastItems, ToObject):
+class MappingToObject(FromMapping, CastItems, ToObject):
     """
     Dictionary to object :
 
-        >>> cast = DictToObject(to=SomeObject)
+        >>> cast = MappingToObject(to=SomeObject)
         >>> cast({'attr1': 'its casted value 1', 'attr2': 'its casted value 2'})
         <SomeObject>
     """
@@ -137,11 +137,11 @@ class DateTimeToMapping(FromObject, CastItems, ToMapping):
         return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
 
-class DictToDate(FromMapping, CastItems, ToObject):
+class MappingToDate(FromMapping, CastItems, ToObject):
     """
     dict to date:
 
-        >>> cast = DictToDate()
+        >>> cast = MappingToDate()
         >>> cast(dict(year=1984, month=1, day=18)) == date(year=1984, month=1, day=18)
         True
     """
@@ -152,11 +152,11 @@ class DictToDate(FromMapping, CastItems, ToObject):
         return new_date
 
 
-class DictToDateTime(FromMapping, CastItems, ToObject):
+class MappingToDateTime(FromMapping, CastItems, ToObject):
     """
     dict to datetime:
 
-        >>> cast = DictToDateTime()
+        >>> cast = MappingToDateTime()
         >>> cast(dict(year=2012, month=4, day=26, second=54)) == datetime(year=2012, month=4, day=26, second=54)
         True
     """
@@ -167,7 +167,7 @@ class DictToDateTime(FromMapping, CastItems, ToObject):
         return new_datetime
 
 
-class ConcatDict(SplitDict, RouteToOperands, ConcatDict):
+class ConcatMapping(SplitMapping, RouteToOperands, ConcatMapping):
     """
     """
     def get_route(self, key, value):
