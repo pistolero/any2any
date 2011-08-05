@@ -11,7 +11,6 @@ class CastSettings_Test(object):
         self.settings = CastSettings(
             _schema={
                 'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
-                'another': {'type': int},
             },
             a_setting={'a': 1, 'b': 2},
             another=1,
@@ -30,7 +29,7 @@ class CastSettings_Test(object):
         })
         ok_(self.settings._schema == {
             'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
-            'another': {'type': int},
+            'another': {},
             'more': {},
         })
 
@@ -44,9 +43,8 @@ class CastSettings_Test(object):
         # with type check
         self.settings['another'] = 590
         ok_(self.settings['another'] == 590)
-        assert_raises(TypeError, self.settings.__setitem__, ('another', 'bla'))
         # unknown setting
-        assert_raises(TypeError, self.settings.__setitem__, ('unknown_setting', 'bla'))
+        assert_raises(TypeError, self.settings.__setitem__, 'unknown_setting', 'bla')
 
     def override_test(self):
         """
@@ -55,16 +53,16 @@ class CastSettings_Test(object):
         self.settings.override(CastSettings(
             a_setting={'a': 2, 'c': 3},
             moremore={'D': 'd'},
-            _schema={'a_setting': {}, 'moremore': {1: 2}},
+            _schema={'a_setting': {'bla': 'blo', 'customize': 'do_nothing'}, 'moremore': {1: 2}},
         ))
         ok_(self.settings._values['a_setting'] == {'a': 2, 'b': 2, 'c': 3})
         ok_(self.settings._values['moremore'] == {'D': 'd'})
         ok_(self.settings._values['more'] == {'c': 'C'})
         ok_(self.settings._schema == {
-            'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
+            'a_setting': {'override': 'copy_and_update', 'customize': 'do_nothing', 'bla': 'blo'},
             'moremore': {1: 2},
             'more': {},
-            'another': {'type': int},
+            'another': {},
         })
 
     def customize_test(self):
@@ -81,7 +79,7 @@ class CastSettings_Test(object):
         ok_(self.settings._values['more'] == {'c': 'C'})
         ok_(self.settings._schema == {
             'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
-            'another': {'type': int},
+            'another': {},
             'more': {},
         })
 
@@ -98,3 +96,12 @@ class CastSettings_Test(object):
         ok_(settings_copy._values['another'] is self.settings._values['another'])
         ok_(settings_copy._values['a_setting'] is self.settings._values['a_setting'])
 
+    def freeze_unfreeze_test(self):
+        """
+        Test freeze/unfreeze settings
+        """
+        self.settings.freeze()
+        assert_raises(RuntimeError, self.settings.__setitem__, 'another', 'bla')
+        self.settings.unfreeze()
+        self.settings['another'] = 'blabla'
+        ok_(self.settings['another'] == 'blabla')

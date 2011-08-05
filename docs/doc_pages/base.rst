@@ -73,12 +73,12 @@ When calling a cast, it can be useful for several methods to share data. For thi
     ...         print 'sub', self._context['input'], self._context['bla']
     ... 
     >>> cast = SomeCast()
-    >>> cast._context == None
+    >>> cast._context == {}
     True
     >>> cast.call('bla')
     call bla
     sub bla blabla
-    >>> cast._context == None
+    >>> cast._context == {}
     True
 
 Looking-up for a suitable cast

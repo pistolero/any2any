@@ -66,6 +66,7 @@ class CastSettings(collections.MutableMapping):
         True
     """
     def __init__(self, _schema={}, **settings):
+        self._frozen = False
         # initializing the schema
         self._schema = dict.fromkeys(settings, {})
         self._schema.update(_schema)
@@ -80,10 +81,13 @@ class CastSettings(collections.MutableMapping):
             raise KeyError("%s" % name) 
 
     def __setitem__(self, name, value):
-        if name in self:
-            self._values[name] = value
+        if not self._frozen:
+            if name in self:
+                self._values[name] = value
+            else:
+                raise TypeError("Setting '%s' is not defined" % name)
         else:
-            raise TypeError("Setting '%s' is not defined" % name)
+            raise RuntimeError("This '%s' object is frozen" % self.__class__.__name__)
 
     def __delitem__(self, name):
         self._values.pop(name, None)
@@ -103,6 +107,16 @@ class CastSettings(collections.MutableMapping):
         copied = {'_schema': self._schema.copy()}
         copied.update(self)
         return self.__class__(**copied)
+
+    def freeze(self):
+        # Makes the calling instance read-only.
+        # Useful during a call, to allow caching. In that context,
+        # settings shouldn't change otherwise cached values are not valid.
+        self._frozen = True
+        
+    def unfreeze(self):
+        # Allow writing settings again
+        self._frozen = False
 
     def override(self, settings):
         # Performs override of the calling instance and its schema with *settings*.
@@ -169,6 +183,7 @@ class CastType(abc.ABCMeta):
             # Following is a hack to avoid executing the wrapping code when doing :
             #     super(MyCast, self).call(*args, **kwargs)
             if (type(self) == cast_class):
+                self.settings.freeze()
                 # context management : should be first, because logging might use it.
                 self._context = {'input': args[0] if args else None}
                 # logging
@@ -182,7 +197,8 @@ class CastType(abc.ABCMeta):
                     if self._depth == 0:
                         self.log('')
                 # context management
-                self._context = None
+                self._context = {}
+                self.settings.unfreeze()
                 return returned
             else:
                 return call(self, *args, **kwargs)
@@ -225,7 +241,7 @@ class Cast(object):
         return new_cast
 
     def __init__(self, **settings):
-        self._context = None # operation context
+        self._context = {} # operation context
         self._depth = 0 # used for logging
         self.settings.update(settings)
 
@@ -234,7 +250,7 @@ class Cast(object):
 
     @property
     def from_(self):
-        if self.settings['from_'] == None and self._context:
+        if self.settings['from_'] == None and 'input' in self._context:
             return type(self._context['input'])
         else:
             return self.settings['from_']
@@ -246,18 +262,21 @@ class Cast(object):
 
         .. seealso:: :ref:`How<configuring-cast_for>` to control the behaviour of *cast_for*.
         """
-        # builds all choices from global map and local map
-        choices = mm_to_cast.copy()
-        choices.update(self.mm_to_cast)
-        # gets better choice
-        closest_mm = mm.pick_closest_in(choices.keys())
-        cast = choices[closest_mm]
-        # builds a customized version of the cast, override settings
-        new_cast = copy.copy(cast)
-        new_cast._depth = cast._depth + 1
-        new_cast.settings.customize(self.settings)
-        new_cast.settings.customize({'from_': mm.from_, 'to': mm.to})
-        return new_cast
+        cached = self._context.setdefault('cast_for', {})
+        if not mm in cached:
+            # builds all choices from global map and local map
+            choices = mm_to_cast.copy()
+            choices.update(self.mm_to_cast)
+            # gets better choice
+            closest_mm = mm.pick_closest_in(choices.keys())
+            cast = choices[closest_mm]
+            # builds a customized version of the cast, override settings
+            new_cast = copy.copy(cast)
+            new_cast._depth = cast._depth + 1
+            new_cast.settings.customize(self.settings)
+            new_cast.settings.customize({'from_': mm.from_, 'to': mm.to})
+            cached[mm] = new_cast
+        return cached[mm]
 
     @abc.abstractmethod
     def call(self, inpt):
