@@ -1,7 +1,7 @@
 Overview
 ==========
 
-*any2any* is a Python library for magically casting any type (or format) to any other type (or format).
+*any2any* is a Python library for magically casting any type to any other type.
 
 *any2any* helps you with (de)serialization operations, formatting operations, any kind of transformation between two Python objects.
 
@@ -14,4 +14,13 @@ Installation
 
 With pip ::
 
-    sudo pip install any2any 
+    sudo pip install any2any
+
+Running tests
+===============
+
+First, you need to install :module:`nose` and :module:`django-nose`.
+
+Then, go to ``any2any/any2any/tests`` and run ::
+
+    python run.py
