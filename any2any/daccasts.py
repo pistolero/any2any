@@ -154,7 +154,7 @@ class CastItems(DivideAndConquerCast):
     def key_cast(self):
         if not hasattr(self, '_cached_key_cast'):
             self._cached_key_cast = copy.copy(self.settings['key_cast'])
-            self._cached_key_cast.settings.customize({
+            self._cached_key_cast.settings.update({
                 'from_': self.from_,
                 'to': self.to
             })
@@ -175,55 +175,59 @@ class CastItems(DivideAndConquerCast):
         """
         return False
 
-class FromMapping(DivideAndConquerCast):
+class FromContainer(DivideAndConquerCast):
+
+    def get_from_class(self, key):
+        if isinstance(self.from_, SpecializedType) and hasattr(self.from_, 'value_type'):
+            return self.from_.value_type
+        else:
+            return NotImplemented
+
+class ToContainer(DivideAndConquerCast):
+
+    def get_to_class(self, key):
+        if isinstance(self.to, SpecializedType) and hasattr(self.to, 'value_type'):
+            return self.to.value_type
+        else:
+            return NotImplemented
+
+class FromMapping(FromContainer):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_from_class` can guess the type of values if *from_* is a :class:`ContainerType`.    
+    :meth:`get_from_class` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
     def iter_input(self, inpt):
         return inpt.iteritems()
 
-    def get_from_class(self, key):
-        return self.from_.value_type if isinstance(self.from_, ContainerType) else NotImplemented
-
-class ToMapping(DivideAndConquerCast):
+class ToMapping(ToContainer):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
     :meth:`get_to_class` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
     def build_output(self, items_iter):
-        to = self.to.base if isinstance(self.to, ContainerType) else self.to
+        to = self.to.base if isinstance(self.to, SpecializedType) else self.to
         return to(items_iter)
 
-    def get_to_class(self, key):
-        return self.to.value_type if isinstance(self.to, ContainerType) else NotImplemented
-
-class FromIterable(DivideAndConquerCast):
+class FromIterable(FromContainer):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
     :meth:`get_from_class` can guess the type of values if *from_* is a :class:`ContainerType`.    
     """
     def iter_input(self, inpt):
-        return enumerate(inpt) 
+        return enumerate(inpt)
 
-    def get_from_class(self, key):
-        return self.from_.value_type if isinstance(self.from_, ContainerType) else NotImplemented
-
-class ToIterable(DivideAndConquerCast):
+class ToIterable(ToContainer):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
     :meth:`get_to_class` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
     def build_output(self, items_iter):
-        to = self.to.base if isinstance(self.to, ContainerType) else self.to
+        to = self.to.base if isinstance(self.to, SpecializedType) else self.to
         return to((value for key, value in items_iter))
-
-    def get_to_class(self, key):
-        return self.to.value_type if isinstance(self.to, ContainerType) else NotImplemented
 
 class FromObject(DivideAndConquerCast):
     """

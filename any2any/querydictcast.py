@@ -40,10 +40,11 @@ class OneElemToList(Cast):
     def call(self, inpt):
         return [inpt]
 
-class IterableToIterableStripEmpty(IterableToIterable):
+class StripEmptyValues(IterableToIterable):
 
     defaults = dict(
-        empty_value = '_empty'
+        empty_value = '_empty',
+        to = list
     )
     
     def strip_item(self, key, value):

@@ -174,8 +174,13 @@ Mm = Metamorphosis
 class SpecializedType(abc.ABCMeta):
     """
     A metaclass for building specialized types.
+
+        >>> PositiveInt = SpecializedType(int, greater_than=0)
+        >>> issubclass(PositiveInt, int)
+        True
+        >>> PositiveInt.greater_than
+        0
     """
-    #TODO: improve
 
     defaults = {}
 
@@ -183,29 +188,22 @@ class SpecializedType(abc.ABCMeta):
         name = 'SpzOf%s' % base.__name__.capitalize()
         bases = (base,)
         attrs = copy.copy(cls.defaults)
-        attrs['base'] = base #TODO : not good, because if base is a SpecializedType ?
+        attrs['base'] = base
+        attrs['features'] = features
         new_spz = super(SpecializedType, cls).__new__(cls, name, bases, attrs)
         new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz
 
     def __init__(self, base, **features):
-        unknown_features = set(features) - set(self.defaults)
-        if unknown_features:
-            raise TypeError("%s are not valid features for %s"\
-            % (','.join(unknown_features), type(self)))
         for name, value in features.items():
             setattr(self, name, value)
-
-    def features(self):
-        for name in self.defaults.keys():
-            return name, getattr(self, name) 
 
     def __subclasshook__(self, C):
         return NotImplemented
 
     def __eq__(self, other):
         if isinstance(other, SpecializedType):
-            return (self.__bases__ == other.__bases__) and (self.features() == other.features())
+            return (self.__bases__ == other.__bases__) and (self.features == other.features)
         else:
             return False
 
