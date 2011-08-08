@@ -142,7 +142,6 @@ class CastItems(DivideAndConquerCast):
             cast.set_mm(mm)
         elif self.value_cast:
             cast = self.value_cast
-            cast = copy.copy(cast)
             cast.set_mm(mm)
         # otherwise try to get it by getting item's *mm* and calling *cast_for*.
         else:
@@ -152,14 +151,21 @@ class CastItems(DivideAndConquerCast):
 
     @property
     def key_cast(self):
-        if not hasattr(self, '_cached_key_cast'):
-            self._cached_key_cast = copy.copy(self.settings['key_cast'])
-            self._cached_key_cast.settings.update({
+        if not 'key_cast' in self._context:
+            key_cast = copy.copy(self.settings['key_cast'])
+            key_cast.settings.update({
                 'from_': self.from_,
                 'to': self.to
             })
-        return self._cached_key_cast
+            self._context['key_cast'] = key_cast
+        return self._context['key_cast']
             
+    @property
+    def value_cast(self):
+        if not 'value_cast' in self._context:
+            value_cast = copy.copy(self.settings['value_cast'])
+            self._context['value_cast'] = value_cast
+        return self._context['value_cast']
 
     def strip_item(self, key, value):
         """
