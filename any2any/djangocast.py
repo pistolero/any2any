@@ -13,19 +13,6 @@ from any2any.utils import Mm
 
 ListOfDicts = ContainerType(list, value_type=dict)
 
-class ManagerToList(FromIterable, CastItems, ToIterable):
-    """
-    Casts a manager to a list of casted elements.
-    """
-
-    defaults = dict(
-        to = ListOfDicts
-    )
-
-    def iter_input(self, inpt):
-        return enumerate(inpt.all())
-
-
 class IntrospectMixin(Cast):
     """
     Mixin for introspecting a model.
@@ -220,7 +207,17 @@ class DictToModel(FromMapping, CastItems, ToObject, IntrospectMixin):
         obj.save()
         return obj
 
+class FromQuerySet(FromIterable):
 
-register(ManagerToList(), Mm(from_any=djmodels.Manager, to=ListOfDicts))
+    def iter_input(self, inpt):
+        return enumerate(inpt.all())
+
+class QuerySetToIterable(FromQuerySet, CastItems, ToIterable):
+    """
+    Casts a manager to an iterable of casted elements.
+    """
+    pass
+
+register(QuerySetToIterable(to=ListOfDicts), Mm(from_any=djmodels.Manager, to=ListOfDicts))
 register(ModelToDict(), Mm(from_any=djmodels.Model, to=dict))
 register(DictToModel(), Mm(dict, to_any=djmodels.Model))
