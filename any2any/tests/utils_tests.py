@@ -164,3 +164,17 @@ class Specialization_Test(object):
         ok_(not issubclass(str, SpecializedType(str)))
         ok_(issubclass(SpecializedType(str), SpecializedType(str)))
         ok_(issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
+
+    def instantiate_test(self):
+        """
+        Test instantiate a Specialization
+        """
+        SpzStr = SpecializedType(str)
+        a_spz_str = SpzStr("blabla")
+        ok_(type(a_spz_str) == str)
+        ok_(a_spz_str == "blabla")
+
+        SpzSpzStr = SpecializedType(SpzStr)
+        a_spz_str = SpzSpzStr("bloblo")
+        ok_(type(a_spz_str) == str)
+        ok_(a_spz_str == "bloblo")

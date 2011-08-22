@@ -190,6 +190,9 @@ class SpecializedType(abc.ABCMeta):
         attrs = copy.copy(cls.defaults)
         attrs['base'] = base
         attrs['features'] = features
+        def __new__(cls, *args, **kwargs):
+            return cls.base(*args, **kwargs)
+        attrs['__new__'] = __new__
         new_spz = super(SpecializedType, cls).__new__(cls, name, bases, attrs)
         new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz
@@ -234,3 +237,14 @@ def closest_parent(klass, other_classes):
         return object
     else:
         return sorted(candidates, key=K)[0]
+
+class Iter(object):
+    """
+    Simple wrapper around the function :func:`iter` in order to make instantiable. 
+    """
+
+    def __init__(self, iterator):
+        self.iterator = iterator
+
+    def __iter__(self):
+        return iter(self.iterator)

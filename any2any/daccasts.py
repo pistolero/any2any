@@ -213,8 +213,7 @@ class ToMapping(ToContainer):
     :meth:`get_to_class` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
     def build_output(self, items_iter):
-        to = self.to.base if isinstance(self.to, SpecializedType) else self.to
-        return to(items_iter)
+        return self.to(items_iter)
 
 class FromIterable(FromContainer):
     """
@@ -232,8 +231,7 @@ class ToIterable(ToContainer):
     :meth:`get_to_class` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
     def build_output(self, items_iter):
-        to = self.to.base if isinstance(self.to, SpecializedType) else self.to
-        return to((value for key, value in items_iter))
+        return self.to((value for key, value in items_iter))
 
 class FromObject(DivideAndConquerCast):
     """
@@ -296,6 +294,7 @@ class ToObject(DivideAndConquerCast):
     )
 
     def build_output(self, items_iter):
+        # TODO: bad because it breaks the laziness of generators
         items = dict(items_iter)
         new_object = self.new_object(items)
         for name, value in items.items():
