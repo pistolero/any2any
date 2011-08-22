@@ -133,7 +133,7 @@ class CastItems(DivideAndConquerCast):
         #   2. setting *value_cast*
         #   3. finally, the method gets the metamorphosis to apply on the item
         #       and a suitable cast by calling *Cast.cast_for*.  
-        if self.logs: self.log('Item %s' % key)
+        self.log('Item %s' % key)
         mm = self.get_item_mm(key, value)
         # try to get cast with the per-key map
         if key in self.key_to_cast:

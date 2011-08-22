@@ -187,15 +187,13 @@ class CastType(abc.ABCMeta):
                 # context management : should be first, because logging might use it.
                 self._context = {'input': args[0] if args else None}
                 # logging
-                if self.logs:
-                    self.log('%s.%s' % (self, call.__name__) + ' <= ' + repr(args[0] if args else None))
+                self.log('%s.%s' % (self, call.__name__) + ' <= ' + repr(args[0] if args else None))
                 # the actual call
                 returned = call(self, *args, **kwargs)
                 # logging
-                if self.logs:
-                    self.log('%s.%s' % (self, call.__name__) + ' => ' + repr(returned))
-                    if self._depth == 0:
-                        self.log('')
+                self.log('%s.%s' % (self, call.__name__) + ' => ' + repr(returned))
+                if self._depth == 0:
+                    self.log('')
                 # context management
                 self._context = {}
                 self.settings.unfreeze()
@@ -311,5 +309,6 @@ class Cast(object):
         Args:
             state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place.
         """
-        indent = ' ' * 4 * self._depth
-        logger.debug(indent + message)
+        if self.logs:
+            indent = ' ' * 4 * self._depth
+            logger.debug(indent + message)
