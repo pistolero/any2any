@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast
-from utils import closest_parent, SpecializedType, Mm
+from utils import closest_parent, SpecializedType, Mm, memoize
 
 # Abstract DivideAndConquerCast
 #======================================
@@ -126,6 +126,7 @@ class CastItems(DivideAndConquerCast):
             return Mm(from_=from_, to_any=object)
         return Mm(from_, to)
 
+    @memoize(key=lambda args, kwargs: (args[0], type(args[1])))
     def cast_for_item(self, key, value):
         # Returns the cast to use for item *key*, *value*.
         # The lookup order is the following :
@@ -150,22 +151,19 @@ class CastItems(DivideAndConquerCast):
         return cast
 
     @property
+    @memoize()
     def key_cast(self):
-        if not 'key_cast' in self._context:
-            key_cast = copy.copy(self.settings['key_cast'])
-            key_cast.settings.update({
-                'from_': self.from_,
-                'to': self.to
-            })
-            self._context['key_cast'] = key_cast
-        return self._context['key_cast']
+        key_cast = copy.copy(self.settings['key_cast'])
+        key_cast.settings.update({
+            'from_': self.from_,
+            'to': self.to
+        })
+        return key_cast
             
     @property
+    @memoize()
     def value_cast(self):
-        if not 'value_cast' in self._context:
-            value_cast = copy.copy(self.settings['value_cast'])
-            self._context['value_cast'] = value_cast
-        return self._context['value_cast']
+        return copy.copy(self.settings['value_cast'])
 
     def strip_item(self, key, value):
         """

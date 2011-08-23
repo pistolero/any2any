@@ -27,6 +27,7 @@ except ImportError:
     from compat import abc
 import collections
 from functools import wraps
+from utils import memoize
 
 mm_to_cast = {}
 """
@@ -66,7 +67,6 @@ class CastSettings(collections.MutableMapping):
         True
     """
     def __init__(self, _schema={}, **settings):
-        self._frozen = False
         # initializing the schema
         self._schema = dict.fromkeys(settings, {})
         self._schema.update(_schema)
@@ -81,13 +81,10 @@ class CastSettings(collections.MutableMapping):
             raise KeyError("%s" % name) 
 
     def __setitem__(self, name, value):
-        if not self._frozen:
-            if name in self:
-                self._values[name] = value
-            else:
-                raise TypeError("Setting '%s' is not defined" % name)
+        if name in self:
+            self._values[name] = value
         else:
-            raise RuntimeError("This '%s' object is frozen" % self.__class__.__name__)
+            raise TypeError("Setting '%s' is not defined" % name)
 
     def __delitem__(self, name):
         self._values.pop(name, None)
@@ -107,16 +104,6 @@ class CastSettings(collections.MutableMapping):
         copied = {'_schema': self._schema.copy()}
         copied.update(self)
         return self.__class__(**copied)
-
-    def freeze(self):
-        # Makes the calling instance read-only.
-        # Useful during a call, to allow caching. In that context,
-        # settings shouldn't change otherwise cached values are not valid.
-        self._frozen = True
-        
-    def unfreeze(self):
-        # Allow writing settings again
-        self._frozen = False
 
     def override(self, settings):
         # Performs override of the calling instance and its schema with *settings*.
@@ -183,7 +170,6 @@ class CastType(abc.ABCMeta):
             # Following is a hack to avoid executing the wrapping code when doing :
             #     super(MyCast, self).call(*args, **kwargs)
             if (type(self) == cast_class):
-                self.settings.freeze()
                 # context management : should be first, because logging might use it.
                 self._context = {'input': args[0] if args else None}
                 # logging
@@ -196,7 +182,6 @@ class CastType(abc.ABCMeta):
                     self.log('')
                 # context management
                 self._context = {}
-                self.settings.unfreeze()
                 return returned
             else:
                 return call(self, *args, **kwargs)
@@ -238,6 +223,7 @@ class Cast(object):
 
     def __init__(self, **settings):
         self._context = {} # operation context
+        self._cache = {} # used for caching
         self._depth = 0 # used for logging
         self.settings.update(settings)
 
@@ -252,6 +238,7 @@ class Cast(object):
         else:
             return from_
 
+    @memoize()
     def cast_for(self, mm):
         """
         Returns:
@@ -259,21 +246,18 @@ class Cast(object):
 
         .. seealso:: :ref:`How<configuring-cast_for>` to control the behaviour of *cast_for*.
         """
-        cached = self._context.setdefault('cast_for', {})
-        if not mm in cached:
-            # builds all choices from global map and local map
-            choices = mm_to_cast.copy()
-            choices.update(self.mm_to_cast)
-            # gets better choice
-            closest_mm = mm.pick_closest_in(choices.keys())
-            cast = choices[closest_mm]
-            # builds a customized version of the cast, override settings
-            new_cast = copy.copy(cast)
-            new_cast._depth = cast._depth + 1
-            new_cast.settings.customize(self.settings)
-            new_cast.set_mm(mm)
-            cached[mm] = new_cast
-        return cached[mm]
+        # builds all choices from global map and local map
+        choices = mm_to_cast.copy()
+        choices.update(self.mm_to_cast)
+        # gets better choice
+        closest_mm = mm.pick_closest_in(choices.keys())
+        cast = choices[closest_mm]
+        # builds a customized version of the cast, override settings
+        cast = copy.copy(cast)
+        cast._depth = cast._depth + 1
+        cast.settings.customize(self.settings)
+        cast.set_mm(mm)
+        return cast
 
     def set_mm(self, mm):
         # Sets *from_* and *to* for the calling cast only if they 
@@ -301,6 +285,13 @@ class Cast(object):
             return self.settings[name]
         except KeyError:
             return self.__getattribute__(name)
+
+    def configure(self, **settings):
+        """
+        Interface for configuring the cast's settings. 
+        """
+        self._cache.clear()
+        self.settings.update(settings)
 
     def log(self, message):
         """

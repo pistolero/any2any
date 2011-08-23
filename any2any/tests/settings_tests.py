@@ -96,12 +96,3 @@ class CastSettings_Test(object):
         ok_(settings_copy._values['another'] is self.settings._values['another'])
         ok_(settings_copy._values['a_setting'] is self.settings._values['a_setting'])
 
-    def freeze_unfreeze_test(self):
-        """
-        Test freeze/unfreeze settings
-        """
-        self.settings.freeze()
-        assert_raises(RuntimeError, self.settings.__setitem__, 'another', 'bla')
-        self.settings.unfreeze()
-        self.settings['another'] = 'blabla'
-        ok_(self.settings['another'] == 'blabla')

@@ -142,14 +142,7 @@ class Metamorphosis_Test(object):
 class Specialization_Test(object):
     """
     Tests for the Specialization class
-    """  
-    '''
-    def subclassing_test(self):
-        """
-        Test subclassing Specialization
-        """
-        class MySpecialization()
-    '''
+    """
 
     def issubclass_test(self):
         """
@@ -178,3 +171,60 @@ class Specialization_Test(object):
         a_spz_str = SpzSpzStr("bloblo")
         ok_(type(a_spz_str) == str)
         ok_(a_spz_str == "bloblo")
+
+class Memoization_Test(object):
+    """
+    Tests for the memoization decorators 
+    """
+
+    def setUp(self):
+        from any2any.simple import Identity
+        class TestMemCast(Identity):
+
+            @memoize(key=lambda args, kwargs: (args[1], kwargs['kwarg1']))
+            def method1(self, arg1, arg2, kwarg1=None):
+                return arg1
+
+            @memoize()
+            def method2(self, arg1, arg2, kwarg1=None):
+                import datetime
+                return datetime.datetime.now()
+
+            @memoize(key=lambda args, kwargs: type(args[1]))
+            def method3(self, arg1, arg2):
+                return arg1
+
+            @memoize()
+            def method4(self):
+                import datetime
+                return datetime.datetime.now()
+
+        self.cast = TestMemCast()
+
+    def memoize_test(self):
+        """
+        Test memoize decorator
+        """
+        ok_(self.cast.method1(1, 2, kwarg1=3) == 1)
+        ok_(self.cast.method1(55, 2, kwarg1=3) == 1)
+        ok_(self.cast.method1(55, 3, kwarg1=3) == 55)
+        ok_(self.cast.method1(66, 3, kwarg1=3) == 55)
+        self.cast.configure(from_=object)
+        ok_(self.cast.method1(88, 2, kwarg1=3) == 88)
+        ok_(self.cast.method1(66, 3, kwarg1=3) == 66)
+
+        result = self.cast.method2(1, 2, kwarg1=3)
+        import time ; time.sleep(0.1)
+        ok_(self.cast.method2(1, 2, kwarg1=3) == result)
+        import time ; time.sleep(0.1)
+        ok_(not self.cast.method2(2, 2, kwarg1=3) == result)
+
+        ok_(self.cast.method3(1, 2) == 1)
+        ok_(self.cast.method3(55, 7) == 1)
+        ok_(self.cast.method3(55, 'a') == 55)
+        ok_(self.cast.method3(66, 'yyy') == 55)
+
+        result = self.cast.method4()
+        import time ; time.sleep(0.1)
+        ok_(self.cast.method4() == result)
+

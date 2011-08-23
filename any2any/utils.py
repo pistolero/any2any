@@ -5,7 +5,6 @@ try:
 except ImportError:
     from compat import abc
 
-
 class ClassSet(object):
 
     def __init__(self, klass, singleton=False):
@@ -49,7 +48,6 @@ class ClassSet(object):
 
     def __repr__(self):
         return u'%s' % self.klass if self.singleton else u'Any %s' % self.klass
-
 
 class Metamorphosis(object):
     """
@@ -170,7 +168,6 @@ class Metamorphosis(object):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 Mm = Metamorphosis
 
-
 class SpecializedType(abc.ABCMeta):
     """
     A metaclass for building specialized types.
@@ -210,7 +207,6 @@ class SpecializedType(abc.ABCMeta):
         else:
             return False
 
-            
 def closest_parent(klass, other_classes):
     """
     Returns:
@@ -237,6 +233,38 @@ def closest_parent(klass, other_classes):
         return object
     else:
         return sorted(candidates, key=K)[0]
+
+class memoize(object):
+    """
+    Decorator for memoizing a method return value.
+
+    Kwargs:
+        key(function). A function ``key_func(args, kwargs)`` generating a caching key for the ``*args, **kwargs`` the decorated function is called with.
+    """
+
+    def __init__(self, key=None):
+        self.key = key
+
+    def __call__(self, method):
+        # Creates a decorator that memoizes result of the decorated function   
+        def _decorated_method(cast, *args, **kwargs):
+            cache = self.get_cache(cast, method)
+            key = self.generate_key(args, kwargs)
+            if not key in cache:
+                cache[key] = method(cast, *args, **kwargs)
+            return cache[key]
+        return _decorated_method
+
+    def generate_key(self, args, kwargs):
+        # Default generates a key with *args* and *kwargs*
+        if self.key:
+            return self.key(args, kwargs)
+        else:
+            return (tuple(args), tuple(sorted(kwargs.iteritems())))
+
+    def get_cache(self, cast, method):
+        # Gets and returns from *cast* the dict containing cache for *method*
+        return cast._cache.setdefault(method, {})
 
 class Iter(object):
     """
