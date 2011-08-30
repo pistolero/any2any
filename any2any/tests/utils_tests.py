@@ -157,6 +157,9 @@ class Specialization_Test(object):
         ok_(not issubclass(str, SpecializedType(str)))
         ok_(issubclass(SpecializedType(str), SpecializedType(str)))
         ok_(issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
+        # test with different superclass.
+        spz_type = SpecializedType(int, superclass=str)
+        ok_(issubclass(spz_type, str))
 
     def instantiate_test(self):
         """
@@ -171,6 +174,11 @@ class Specialization_Test(object):
         a_spz_str = SpzSpzStr("bloblo")
         ok_(type(a_spz_str) == str)
         ok_(a_spz_str == "bloblo")
+
+        SpzInt = SpecializedType(int, superclass=str)
+        a_spz_int = SpzInt(198)
+        ok_(a_spz_int == 198)
+        ok_(type(a_spz_int) == int)
 
 class Memoization_Test(object):
     """

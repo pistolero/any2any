@@ -9,7 +9,7 @@ from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any.daccasts import CastItems, FromIterable, ToIterable, FromObject, ToMapping, FromMapping, ToObject, ContainerType
 from any2any.base import Cast, register
-from any2any.utils import Mm
+from any2any.utils import Mm, SpecializedType
 
 ListOfDicts = ContainerType(list, value_type=dict)
 

@@ -177,24 +177,29 @@ class SpecializedType(abc.ABCMeta):
         True
         >>> PositiveInt.greater_than
         0
+        >>> an_int = PositiveInt(11)
+        >>> an_int, type(an_int)
+        (11, <type 'int'>)
     """
 
     defaults = {}
 
-    def __new__(cls, base, **features):
-        name = 'SpzOf%s' % base.__name__.capitalize()
-        bases = (base,)
+    def __new__(cls, factory, superclass=None, **features):
+        name = 'SpzOf%s' % factory.__name__.capitalize()
+        superclass = superclass or factory
+        bases = (superclass,)
         attrs = copy.copy(cls.defaults)
-        attrs['base'] = base
+        attrs['factory'] = factory
         attrs['features'] = features
+        attrs['superclass'] = superclass
         def __new__(cls, *args, **kwargs):
-            return cls.base(*args, **kwargs)
+            return cls.factory(*args, **kwargs)
         attrs['__new__'] = __new__
         new_spz = super(SpecializedType, cls).__new__(cls, name, bases, attrs)
         new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz
 
-    def __init__(self, base, **features):
+    def __init__(self, factory, superclass=None, **features):
         for name, value in features.items():
             setattr(self, name, value)
 
@@ -203,7 +208,8 @@ class SpecializedType(abc.ABCMeta):
 
     def __eq__(self, other):
         if isinstance(other, SpecializedType):
-            return (self.__bases__ == other.__bases__) and (self.features == other.features)
+            return ((self.factory, self.superclass) == (other.factory, other.superclass)
+            and (self.features == other.features))
         else:
             return False
 

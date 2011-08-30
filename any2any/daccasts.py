@@ -126,6 +126,7 @@ class CastItems(DivideAndConquerCast):
             return Mm(from_=from_, to_any=object)
         return Mm(from_, to)
 
+    # TODO: PB ! That's not always optimal ... e.g. with a (big) list
     @memoize(key=lambda args, kwargs: (args[0], type(args[1])))
     def cast_for_item(self, key, value):
         # Returns the cast to use for item *key*, *value*.
