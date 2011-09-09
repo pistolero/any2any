@@ -375,8 +375,6 @@ class ContainerType(SpecializedType):
 
         >>> ListOfInt = ContainerType(list, value_type=int)
     """
-
-    defaults = {'value_type': object}
     
     def __subclasshook__(self, C):
         if super(ContainerType, self).__subclasshook__(C) and isinstance(C, ContainerType):
@@ -386,3 +384,58 @@ class ContainerType(SpecializedType):
 
     def __repr__(self):
         return '%sOf%s' % (self.__base__.__name__.capitalize(), self.value_type.__name__.capitalize())
+
+import collections
+class Schema(SpecializedType, collections.Mapping):
+    #TODO: overwrite isnull, so bool(Schema(...)) is not False when len(Schema(...)) == 0
+    #TODO: for looking-up best mm, when several superclasses in Schema, when several Mm match, choose the best one.
+    # ex : Journal, ForeignKey
+    #TODO: maybe factory not needed, just sveral superclasses, then take the first as factory
+
+    def __init__(self, factory, superclasses=None, key_to_class={}, value_type=None):
+        kwargs = {'key_to_class': key_to_class, 'value_type': value_type}
+        super(Schema, self).__init__(factory, superclasses=None, **kwargs)
+
+    def __subclasshook__(self, C):
+        if isinstance(C, Schema) and C.value_type != None and self.value_type != None:
+            return issubclass(C.value_type, self.value_type)
+        else:
+            return False
+
+    def __repr__(self):
+        return self.__base__.__name__.capitalize()#'%sOf%s' % (self.__base__.__name__.capitalize(), self.value_type.__name__.capitalize())
+
+    def __getitem__(self, key):
+        if key in self.key_to_class:
+            return self.key_to_class[key]
+        elif key in self:
+            if self.value_type != None:
+                return self.value_type
+            else:
+                return self.get_class(key)
+        else:
+            raise KeyError(key)   
+
+    def __iter__(self):
+        all_keys = []
+        for key in self.key_to_class:
+            yield key
+            all_keys.append(key)
+        for key in self.all_keys():
+            if not key in all_keys:
+                yield key
+
+    def __len__(self):
+        return len(list(self))
+
+    def __contains__(self, key):
+        if key in self.key_to_class:
+            return True
+        else:
+            return key in self.all_keys()
+
+    def get_class(self, key):
+        raise NotImplemented
+
+    def all_keys(self):
+        return []
