@@ -184,14 +184,14 @@ class SpecializedType(abc.ABCMeta):
 
     defaults = {}
 
-    def __new__(cls, factory, superclass=None, **features):
+    def __new__(cls, factory, superclasses=None, **features):
         name = 'SpzOf%s' % factory.__name__.capitalize()
-        superclass = superclass or factory
-        bases = (superclass,)
+        superclasses = superclasses or (factory,)
+        bases = superclasses
         attrs = copy.copy(cls.defaults)
         attrs['factory'] = factory
         attrs['features'] = features
-        attrs['superclass'] = superclass
+        attrs['superclasses'] = superclasses
         def __new__(cls, *args, **kwargs):
             return cls.factory(*args, **kwargs)
         attrs['__new__'] = __new__
@@ -199,7 +199,7 @@ class SpecializedType(abc.ABCMeta):
         new_spz.__subclasshook__ = classmethod(cls.__subclasshook__)
         return new_spz
 
-    def __init__(self, factory, superclass=None, **features):
+    def __init__(self, factory, superclasses=None, **features):
         for name, value in features.items():
             setattr(self, name, value)
 
@@ -208,7 +208,7 @@ class SpecializedType(abc.ABCMeta):
 
     def __eq__(self, other):
         if isinstance(other, SpecializedType):
-            return ((self.factory, self.superclass) == (other.factory, other.superclass)
+            return ((self.factory, self.superclasses) == (other.factory, other.superclasses)
             and (self.features == other.features))
         else:
             return False
