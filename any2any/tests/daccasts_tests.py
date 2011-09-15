@@ -1,68 +1,12 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
-from any2any.daccasts import ToMapping, FromMapping, CastItems, ContainerType
+from any2any.daccasts import *
 from any2any.base import Cast
+from any2any.utils import Spz
 
 class FromDictToDict(ToMapping, CastItems, FromMapping):
 
     defaults = dict(to=dict)
-
-ListOfObjects = ContainerType(list, value_type=object)
-ListOfStr = ContainerType(list, value_type=str)
-ListOfInt = ContainerType(list, value_type=int)
-
-class ContainerType_Test(object):
-    """
-    Tests for ContainerType
-    """
-
-    def issubclass_test(self):
-        """
-        Tests for ContainerSpecialization
-        """
-        # Nested specializations
-        ok_(issubclass( 
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfStr
-            )),
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfObjects
-            ))
-        ))
-        ok_(not issubclass(
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfObjects
-            )),
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfStr
-            ))
-        ))
-        ok_(issubclass(
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfObjects
-            )),
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=list
-            ))
-        ))
-        ok_(issubclass(
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfObjects
-            )),
-            list
-        ))
-        ok_(issubclass(
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfObjects
-            )),
-            ContainerType(list, value_type=ListOfObjects)
-        ))
-        ok_(not issubclass(
-            ContainerType(list, value_type=ContainerType(
-                list, value_type=ListOfObjects
-            )),
-            ContainerType(list, value_type=ListOfInt)
-        ))
 
 class CastItems_Test(object):
     """
@@ -101,4 +45,92 @@ class CastItems_Test(object):
 
         cast = FromDictToDict(key_cast=ToStr())
         ok_(cast({1: 'bla', 2: 'bla', u'blo': None, 'coucou': [1]}) == {'1': 'bla', '2': 'bla', 'blo': None, 'coucou': [1]})
-            
+        
+class ObjectType_Test(object):
+    """
+    Test ObjectType
+    """
+
+    def setUp(self):
+        class AnObject(object): pass
+        self.AnObject = AnObject
+        class AnObjectType(ObjectType):
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        self.AnObjectType = AnObjectType
+
+    def get_class_test(self):
+        """
+        Test ObjectType.get_class and ObjectType.get_schema
+        """
+        # provided schema
+        obj_type = ObjectType(self.AnObject, schema={'a': int, 'b': str})
+        ok_(obj_type.get_schema() == {'a': int, 'b': str})
+        ok_(obj_type.get_class('a') == int)
+        ok_(obj_type.get_class('b') == str)
+        assert_raises(KeyError, obj_type.get_class, 'c')
+        # default schema
+        obj_type = self.AnObjectType(self.AnObject)
+        ok_(obj_type.get_schema() == {'a': float, 'b': unicode, 'c': float})
+        ok_(obj_type.get_class('a') == float)
+        ok_(obj_type.get_class('b') == unicode)
+        ok_(obj_type.get_class('c') == float)
+        assert_raises(KeyError, obj_type.get_class, 'd')
+
+ListOfObjects = ContainerType(list, value_type=object)
+ListOfStr = ContainerType(list, value_type=str)
+ListOfInt = ContainerType(list, value_type=int)
+
+class ContainerType_Test(object):
+    """
+    Test ContainerType
+    """
+
+    def issubclass_test(self):
+        """
+        Tests for isubclass with ContainerType
+        """
+        # Nested specializations
+        ok_(Spz.issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfStr
+            )),
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            ))
+        ))
+        ok_(not Spz.issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfStr
+            ))
+        ))
+        ok_(Spz.issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=list
+            ))
+        ))
+        ok_(Spz.issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            list
+        ))
+        ok_(Spz.issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ListOfObjects)
+        ))
+        ok_(not Spz.issubclass(
+            ContainerType(list, value_type=ContainerType(
+                list, value_type=ListOfObjects
+            )),
+            ContainerType(list, value_type=ListOfInt)
+        ))
+    

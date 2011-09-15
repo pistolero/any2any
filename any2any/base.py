@@ -10,12 +10,9 @@
 # TODO : better way of documenting settings
 # anyways, logging needs a bit refactoring.
 import logging
-
-class NullHandler(logging.Handler):
-    def emit(self, record):
-        pass
 logger = logging.getLogger()
-logger.addHandler(NullHandler())
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
 
 # Cast 
 #====================================
@@ -144,6 +141,10 @@ class CastSettings(collections.MutableMapping):
 
     def do_nothing(self, name, value):
         pass
+    
+    def update_if_not_none(self, name, value):
+        if value != None:
+            self[name] = value
 
 
 class CastType(abc.ABCMeta):
@@ -209,10 +210,14 @@ class Cast(object):
         mm_to_cast = {},
         from_ = None,
         to = None,
+        from_spz = None,
+        to_spz = None,
         logs = False,
         _schema = {
             'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
             'logs': {'customize': '__setitem__'},
+            'from_spz': {'override': 'update_if_not_none'},
+            'to_spz': {'override': 'update_if_not_none'},
         },
     )
 
@@ -233,10 +238,21 @@ class Cast(object):
     @property
     def from_(self):
         from_ = self.settings['from_']
+        # Getting *from_* from input, if needed and if possible
         if from_ == None and 'input' in self._context:
-            return type(self._context['input'])
-        else:
-            return from_
+            from_ = type(self._context['input'])
+        # Wrapping *from_* in specialized type, if provided.
+        if self.from_spz and from_ != None and not isinstance(from_, self.from_spz):
+            from_= self.from_spz(from_)
+        return from_
+
+    @property
+    def to(self):
+        to = self.settings['to']
+        # Wrapping *to* in specialized type, if provided.
+        if self.to_spz and to != None and not isinstance(to, self.to_spz):
+            to = self.to_spz(to)
+        return to
 
     @memoize()
     def cast_for(self, mm):

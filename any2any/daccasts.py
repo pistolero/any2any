@@ -60,26 +60,61 @@ class DivideAndConquerCast(Cast):
         """
         return
 
-    def get_from_class(self, key):
+    def get_item_from(self, key):
         """
         Returns:
             type or NotImplemented. The type of the value associated with *key* if it is known `a priori` (without knowing the input), or *NotImplemented* to let the cast guess.
         """
-        # TODO: Name sucks
         return NotImplemented
 
-    def get_to_class(self, key):
+    def get_item_to(self, key):
         """
         Returns:
             type or NotImplemented. Type the value associated with *key* must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
         """
-        # TODO: Name sucks
         return NotImplemented
 
     def call(self, inpt):
         iter_input = self.iter_input(inpt)
         iter_ouput = self.iter_output(iter_input)
         return self.build_output(iter_ouput)
+
+# Specialized types
+#======================================
+class ObjectType(SpecializedType):
+    #TODO: for looking-up best mm, when several superclasses in ObjectType, when several Mm match, choose the best one.
+    # ex : Journal, ForeignKey
+
+    defaults = {'schema': {}}
+
+    def get_class(self, key):
+        schema = self.get_schema()
+        if key in schema:
+            return schema[key]
+        else:
+            raise KeyError("'%s' not in schema" % key)
+
+    def get_schema(self):
+        if self.schema:
+            return self.schema
+        else:
+            return self.default_schema()
+
+    def default_schema(self):
+        return {}
+
+class ContainerType(SpecializedType):
+
+    defaults = {'value_type': NotImplemented}
+
+    def __superclasshook__(self, C):
+        if super(ContainerType, self).__superclasshook__(C):
+            if isinstance(C, ContainerType):
+                return SpecializedType.issubclass(self.value_type, C.value_type)
+            else:
+                return True
+        else:
+            return False
 
 # Mixins
 #========================================
@@ -99,7 +134,6 @@ class CastItems(DivideAndConquerCast):
 
     defaults = dict(
         key_to_cast = {},
-        key_to_mm = {},
         value_cast = None,
         key_cast = None,
     )
@@ -113,12 +147,8 @@ class CastItems(DivideAndConquerCast):
 
     def get_item_mm(self, key, value):
         # Returns the metamorphosis *mm* to apply on item *key*, *value*.
-        # try to get *mm* from *key_to_mm*
-        if key in self.key_to_mm:
-            return self.key_to_mm[key]
-        # otherwise, builds it by getting *from_* and *to*. 
-        from_ = self.get_from_class(key)
-        to = self.get_to_class(key)
+        from_ = self.get_item_from(key)
+        to = self.get_item_to(key)
         # If NotImplemented, we make guesses
         if from_ == NotImplemented:
             from_ = type(value)
@@ -180,55 +210,63 @@ class CastItems(DivideAndConquerCast):
         """
         return False
 
-class FromContainer(DivideAndConquerCast):
-
-    def get_from_class(self, key):
-        if isinstance(self.from_, SpecializedType) and hasattr(self.from_, 'value_type'):
-            return self.from_.value_type
-        else:
-            return NotImplemented
-
-class ToContainer(DivideAndConquerCast):
-
-    def get_to_class(self, key):
-        if isinstance(self.to, SpecializedType) and hasattr(self.to, 'value_type'):
-            return self.to.value_type
-        else:
-            return NotImplemented
-
-class FromMapping(FromContainer):
+class FromMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_from_class` can guess the type of values if *to* is a :class:`ContainerType`.    
+    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerType`.    
     """
+
+    defaults = dict(from_spz = ContainerType)
+
+    def get_item_from(self, key):
+        return self.from_.value_type
+
     def iter_input(self, inpt):
         return inpt.iteritems()
 
-class ToMapping(ToContainer):
+class ToMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
-    :meth:`get_to_class` can guess the type of values if *to* is a :class:`ContainerType`.    
+    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
+
+    defaults = dict(to_spz = ContainerType)
+
+    def get_item_to(self, key):
+        return self.to.value_type
+
     def build_output(self, items_iter):
         return self.to(items_iter)
 
-class FromIterable(FromContainer):
+class FromIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_from_class` can guess the type of values if *from_* is a :class:`ContainerType`.    
+    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerType`.    
     """
+
+    defaults = dict(from_spz = ContainerType)
+
+    def get_item_from(self, key):
+        return self.from_.value_type
+
     def iter_input(self, inpt):
         return enumerate(inpt)
 
-class ToIterable(ToContainer):
+class ToIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
-    :meth:`get_to_class` can guess the type of values if *to* is a :class:`ContainerType`.    
+    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerType`.    
     """
+
+    defaults = dict(to_spz = ContainerType)
+
+    def get_item_to(self, key):
+        return self.to.value_type
+
     def build_output(self, items_iter):
         return self.to((value for key, value in items_iter))
 
@@ -239,34 +277,17 @@ class FromObject(DivideAndConquerCast):
     # TODO: document settings
     # TODO: refactor with object SpecializedType
     defaults = dict(
+        from_spz = ObjectType,
         class_to_getter = {object: getattr,},
         attrname_to_getter = {},
-        include = None,
-        exclude = None,
-        include_extra = [],
     )
 
+    def get_item_from(self, key):
+        return self.from_.get_class(key)
+
     def iter_input(self, inpt):
-        for name in self.calculate_include():
+        for name in self.from_.get_schema().keys():
             yield name, self.get_getter(name)(inpt, name)
-
-    @abc.abstractmethod
-    def attr_names(self):
-        """
-        Returns:
-            list. The list of attribute names included by default.
-    
-        .. warning:: This method will only be called if `include` is None.
-        """
-        return
-
-    def calculate_include(self):
-        # This method returns the set of attributes to include for the cast.
-        # Take into account *include* or *attr_names*, and *exclude*.
-        include = self.include if self.include != None else self.attr_names()
-        include += self.include_extra
-        exclude = self.exclude if self.exclude != None else []
-        return set(include) - set(exclude)
 
     def get_getter(self, name):
         # try to get accessor on a per-attribute basis
@@ -274,7 +295,7 @@ class FromObject(DivideAndConquerCast):
             return self.attrname_to_getter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self.get_from_class(name)
+            attr_class = self.get_item_from(name)
             # If NotImplemented, we guess ...
             if attr_class == NotImplemented:
                 attr_class = object
@@ -288,9 +309,13 @@ class ToObject(DivideAndConquerCast):
     # TODO: document settings
     # TODO: refactor with object SpecializedType
     defaults = dict(
+        to_spz = ObjectType,
         class_to_setter = {object: setattr,},
         attrname_to_setter = {}
     )
+
+    def get_item_to(self, key):
+        return self.to.get_class(key)
 
     def build_output(self, items_iter):
         # TODO: bad because it breaks the laziness of generators
@@ -317,7 +342,7 @@ class ToObject(DivideAndConquerCast):
             return self.attrname_to_setter[name]
         # otherwise try to get it on a per-class basis
         else:
-            attr_class = self.get_to_class(name)
+            attr_class = self.get_item_to(name)
             # If NotImplemented, we guess ...
             if attr_class == NotImplemented:
                 attr_class = object
@@ -365,77 +390,3 @@ class SplitMapping(DivideAndConquerCast):
             return self.key_to_route[key]
         else:
             return self.get_route(key, value)
-
-# Specialized types
-#========================================
-
-class ContainerType(SpecializedType):
-    """
-    Specialization for container types. For example, the following stands for "a list of int" :
-
-        >>> ListOfInt = ContainerType(list, value_type=int)
-    """
-    
-    def __subclasshook__(self, C):
-        if super(ContainerType, self).__subclasshook__(C) and isinstance(C, ContainerType):
-            return issubclass(C.value_type, self.value_type)
-        else:
-            return False
-
-    def __repr__(self):
-        return '%sOf%s' % (self.__base__.__name__.capitalize(), self.value_type.__name__.capitalize())
-
-import collections
-class Schema(SpecializedType, collections.Mapping):
-    #TODO: overwrite isnull, so bool(Schema(...)) is not False when len(Schema(...)) == 0
-    #TODO: for looking-up best mm, when several superclasses in Schema, when several Mm match, choose the best one.
-    # ex : Journal, ForeignKey
-    #TODO: maybe factory not needed, just sveral superclasses, then take the first as factory
-
-    def __init__(self, factory, superclasses=None, key_to_class={}, value_type=None):
-        kwargs = {'key_to_class': key_to_class, 'value_type': value_type}
-        super(Schema, self).__init__(factory, superclasses=None, **kwargs)
-
-    def __subclasshook__(self, C):
-        if isinstance(C, Schema) and C.value_type != None and self.value_type != None:
-            return issubclass(C.value_type, self.value_type)
-        else:
-            return False
-
-    def __repr__(self):
-        return self.__base__.__name__.capitalize()#'%sOf%s' % (self.__base__.__name__.capitalize(), self.value_type.__name__.capitalize())
-
-    def __getitem__(self, key):
-        if key in self.key_to_class:
-            return self.key_to_class[key]
-        elif key in self:
-            if self.value_type != None:
-                return self.value_type
-            else:
-                return self.get_class(key)
-        else:
-            raise KeyError(key)   
-
-    def __iter__(self):
-        all_keys = []
-        for key in self.key_to_class:
-            yield key
-            all_keys.append(key)
-        for key in self.all_keys():
-            if not key in all_keys:
-                yield key
-
-    def __len__(self):
-        return len(list(self))
-
-    def __contains__(self, key):
-        if key in self.key_to_class:
-            return True
-        else:
-            return key in self.all_keys()
-
-    def get_class(self, key):
-        raise NotImplemented
-
-    def all_keys(self):
-        return []

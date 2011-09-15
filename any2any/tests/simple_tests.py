@@ -4,6 +4,7 @@ from nose.tools import assert_raises, ok_
 from any2any.base import *
 from any2any.utils import *
 from any2any.simple import *
+from any2any.daccasts import ObjectType
 
 class Identity_Test(object):
     """
@@ -103,16 +104,19 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test call
         """
+        obj_type = ObjectType(self.Object, schema={'a1': int, 'blabla': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
-        cast = ObjectToMapping(to=dict)
+        cast = ObjectToMapping(from_=obj_type, to=dict)
         ok_(cast.call(obj) == {'a1': 90, 'blabla': 'coucou'})
 
     def custom_cast_for_elems_test(self):
         """
         Test call, with a custom cast for attributes
         """
+        obj_type = ObjectType(self.Object, schema={'a1': int, 'blabla': str, 'bb': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
         cast = ObjectToMapping(
+            from_=obj_type,
             to=dict,
             mm_to_cast={Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
@@ -123,13 +127,14 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test serialize virtual attribute from object
         """
+        obj_type = ObjectType(self.Object, schema={'a': int, 'virtual_a': str})
         obj = self.Object() ; obj.a = 90
         def get_my_virtual_attr(obj, name):
             return 'virtual %s' % obj.a
         cast = ObjectToMapping(
+            from_=obj_type,
             to=dict,
             attrname_to_getter={'virtual_a': get_my_virtual_attr},
-            include=['a', 'virtual_a'],
         )
         ok_(cast.call(obj) == {'a': 90, 'virtual_a': 'virtual 90'})
 
@@ -143,12 +148,13 @@ class MappingToObject_Test(Container_Test):
         super(MappingToObject_Test, self).setUp()
         class Object(object): pass
         self.Object = Object
+        self.ObjectSchema = ObjectType(Object, schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
 
     def call_test(self):
         """
         Test call
         """
-        cast = MappingToObject(to=self.Object)
+        cast = MappingToObject(to=self.ObjectSchema)
         obj = cast.call({'a1': 90, 'blabla': 'coucou'})
         ok_(isinstance(obj, self.Object))
         ok_(obj.a1 == 90)
@@ -159,7 +165,7 @@ class MappingToObject_Test(Container_Test):
         Test call, with a custom cast for attributes
         """
         cast = MappingToObject(
-            to=self.Object,
+            to=self.ObjectSchema,
             mm_to_cast={Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
@@ -177,108 +183,13 @@ class MappingToObject_Test(Container_Test):
             obj.virt1 = value
             obj.virt2 = value
         cast = MappingToObject(
-            to=self.Object,
+            to=self.ObjectSchema,
             attrname_to_setter={'a': set_my_virtual_attr},
         )
         obj = cast.call({'a': 90})
         ok_(isinstance(obj, self.Object))
         ok_(obj.virt1 == 90)
         ok_(obj.virt2 == 90)
-
-
-class DateTimeToMapping_Test(object):
-    """
-    Tests for DateTimeToMapping
-    """
-
-    def call_test(self):
-        """
-        Test call for DateTimeToMapping.
-        """
-        cast = DateTimeToMapping(to=dict)
-        ok_(cast(datetime.datetime(year=1986, month=12, day=8)) == {
-            'year': 1986,
-            'month': 12,
-            'day': 8,
-            'hour': 0,
-            'minute': 0,
-            'second': 0,
-            'microsecond': 0,
-        })
-        ok_(cast(datetime.datetime(year=10, month=11, day=1, microsecond=8)) == {
-            'year': 10,
-            'month': 11,
-            'day': 1,
-            'hour': 0,
-            'minute': 0,
-            'second': 0,
-            'microsecond': 8,
-        })
-
-
-class DateToMapping_Test(object):
-    """
-    Tests for DateToMapping
-    """
-
-    def call_test(self):
-        """
-        Test call for DateToMapping.
-        """
-        cast = DateToMapping(to=dict)
-        ok_(cast(datetime.date(year=19, month=11, day=28)) == {
-            'year': 19,
-            'month': 11,
-            'day': 28,
-        })
-
-
-class MappingToDateTime_Test(object):
-    """
-    Tests for MappingToDateTime
-    """
-
-    def call_test(self):
-        """
-        Test call for MappingToDateTime.
-        """
-        cast = MappingToDateTime()
-        ok_(cast({
-            'year': 1986,
-            'month': 12,
-            'day': 8,
-            'hour': 0,
-            'minute': 0,
-            'second': 0,
-            'microsecond': 0,
-        }) == datetime.datetime(year=1986, month=12, day=8))
-        ok_(cast({
-            'year': 10,
-            'month': 11,
-            'day': 1,
-            'hour': 0,
-            'minute': 0,
-            'second': 0,
-            'microsecond': 8,
-        }) == datetime.datetime(year=10, month=11, day=1, microsecond=8))
-
-
-class MappingToDate_Test(object):
-    """
-    Tests for MappingToDate
-    """
-
-    def call_test(self):
-        """
-        Test call for MappingToDate.
-        """
-        cast = MappingToDate()
-        ok_(cast({
-            'year': 19,
-            'month': 11,
-            'day': 28,
-        }) == datetime.date(year=19, month=11, day=28))
-
 
 class ConcatMapping_Test(object):
     """

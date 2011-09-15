@@ -10,16 +10,16 @@ register(Identity(), Mm(from_any=object, to_any=object))
 
 # TODO: rewrite when there'll be a MmSet object
 register(
-    IterableToIterable(),
-    Mm(from_any=list, to_any=list),
+    IterableToIterable(to=list),
+    Mm(from_any=list),
 )
 register(
-    IterableToIterable(),
-    Mm(from_any=tuple, to_any=tuple),
+    IterableToIterable(to=tuple),
+    Mm(from_any=tuple),
 )
 register(
-    MappingToMapping(),
-    Mm(from_any=dict, to_any=dict),
+    MappingToMapping(to=dict),
+    Mm(from_any=dict),
 )
 register(ObjectToMapping(), Mm(to=dict))
 register(MappingToObject(), Mm(from_=dict))

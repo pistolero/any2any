@@ -1,5 +1,4 @@
 from any2any.utils import *
-from any2any.daccasts import Schema
 from nose.tools import assert_raises, ok_
 
 class Animal(object): pass
@@ -150,20 +149,21 @@ class Specialization_Test(object):
         Test Specialization.issubclass
         """
         # built-in types
-        ok_(issubclass(int, object))
-        ok_(not issubclass(object, int))
-        ok_(issubclass(object, object))
+        ok_(Spz.issubclass(int, object))
+        ok_(not Spz.issubclass(object, int))
+        ok_(Spz.issubclass(object, object))
         # specialization + built-in type
-        ok_(issubclass(SpecializedType(str), str))
-       # ok_(not issubclass(str, SpecializedType(str)))
-        ok_(issubclass(SpecializedType(str), SpecializedType(str)))
-        ok_(issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
+        ok_(Spz.issubclass(SpecializedType(str), str))
+        ok_(not Spz.issubclass(str, SpecializedType(str)))
+        ok_(Spz.issubclass(SpecializedType(str), SpecializedType(str)))
+        ok_(Spz.issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
         # test with different superclass.
         spz_type = SpecializedType(int, superclasses=(str,))
-        ok_(issubclass(spz_type, str))
+        ok_(Spz.issubclass(spz_type, str))
         class Dumb(object): pass
         spz_type = SpecializedType(int, superclasses=(Dumb, str))
-        ok_(issubclass(spz_type, str))
+        ok_(Spz.issubclass(spz_type, str))
+        ok_(Spz.issubclass(spz_type, Dumb))
 
     def instantiate_test(self):
         """
@@ -179,97 +179,10 @@ class Specialization_Test(object):
         ok_(type(a_spz_str) == str)
         ok_(a_spz_str == "bloblo")
 
-        SpzInt = SpecializedType(int, superclass=str)
+        SpzInt = SpecializedType(int, superclasses=(str,))
         a_spz_int = SpzInt(198)
         ok_(a_spz_int == 198)
         ok_(type(a_spz_int) == int)
-
-ListOfObjects = Schema(list, value_type=object)
-ListOfStr = Schema(list, value_type=str)
-ListOfInt = Schema(list, value_type=int)
-
-class Schema_Test(object):
-    """
-    Test object schema
-    """
-
-    def setUp(self):
-        class AnObject(object): pass
-        self.AnObject = AnObject
-        class AnObjectSchema(Schema):
-            def all_keys(self):
-                return ['a', 'b', 'c']
-            def get_class(self, key):
-                return float
-        self.AnObjectSchema = AnObjectSchema
-
-    def base_test(self):
-        """
-        Base tests
-        """
-        schema = Schema(self.AnObject, key_to_class={'a': int, 'b': str}, value_type=basestring)
-        ok_(set(schema) == set(['a', 'b']))
-        ok_(schema['a'] == int)
-        ok_(schema['b'] == str)
-        assert_raises(KeyError, schema.__getitem__, 'c')
-        # value_type as default
-        schema = self.AnObjectSchema(self.AnObject, key_to_class={'a': int, 'b': str, 'd': unicode}, value_type=basestring)
-        ok_(set(schema) == set(['a', 'b', 'c', 'd']))
-        ok_(schema['a'] == int)
-        ok_(schema['b'] == str)
-        ok_(schema['c'] == basestring)
-        # get_class as default
-        schema = self.AnObjectSchema(self.AnObject, key_to_class={'a': int})
-        ok_(schema['b'] == float)
-
-    def issubclass_test(self):
-        """
-        Tests for isubclass with Schema
-        """
-        # Nested specializations
-        ok_(issubclass( 
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfStr
-            )),
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfObjects
-            ))
-        ))
-        ok_(not issubclass(
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfObjects
-            )),
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfStr
-            ))
-        ))
-        ok_(issubclass(
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfObjects
-            )),
-            Schema(list, value_type=Schema(
-                list, value_type=list
-            ))
-        ))
-        ok_(issubclass(
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfObjects
-            )),
-            list
-        ))
-        ok_(issubclass(
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfObjects
-            )),
-            Schema(list, value_type=ListOfObjects)
-        ))
-        ok_(not issubclass(
-            Schema(list, value_type=Schema(
-                list, value_type=ListOfObjects
-            )),
-            Schema(list, value_type=ListOfInt)
-        ))
-
 
 class Memoization_Test(object):
     """
