@@ -104,7 +104,7 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test call
         """
-        obj_type = ObjectType(self.Object, schema={'a1': int, 'blabla': str})
+        obj_type = ObjectType(self.Object, extra_schema={'a1': int, 'blabla': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
         cast = ObjectToMapping(from_=obj_type, to=dict)
         ok_(cast.call(obj) == {'a1': 90, 'blabla': 'coucou'})
@@ -113,7 +113,7 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test call, with a custom cast for attributes
         """
-        obj_type = ObjectType(self.Object, schema={'a1': int, 'blabla': str, 'bb': str})
+        obj_type = ObjectType(self.Object, extra_schema={'a1': int, 'blabla': str, 'bb': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
         cast = ObjectToMapping(
             from_=obj_type,
@@ -127,7 +127,7 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test serialize virtual attribute from object
         """
-        obj_type = ObjectType(self.Object, schema={'a': int, 'virtual_a': str})
+        obj_type = ObjectType(self.Object, extra_schema={'a': int, 'virtual_a': str})
         obj = self.Object() ; obj.a = 90
         def get_my_virtual_attr(obj, name):
             return 'virtual %s' % obj.a
@@ -148,7 +148,7 @@ class MappingToObject_Test(Container_Test):
         super(MappingToObject_Test, self).setUp()
         class Object(object): pass
         self.Object = Object
-        self.ObjectSchema = ObjectType(Object, schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
+        self.ObjectSchema = ObjectType(Object, extra_schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
 
     def call_test(self):
         """

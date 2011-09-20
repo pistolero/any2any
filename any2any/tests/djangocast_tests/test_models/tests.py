@@ -4,46 +4,37 @@ from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.manager import Manager
 
 from any2any.djangocast import *
+from any2any.utils import Spz
 from models import *
 
 from nose.tools import assert_raises, ok_
 
-class IntrospectMixin_Test(object):
-    
-    def setUp(self):
-        # hack to have a model
-        class Introspect(IntrospectMixin):
-            defaults = dict(
-                model = Columnist
-            )
-            def call(self): pass
-            def get_model(self):
-                return self.model
-        self.columnist_introspector = Introspect(model=Columnist)
-        self.gourmand_introspector = Introspect(model=Gourmand)
-        self.wsausage_introspector = Introspect(model=WritingSausage)
+class DjModelType_Test(object):
 
     def fields_test(self):
         """
-        Test IntrospectMixin.fields
+        Test DjModelType.fields
         """
-        columnist_fields = self.columnist_introspector.fields
-        gourmand_fields = self.gourmand_introspector.fields
-        wsausage_fields = self.wsausage_introspector.fields
+        columnist_fields = DjModelType(Columnist).default_schema()
+        gourmand_fields = DjModelType(Gourmand).default_schema()
+        wsausage_fields = DjModelType(WritingSausage).default_schema()
         ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(isinstance(columnist_fields['id'], AutoField))
-        ok_(isinstance(columnist_fields['lastname'], CharField))
-        ok_(isinstance(columnist_fields['nickname'], CharField))
-        ok_(isinstance(columnist_fields['journal'], ForeignKey))
+        ok_(Spz.issubclass(columnist_fields['id'], AutoField))
+        ok_(Spz.issubclass(columnist_fields['lastname'], CharField))
+        ok_(Spz.issubclass(columnist_fields['nickname'], CharField))
+        ok_(Spz.issubclass(columnist_fields['journal'], ForeignKey))
         ok_(set(gourmand_fields) == set(['id', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(isinstance(gourmand_fields['firstname'], CharField))
-        ok_(isinstance(gourmand_fields['favourite_dishes'], ManyToManyField))
-        ok_(isinstance(gourmand_fields['pseudo'], CharField))
+        ok_(Spz.issubclass(gourmand_fields['firstname'], CharField))
+        ok_(Spz.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
+        ok_(Spz.issubclass(gourmand_fields['pseudo'], CharField))
         ok_(set(wsausage_fields) == set(['id', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
 
     def nk_test(self):
-        self.columnist_introspector.settings['key_schema'] = ('firstname', 'lastname')
-        ok_(self.columnist_introspector.extract_pk({
+        """
+        Test DjModelType.extract_pk
+        """
+        columnist_type = DjModelType(Columnist, key_schema=('firstname', 'lastname'))
+        ok_(columnist_type.extract_pk({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': 806, 'name': "C'est pas sorcier"},
@@ -86,23 +77,23 @@ class BaseModel(object):
         self.issue.delete()
         self.journal.delete()
 
-class ModelToDict_Test(BaseModel):
+class ModelToMapping_Test(BaseModel):
     """
-    Tests for ModelToDict
+    Tests for ModelToMapping
     """
 
     def call_test(self):
         """
-        Simple test ModelToDict.call
+        Simple test ModelToMapping.call
         """
-        cast = ModelToDict()
+        cast = ModelToMapping(to=dict)
         ok_(cast.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
 
     def mti_test(self):
         """
-        Test ModelToDict.call with a model with long inheritance chain.
+        Test ModelToMapping.call with a model with long inheritance chain.
         """
-        cast = ModelToDict()
+        cast = ModelToMapping(to=dict)
         ok_(cast.call(self.columnist) == {
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
@@ -114,9 +105,9 @@ class ModelToDict_Test(BaseModel):
 
     def fk_test(self):
         """
-        Test ModelToDict.call with foreignkeys
+        Test ModelToMapping.call with foreignkeys
         """
-        cast = ModelToDict()
+        cast = ModelToMapping(to=dict)
         ok_(cast.call(self.book) == {
             'id': self.book.pk,
             'title': 'Grapes of Wrath',
@@ -131,9 +122,9 @@ class ModelToDict_Test(BaseModel):
 
     def many2many_test(self):
         """
-        Test ModelToDict.call with many2many field.
+        Test ModelToMapping.call with many2many field.
         """
-        cast = ModelToDict()
+        cast = ModelToMapping(to=dict)
         ok_(cast.call(self.gourmand) == {
             'id': self.gourmand.pk, 'pseudo': 'Taz', 'favourite_dishes': [],
             'firstname': 'T', 'lastname': 'Aznicniev'
@@ -151,10 +142,19 @@ class ModelToDict_Test(BaseModel):
 
     def relatedmanager_test(self):
         """
-        Test ModelToDict.call serializing a reverse relationship (fk, m2m).
+        Test ModelToMapping.call serializing a reverse relationship (fk, m2m).
         """
-        journalist_cast = ModelToDict(include=['firstname', 'lastname'])
-        cast = ModelToDict(include_extra=['journalist_set'], exclude=['id'], mm_to_cast={Mm(Journalist, dict): journalist_cast})
+        # reverse ForeignKey
+        journalist_type = DjModelType(Journalist, include=['firstname', 'lastname'])
+        journal_type = DjModelType(Journal, 
+            extra_schema={'journalist_set': NotImplemented},
+            exclude=['id'],
+            key_schema=('firstname', 'lastname')
+        )
+        journalist_cast = ModelToMapping(from_=journalist_type, to=dict)
+        cast = ModelToMapping(from_=journal_type, to=dict, mm_to_cast={
+            Mm(from_any=Journalist): journalist_cast
+        })
         ok_(cast.call(self.journal) == {
             'journalist_set': [
                 {'lastname': u'Courant', 'firstname': u'Fred'},
@@ -162,11 +162,13 @@ class ModelToDict_Test(BaseModel):
             ],
             'name': "C'est pas sorcier"
         })
-
+        # reverse m2m
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
-        gourmand_cast = ModelToDict(include=['pseudo'])
-        cast = ModelToDict(include=['gourmand_set', 'name'], mm_to_cast={Mm(Gourmand, dict): gourmand_cast})
+        gourmand_type = DjModelType(Gourmand, include=['pseudo'])
+        gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
+        dish_type = DjModelType(Dish, include=['gourmand_set', 'name'])
+        cast = ModelToMapping(from_=dish_type, to=dict, mm_to_cast={Mm(from_any=Gourmand): gourmand_cast})
         ok_(cast.call(self.salmon) == {
             'gourmand_set': [
                 {'pseudo': u'Taz'},
@@ -176,26 +178,28 @@ class ModelToDict_Test(BaseModel):
 
     def date_and_datetime_test(self):
         """
-        Test ModelToDict.call serializing date and datetime
+        Test ModelToMapping.call serializing date and datetime
         """
-        journal_cast = ModelToDict(include=['name'])
-        cast = ModelToDict(exclude=['id'], key_to_cast={'journal': journal_cast})
+        issue_type = DjModelType(Issue, include=['journal', 'issue_date', 'last_char_datetime'])
+        journal_type = DjModelType(Journal, include=['name'])
+        journal_cast = ModelToMapping(from_=journal_type, to=dict)
+        cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
         ok_(cast.call(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
             'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
         })
 
-class DictToModel_Test(BaseModel):
+class MappingToModel_Test(BaseModel):
     """
-    Tests for DictToModel
+    Tests for MappingToModel
     """
 
     def call_test(self):
         """
-        Simple test DictToModel.call
+        Simple test MappingToModel.call
         """
-        cast = DictToModel(to=Author)
+        cast = MappingToModel(to=Author)
         authors_before = Author.objects.count()
         james = cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JC Ballard'})
         james = Author.objects.get(pk = james.pk)
@@ -211,7 +215,7 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize already existing object with an already existing foreignkey 
         """
-        book_cast = DictToModel(to=Book)
+        book_cast = MappingToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
         book = book_cast.call({
@@ -232,7 +236,7 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize new object with new foreignkey with automatically picked PK. 
         """
-        book_cast = DictToModel(to=Book)
+        book_cast = MappingToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
         book = book_cast.call({
@@ -256,7 +260,7 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize new object with new foreignkey, PK provided. 
         """
-        book_cast = DictToModel(to=Book)
+        book_cast = MappingToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
         book = book_cast.call({
@@ -284,7 +288,7 @@ class DictToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand_cast = DictToModel(to=Gourmand)
+        gourmand_cast = MappingToModel(to=Gourmand)
         gourmand = gourmand_cast.call({
             'id': self.gourmand.pk,
             'pseudo': 'Taaaaz',
@@ -311,7 +315,7 @@ class DictToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand_cast = DictToModel(to=Gourmand)
+        gourmand_cast = MappingToModel(to=Gourmand)
         gourmand = gourmand_cast.call({
             'pseudo': 'Touz',
             'favourite_dishes': [
@@ -332,16 +336,23 @@ class DictToModel_Test(BaseModel):
 
     def update_relatedmanager_already_existing_objects_test(self):
         """
-        Test DictToModel.call updating a reverse relationship (fk, m2m).
+        Test MappingToModel.call updating a reverse relationship (fk, m2m).
         """
-        cast = DictToModel(to=Journal)
+        # reverse ForeignKey
+        journal_type = DjModelType(Journal, 
+            extra_schema={'journalist_set': NotImplemented},
+        )
+        cast = MappingToModel(to=journal_type)
         assert_raises(TypeError, cast.call, {
             'id': self.journal.id,
             'journalist_set': [],
         })
-
+        # reverse m2m
+        dish_type = DjModelType(Dish, 
+            extra_schema={'gourmand_set': NotImplemented},
+        )
         self.gourmand.save()
-        cast = DictToModel(to=Dish)
+        cast = MappingToModel(to=dish_type)
         salmon = cast.call({
             'id': self.salmon.id,
             'gourmand_set': [
@@ -354,8 +365,9 @@ class DictToModel_Test(BaseModel):
         """
         Test update an object with its natural key, natural key already existing.
         """
+        columnist_type = DjModelType(Columnist, key_schema=('firstname', 'lastname'))
         columnist_before = Columnist.objects.count()
-        columnist_cast = DictToModel(to=Columnist, key_schema=('firstname', 'lastname'))
+        columnist_cast = MappingToModel(to=columnist_type)
         jamy = columnist_cast.call({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
@@ -371,8 +383,9 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize and create an object with its natural key.
         """
+        columnist_type = DjModelType(Columnist, key_schema=('firstname', 'lastname'))
         columnist_before = Columnist.objects.count()
-        columnist_cast = DictToModel(to=Columnist, key_schema=('firstname', 'lastname'))
+        columnist_cast = MappingToModel(to=columnist_type)
         fred = columnist_cast.call({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
@@ -388,9 +401,9 @@ class DictToModel_Test(BaseModel):
 
     def update_date_and_datetime_test(self):
         """
-        Test ModelToDict.call serializing date and datetime
+        Test ModelToMapping.call serializing date and datetime
         """
-        cast = DictToModel(to=Issue)
+        cast = MappingToModel(to=Issue)
         issue = cast.call({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
@@ -398,7 +411,6 @@ class DictToModel_Test(BaseModel):
         })
         ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
-
 
 donttest="""
 

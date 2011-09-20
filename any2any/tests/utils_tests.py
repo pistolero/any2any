@@ -158,10 +158,10 @@ class Specialization_Test(object):
         ok_(Spz.issubclass(SpecializedType(str), SpecializedType(str)))
         ok_(Spz.issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
         # test with different superclass.
-        spz_type = SpecializedType(int, superclasses=(str,))
+        spz_type = SpecializedType(int, str)
         ok_(Spz.issubclass(spz_type, str))
         class Dumb(object): pass
-        spz_type = SpecializedType(int, superclasses=(Dumb, str))
+        spz_type = SpecializedType(int, Dumb, str)
         ok_(Spz.issubclass(spz_type, str))
         ok_(Spz.issubclass(spz_type, Dumb))
 
@@ -179,7 +179,7 @@ class Specialization_Test(object):
         ok_(type(a_spz_str) == str)
         ok_(a_spz_str == "bloblo")
 
-        SpzInt = SpecializedType(int, superclasses=(str,))
+        SpzInt = SpecializedType(int, str)
         a_spz_int = SpzInt(198)
         ok_(a_spz_int == 198)
         ok_(type(a_spz_int) == int)

@@ -78,7 +78,6 @@ class MappingToObject(FromMapping, CastItems, ToObject):
         return self.to()
 
 
-class DateTimeToMapping(FromObject, CastItems, ToMapping):
     """
     Datetime to dict:
 
@@ -94,12 +93,7 @@ class DateTimeToMapping(FromObject, CastItems, ToMapping):
         ... }
         True
     """
-    
-    def attr_names(self):
-        return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
-
-class DateToMapping(FromObject, CastItems, ToMapping):
     """
     date to dict:
 
@@ -111,30 +105,6 @@ class DateToMapping(FromObject, CastItems, ToMapping):
         ... }
         True
     """
-    
-    def attr_names(self):
-        return ['year', 'month', 'day']
-
-
-class DateTimeToMapping(FromObject, CastItems, ToMapping):
-    """
-    datetime to dict:
-
-        >>> cast = DateTimeToMapping()
-        >>> cast(datetime(year=1986, month=12, day=8)) == {
-        ...     'year': 1986,
-        ...     'month': 12,
-        ...     'day': 8,
-        ...     'hour': 0,
-        ...     'minute': 0,
-        ...     'second': 0,
-        ...     'microsecond': 0,
-        ... }
-        True
-    """
-    
-    def attr_names(self):
-        return ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond']
 
 
 class MappingToDate(FromMapping, CastItems, ToObject):

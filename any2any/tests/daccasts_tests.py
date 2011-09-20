@@ -57,25 +57,69 @@ class ObjectType_Test(object):
         class AnObjectType(ObjectType):
             def default_schema(self):
                 return {'a': float, 'b': unicode, 'c': float}
+            def guess_class(self, key):
+                try:
+                    return {'mystery': float}[key]
+                except KeyError:
+                    return NotImplemented
         self.AnObjectType = AnObjectType
+
+    def get_schema_test(self):
+        """
+        Test ObjectType.get_schema
+        """
+        # provided schema
+        obj_type = ObjectType(self.AnObject, extra_schema={'a': int, 'b': str})
+        ok_(obj_type.get_schema() == {'a': int, 'b': str})
+        # with exclude
+        obj_type = ObjectType(self.AnObject, extra_schema={'a': int, 'b': str}, exclude=['a'])
+        ok_(obj_type.get_schema() == {'b': str})
+        # default schema
+        obj_type = self.AnObjectType(self.AnObject)
+        ok_(obj_type.get_schema() == {'a': float, 'b': unicode, 'c': float})
+        # default schema + exclude
+        obj_type = self.AnObjectType(self.AnObject, exclude=['b', 'c', 'd'])
+        ok_(obj_type.get_schema() == {'a': float})
+        # default schema + extra_schema
+        obj_type = self.AnObjectType(self.AnObject, extra_schema={'a': unicode, 'd': str})
+        ok_(obj_type.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
+        # default schema + extra_schema + exclude
+        obj_type = self.AnObjectType(self.AnObject, extra_schema={'a': unicode, 'd': str, 'e': int}, exclude=['d', 'a', 'b'])
+        ok_(obj_type.get_schema() == {'c': float, 'e': int})
+        # default schema + include
+        obj_type = self.AnObjectType(self.AnObject, include=['a', 'b'])
+        ok_(obj_type.get_schema() == {'a': float, 'b': unicode})
+        # default schema + extra_schema + include
+        obj_type = self.AnObjectType(self.AnObject, extra_schema={'d': str}, include=['a', 'd'])
+        ok_(obj_type.get_schema() == {'a': float, 'd': str})
+        # default schema + extra_schema + exclude + include
+        obj_type = self.AnObjectType(self.AnObject, extra_schema={'d': str, 'e': int}, include=['a', 'b', 'e'], exclude=['a'])
+        ok_(obj_type.get_schema() == {'b': unicode, 'e': int})
 
     def get_class_test(self):
         """
-        Test ObjectType.get_class and ObjectType.get_schema
+        Test ObjectType.get_class
         """
         # provided schema
-        obj_type = ObjectType(self.AnObject, schema={'a': int, 'b': str})
-        ok_(obj_type.get_schema() == {'a': int, 'b': str})
+        obj_type = ObjectType(self.AnObject, extra_schema={'a': int, 'b': str})
         ok_(obj_type.get_class('a') == int)
         ok_(obj_type.get_class('b') == str)
         assert_raises(KeyError, obj_type.get_class, 'c')
         # default schema
         obj_type = self.AnObjectType(self.AnObject)
-        ok_(obj_type.get_schema() == {'a': float, 'b': unicode, 'c': float})
         ok_(obj_type.get_class('a') == float)
         ok_(obj_type.get_class('b') == unicode)
         ok_(obj_type.get_class('c') == float)
         assert_raises(KeyError, obj_type.get_class, 'd')
+
+    def guess_class_test(self):
+        """
+        Test guessing a class
+        """
+        # default schema
+        obj_type = self.AnObjectType(self.AnObject, extra_schema={'mystery': NotImplemented, 'mystery2': NotImplemented})
+        ok_(obj_type.get_class('mystery') == float)
+        ok_(obj_type.get_class('mystery2') == NotImplemented)
 
 ListOfObjects = ContainerType(list, value_type=object)
 ListOfStr = ContainerType(list, value_type=str)

@@ -169,7 +169,7 @@ class Metamorphosis(object):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 Mm = Metamorphosis
 
-class SpecializedType(type):
+class SpecializedType(object):
     """
     A metaclass for building specialized types.
 
@@ -183,39 +183,39 @@ class SpecializedType(type):
         (11, <type 'int'>)
     """
 
-    defaults = {}
+    defaults = {'factory': None}
 
-    def __new__(cls, base, superclasses=(), **features):
-        name = 'SpzOf%s' % base.__name__.capitalize()
-        superclasses = (base,) + superclasses
-        bases = (base,)
-        # prepare new class' attributes
-        attrs = copy.copy(cls.defaults)
-        for feature, value in features.items():
-            if not feature in cls.defaults: raise TypeError("Unvalid feature '%s'" % feature)
-            attrs[feature] = value
-        attrs['features'] = features
-        attrs['superclasses'] = superclasses
-        def __new__(cls, *args, **kwargs):
-            return cls.base(*args, **kwargs)
-        attrs['__new__'] = __new__
-        # create new class
-        new_spz = super(SpecializedType, cls).__new__(cls, name, bases, attrs)
-        return new_spz
+    def __init__(self, *superclasses, **features):
+        # handling superclasses
+        if len(superclasses) == 0:
+            raise TypeError("You must provide at least one superclass.")
+        self.superclasses = superclasses
+        if not 'factory' in features:
+            features['factory'] = superclasses[0]
+        # handling features
+        self.features = features
+        attrs = copy.copy(self.defaults)
+        attrs.update(features)
+        for name, value in attrs.items():
+            if not name in self.defaults:
+                raise TypeError("Unvalid feature '%s'" % name)
+            setattr(self, name, value)
 
-    def __init__(self, *args, **kwargs): pass
-    # Otherwise "__init__ takes no keyword argument".
+    @property
+    def base(self):
+        return self.superclasses[0]
+
+    def __call__(self, *args, **kwargs):
+        return self.factory(*args, **kwargs)
 
     def __repr__(self):
-        return self.__name__
+        return 'SpzOf%s' % self.base.__name__.capitalize()
 
-    def __superclasshook__(self, C):
-        if isinstance(C, SpecializedType): C = C.base
-        # *C* is superclass of *self*,
-        # if *C* is superclass of one of *self.superclasses* 
-        for parent in self.superclasses:
-            if issubclass(parent, C): return True
-        return False
+    def __getattr__(self, name):
+        try:
+            return getattr(self.base, name)
+        except AttributeError:
+            return self.__getattribute__(name)
 
     def __eq__(self, other):
         if isinstance(other, SpecializedType):
@@ -224,19 +224,31 @@ class SpecializedType(type):
         else:
             return False
 
-    @property
-    def base(self):
-        return self.superclasses[0]
+    def __superclasshook__(self, C):
+        if isinstance(C, SpecializedType): C = C.base
+        # *C* is superclass of *self*,
+        # if *C* is superclass of one of *self.superclasses* 
+        for parent in self.superclasses:
+            if Spz.issubclass(parent, C):
+                return True
+        return False
 
     @staticmethod
     def issubclass(c1, c2s):
+        if not isinstance(c2s, tuple): c2s = (c2s,)
+        # If *c1* is *SpecializedType*, we use its *__superclasshook__*
         if isinstance(c1, SpecializedType):
-            if not isinstance(c2s, tuple): c2s = (c2s,)
             for c2 in c2s:
-                if c1.__superclasshook__(c2): return True
-            return False
+                if c1.__superclasshook__(c2):
+                    return True
         else:
-            return issubclass(c1, c2s)
+            for c2 in c2s:
+                # *SpecializedType* cannot be a superclass of a normal class
+                if isinstance(c2, SpecializedType):
+                    return False
+                elif issubclass(c1, c2):
+                    return True
+        return False
 Spz = SpecializedType
 
 def closest_parent(klass, other_classes):

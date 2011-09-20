@@ -84,8 +84,17 @@ class DivideAndConquerCast(Cast):
 class ObjectType(SpecializedType):
     #TODO: for looking-up best mm, when several superclasses in ObjectType, when several Mm match, choose the best one.
     # ex : Journal, ForeignKey
+    #TODO: Spz(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Spz.__eq__
+    #TODO: if Mm(aspztype) matches Mm(atype): cast, then cast's from_ will be overriden, along with its schema.  
+    #TODO: rename to 'wrapped' instead of 'specialized'
+    #TODO: document
 
-    defaults = {'schema': {}}
+    defaults = dict(
+        extra_schema = {},
+        include = [],
+        exclude = [],
+        factory = None,
+    )
 
     def get_class(self, key):
         schema = self.get_schema()
@@ -95,17 +104,36 @@ class ObjectType(SpecializedType):
             raise KeyError("'%s' not in schema" % key)
 
     def get_schema(self):
-        if self.schema:
-            return self.schema
-        else:
-            return self.default_schema()
+        schema = self.default_schema()
+        schema.update(self.extra_schema)
+        if self.include:
+            [schema.setdefault(k, NotImplemented) for k in self.include]
+            [schema.pop(k) for k in schema.keys() if k not in self.include]
+        if self.exclude:
+            [schema.pop(k, None) for k in self.exclude]
+        for key, cls in schema.iteritems():
+            # If NotImplemented, we make a guess.
+            if cls == NotImplemented:
+                cls = self.guess_class(key)
+            schema[key] = cls
+        return schema
+
+    def guess_class(self, key):
+        """
+        """
+        return NotImplemented
 
     def default_schema(self):
+        """
+        """
         return {}
 
 class ContainerType(SpecializedType):
 
-    defaults = {'value_type': NotImplemented}
+    defaults = dict(
+        value_type = NotImplemented,
+        factory = None,
+    )
 
     def __superclasshook__(self, C):
         if super(ContainerType, self).__superclasshook__(C):
@@ -115,6 +143,10 @@ class ContainerType(SpecializedType):
                 return True
         else:
             return False
+
+    def __repr__(self):
+        return 'Spz%s%s' % (self.base.__name__.capitalize(),
+        '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
 
 # Mixins
 #========================================
@@ -164,7 +196,7 @@ class CastItems(DivideAndConquerCast):
         #   1. setting *key_to_cast*
         #   2. setting *value_cast*
         #   3. finally, the method gets the metamorphosis to apply on the item
-        #       and a suitable cast by calling *Cast.cast_for*.  
+        #       and a suitable cast by calling *Cast.cast_for*.
         self.log('Item %s' % key)
         mm = self.get_item_mm(key, value)
         # try to get cast with the per-key map

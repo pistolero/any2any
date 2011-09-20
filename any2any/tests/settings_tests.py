@@ -9,7 +9,7 @@ class CastSettings_Test(object):
 
     def setUp(self):
         self.settings = CastSettings(
-            _schema={
+            _meta={
                 'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
             },
             a_setting={'a': 1, 'b': 2},
@@ -27,7 +27,7 @@ class CastSettings_Test(object):
             'another': 1,
             'more': {'c': 'C'},
         })
-        ok_(self.settings._schema == {
+        ok_(self.settings._meta == {
             'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
             'another': {},
             'more': {},
@@ -53,12 +53,12 @@ class CastSettings_Test(object):
         self.settings.override(CastSettings(
             a_setting={'a': 2, 'c': 3},
             moremore={'D': 'd'},
-            _schema={'a_setting': {'bla': 'blo', 'customize': 'do_nothing'}, 'moremore': {1: 2}},
+            _meta={'a_setting': {'bla': 'blo', 'customize': 'do_nothing'}, 'moremore': {1: 2}},
         ))
         ok_(self.settings._values['a_setting'] == {'a': 2, 'b': 2, 'c': 3})
         ok_(self.settings._values['moremore'] == {'D': 'd'})
         ok_(self.settings._values['more'] == {'c': 'C'})
-        ok_(self.settings._schema == {
+        ok_(self.settings._meta == {
             'a_setting': {'override': 'copy_and_update', 'customize': 'do_nothing', 'bla': 'blo'},
             'moremore': {1: 2},
             'more': {},
@@ -72,12 +72,12 @@ class CastSettings_Test(object):
         self.settings.customize(CastSettings(
             a_setting={'a': 2, 'c': 3},
             moremore={'D': 'd'},
-            _schema={'a_setting': {}, 'moremore': {1: 2}},
+            _meta={'a_setting': {}, 'moremore': {1: 2}},
         ))
         ok_(self.settings._values['a_setting'] == {'a': 2, 'b': 2, 'c': 3})
         ok_(not 'moremore' in self.settings._values)
         ok_(self.settings._values['more'] == {'c': 'C'})
-        ok_(self.settings._schema == {
+        ok_(self.settings._meta == {
             'a_setting': {'override': 'copy_and_update', 'customize': 'copy_and_update'},
             'another': {},
             'more': {},
@@ -90,8 +90,8 @@ class CastSettings_Test(object):
         settings_copy = copy.copy(self.settings)
         ok_(settings_copy._values == self.settings._values)
         ok_(not settings_copy._values is self.settings._values)
-        ok_(settings_copy._schema == self.settings._schema)
-        ok_(not settings_copy._schema is self.settings._schema)
+        ok_(settings_copy._meta == self.settings._meta)
+        ok_(not settings_copy._meta is self.settings._meta)
         ok_(settings_copy._values['more'] is self.settings._values['more'])
         ok_(settings_copy._values['another'] is self.settings._values['another'])
         ok_(settings_copy._values['a_setting'] is self.settings._values['a_setting'])

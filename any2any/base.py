@@ -46,27 +46,27 @@ class CastSettings(collections.MutableMapping):
         >>> c['my_other_setting']
         1
 
-    The constructor optionally takes a keyword `_schema` that allows to configure different things for a given setting.
+    The constructor optionally takes a keyword `_meta` that allows to configure different things for a given setting.
     For each setting, the schema can contain :
 
     - *override* : method to use when overriding the setting :
 
-        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'override': 'copy_and_update'}})
+        >>> c = CastSettings(my_setting={'a': 1}, _meta={'my_setting': {'override': 'copy_and_update'}})
         >>> c.override({'my_setting': {'b': 2}})
         >>> c['my_setting'] == {'a': 1, 'b': 2}
         True
 
     - *customize* : method to use when customizing the setting :
 
-        >>> c = CastSettings(my_setting={'a': 1}, _schema={'my_setting': {'customize': 'copy_and_update'}})
+        >>> c = CastSettings(my_setting={'a': 1}, _meta={'my_setting': {'customize': 'copy_and_update'}})
         >>> c.customize({'my_setting': {'b': 2}})
         >>> c['my_setting'] == {'a': 1, 'b': 2}
         True
     """
-    def __init__(self, _schema={}, **settings):
+    def __init__(self, _meta={}, **settings):
         # initializing the schema
-        self._schema = dict.fromkeys(settings, {})
-        self._schema.update(_schema)
+        self._meta = dict.fromkeys(settings, {})
+        self._meta.update(_meta)
         # initializing the values
         self._values = dict()
         self.update(settings)
@@ -85,20 +85,20 @@ class CastSettings(collections.MutableMapping):
 
     def __delitem__(self, name):
         self._values.pop(name, None)
-        self._schema.pop(name, None)
+        self._meta.pop(name, None)
 
     def __contains__(self, name):
-        return name in self._schema
+        return name in self._meta
 
     def __len__(self):
-        return len(self._schema)
+        return len(self._meta)
 
     def __iter__(self):
         return iter(self._values)
 
     def __copy__(self):
         # Only shallow copy is realized
-        copied = {'_schema': self._schema.copy()}
+        copied = {'_meta': self._meta.copy()}
         copied.update(self)
         return self.__class__(**copied)
 
@@ -107,20 +107,20 @@ class CastSettings(collections.MutableMapping):
         # This method is used for inheritance of settings between two classes.
         # Handling schema updating
         if isinstance(settings, CastSettings):
-            _schema = settings._schema
+            _meta = settings._meta
         elif isinstance(settings, dict):
-            _schema = settings.pop('_schema', {})
-        for name, value in _schema.items():
-            if name in self._schema:
-                self._schema[name].update(value)
+            _meta = settings.pop('_meta', {})
+        for name, value in _meta.items():
+            if name in self._meta:
+                self._meta[name].update(value)
             else:
-                self._schema[name] = copy.copy(value)
+                self._meta[name] = copy.copy(value)
         # Create default schema for all settings
         for name in settings:
-            self._schema.setdefault(name, {})
+            self._meta.setdefault(name, {})
         # Handling settings updating
         for name, value in copy.copy(settings).items():
-            meth = self._schema[name].get('override', '__setitem__')
+            meth = self._meta[name].get('override', '__setitem__')
             getattr(self, meth)(name, value)
 
     def customize(self, settings):
@@ -128,7 +128,7 @@ class CastSettings(collections.MutableMapping):
         # This method is used for transmission of settings between two cast instances.
         for name, value in copy.copy(settings).items():
             try:
-                meth = self._schema[name].get('customize', 'do_nothing')
+                meth = self._meta[name].get('customize', 'do_nothing')
             except KeyError:
                 pass #TODO : propagation of setting breaks if different cast type in between ...
             else:
@@ -213,7 +213,7 @@ class Cast(object):
         from_spz = None,
         to_spz = None,
         logs = False,
-        _schema = {
+        _meta = {
             'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
             'logs': {'customize': '__setitem__'},
             'from_spz': {'override': 'update_if_not_none'},
@@ -277,11 +277,12 @@ class Cast(object):
 
     def set_mm(self, mm):
         # Sets *from_* and *to* for the calling cast only if they 
-        # are unique classes (not *from_any* or *to_any*).
-        if mm.from_:
-            self.settings['from_'] = mm.from_
-        if mm.to:
-            self.settings['to'] = mm.to
+        # are unique classes (not *from_any* or *to_any*),
+        # and if they are not already set.
+        if mm.from_ and not self.from_:
+            self.configure(from_=mm.from_)
+        if mm.to and not self.to:
+            self.configure(to=mm.to)
 
     @abc.abstractmethod
     def call(self, inpt):
@@ -308,6 +309,13 @@ class Cast(object):
         """
         self._cache.clear()
         self.settings.update(settings)
+
+    def customize(self, **settings):
+        """
+        Interface for customizing the cast's settings. 
+        """
+        self._cache.clear()
+        self.settings.customize(settings)
 
     def log(self, message):
         """

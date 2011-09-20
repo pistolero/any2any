@@ -7,29 +7,74 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.daccasts import CastItems, FromIterable, ToIterable, FromObject, ToMapping, FromMapping, ToObject, ContainerType
+from any2any.daccasts import CastItems, FromIterable, ToIterable, FromObject, ToMapping, FromMapping, ToObject, ContainerType, ObjectType
 from any2any.base import Cast, register
 from any2any.utils import Mm, SpecializedType
 
 ListOfDicts = ContainerType(list, value_type=dict)
 
-class IntrospectMixin(Cast):
-    """
-    Mixin for introspecting a model.
-    """
+class DjModelType(ObjectType):
 
     defaults = dict(
         key_schema = ('id',),
+        extra_schema = {},
+        exclude = [],
+        include = [],
+        factory = None,
     )
 
-    def get_model(self):
-        raise NotImplementedError()
+    def default_schema(self):
+        # Returns a dictionary {<field_name>: <field>}, with all the fields,
+        # but excluding the pointers used for MTI
+        mod_opts = self.base._meta
+        ptr_fields = self.collect_ptrs(self.base)
+        all_fields = mod_opts.fields + mod_opts.many_to_many
+        fields = list(set(all_fields) - set(ptr_fields))
+        fields_dict = {}
+        for field in fields:
+            field_type = type(field)
+            # If fk, we return the right model
+            if isinstance(field, djmodels.ForeignKey):
+                wrapped_type = DjModelType(
+                    field.rel.to, field_type
+                )
+            # If m2m, we want a list of the right model
+            elif isinstance(field, djmodels.ManyToManyField):
+                wrapped_type = ContainerType(
+                    field_type, djmodels.Manager, factory=list,
+                    value_type=DjModelType(field.rel.to)
+                )
+            # "Complex" Python types to the right type 
+            elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
+                #TODO: doesn't work
+                actual_type = {
+                    djmodels.DateTimeField: datetime.datetime,
+                    djmodels.DateField: datetime.date,
+                }[field_type]
+                wrapped_type = SpecializedType(field_type, actual_type)
+            # NotImplemented on the rest
+            else:
+                wrapped_type = SpecializedType(field_type)
+            fields_dict[field.name] = wrapped_type
+        return fields_dict
+
+    def guess_class(self, key):
+        model_attr = getattr(self.base, key, None)
+        if model_attr:
+            # If related manager
+            if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
+            ForeignRelatedObjectsDescriptor)):
+                return ContainerType(
+                    type(model_attr), djmodels.Manager, factory=list,
+                    value_type=model_attr.related.model
+                )
+        return NotImplemented
 
     @property
     def pk_field_name(self):
         # We get pk's field name from the "super" parent (i.e. the "eldest").
         # This allows to handle MTI nicely (and transparently).
-        mod_opts = self.get_model()._meta
+        mod_opts = self.base._meta
         if mod_opts.parents:
             super_parent = filter(lambda p: issubclass(p, djmodels.Model), mod_opts.get_parent_list())[0]
             return super_parent._meta.pk.name
@@ -51,22 +96,6 @@ class IntrospectMixin(Cast):
                 key_tuple.append(value)
         return tuple(key_tuple)
 
-    @property
-    def fields(self):
-        # Returns a dictionary {<field_name>: <field>}, with all the fields,
-        # but excluding the pointers used for MTI
-        if self._context and 'fields' in self._context:
-            return self._context['fields']
-        mod_opts = self.get_model()._meta
-        ptr_fields = self.collect_ptrs(self.get_model())
-        all_fields = mod_opts.fields + mod_opts.many_to_many
-        fields = list(set(all_fields) - set(ptr_fields))
-        fields_dict = dict(((f.name, f) for f in fields))
-        # We cache the fields so that next time, no need to search them again
-        if self._context:
-            self._context['fields'] = fields_dict
-        return fields_dict
-
     def collect_ptrs(self, model):
         # Recursively collects all the fields pointing to parents of *model*
         ptr_fields = []
@@ -75,48 +104,11 @@ class IntrospectMixin(Cast):
             ptr_fields += self.collect_ptrs(parent_model)
         return ptr_fields
 
-
-class ModelToDict(FromObject, CastItems, ToMapping, IntrospectMixin):
-    """
-    This casts serializes an instance of :class:`Model` to a dictionary.
-    """
+class FromModel(FromObject):
 
     defaults = dict(
-        to = dict
+        from_spz = DjModelType
     )
-
-    def get_model(self):
-        return self.from_
-
-    def get_to_class(self, field_name):
-        model = self.get_model()
-        field = self.fields.get(field_name, None)
-        model_attr = getattr(model, field_name, None)
-        if field:
-            # If fk, we return the right model
-            if isinstance(field, djmodels.ForeignKey):
-                return dict
-            # If m2m, we want a list of the right model
-            elif isinstance(field, djmodels.ManyToManyField):
-                return ListOfDicts
-            # If "complex" Python object, we want a dict
-            elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
-                return dict
-            # Identity on the rest
-            else:
-                return object
-        elif model_attr:
-            # If related manager
-            if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
-            ForeignRelatedObjectsDescriptor)):
-                return ListOfDicts
-        else:
-            pass
-        return NotImplemented
-
-    def attr_names(self):
-        return self.fields.keys()
-
 
 def set_related(instance, name, value):
     """
@@ -132,78 +124,43 @@ def set_related(instance, name, value):
     else:
         raise TypeError("cannot update if the related ForeignKey cannot be null")
 
-
-class DictToModel(FromMapping, CastItems, ToObject, IntrospectMixin):
+class ToModel(ToObject):
     """
-    This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to :
+    This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to.
 
-        >>> cast = DictToModel(to=MyModel)
-
-    :class:`DictToModel` defines the following settings :
+    :class:`ToModel` defines the following settings :
 
         - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
     """
 
     defaults = dict(
-        class_to_setter = {ContainerType(list, value_type=djmodels.Model): set_related},
+        class_to_setter = {ContainerType(djmodels.Manager, value_type=djmodels.Model): set_related},
         create = True,
-        _schema = {'class_to_setter': {'override': 'copy_and_update'}}
+        to_spz = DjModelType,
+        _meta = {'class_to_setter': {'override': 'copy_and_update'}}
     )
 
-    def get_model(self):
-        return self.to
-
-    def get_to_class(self, field_name):
-        model = self.get_model()
-        field = self.fields.get(field_name, None)
-        model_attr = getattr(model, field_name, None)
-        if field:
-            # If fk, we return the right model
-            if isinstance(field, djmodels.ForeignKey):
-                return field.rel.to
-            # If m2m, we want a list of the right model
-            elif isinstance(field, djmodels.ManyToManyField):
-                return ContainerType(list, value_type=field.rel.to)
-            # "Complex" Python types to the right type 
-            elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
-                return {
-                    djmodels.DateTimeField: datetime.datetime,
-                    djmodels.DateField: datetime.date,
-                }[type(field)]
-            # Identity on the rest
-            else:
-                return object
-        elif model_attr:
-            # If related manager
-            if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
-            ForeignRelatedObjectsDescriptor)):
-                return ContainerType(list, value_type=model_attr.related.model)
-        else:
-            pass
-        return NotImplemented
-
     def new_object(self, items):
-        key_tuple = self.extract_pk(items) or ()
-        key_dict = dict(zip(self.key_schema, key_tuple))
+        key_tuple = self.to.extract_pk(items) or ()
+        key_dict = dict(zip(self.to.key_schema, key_tuple))
         if not key_dict:
             if self.create:
                 key_dict = {'pk': None}
             else:
                 raise ValueError("Input doesn't contain key for getting object")
-        model = self.get_model()
         try:
-            return model.objects.get(**key_dict)
-        except model.DoesNotExist:
+            return self.to.objects.get(**key_dict)
+        except self.to.DoesNotExist:
             if self.create:
-                return model(**key_dict)
+                return self.to(**key_dict)
             else:
                 raise
-        except model.MultipleObjectReturned:
+        except self.to.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
-            (self.key_schema, model))
+            (self.to.key_schema, self.to))
 
     def call(self, inpt):
-        obj = super(DictToModel, self).call(inpt)
+        obj = super(ToModel, self).call(inpt)
         obj.save()
         return obj
 
@@ -212,12 +169,11 @@ class FromQuerySet(FromIterable):
     def iter_input(self, inpt):
         return enumerate(inpt.all())
 
-class QuerySetToIterable(FromQuerySet, CastItems, ToIterable):
-    """
-    Casts a manager to an iterable of casted elements.
-    """
-    pass
-
-register(QuerySetToIterable(to=ListOfDicts), Mm(from_any=djmodels.Manager, to=ListOfDicts))
-register(ModelToDict(), Mm(from_any=djmodels.Model, to=dict))
-register(DictToModel(), Mm(dict, to_any=djmodels.Model))
+class ModelToMapping(FromModel, ToMapping, CastItems): pass
+class MappingToModel(ToModel, FromMapping, CastItems): pass
+class QuerySetToIterable(FromQuerySet, CastItems, ToIterable): pass
+class IterableToQueryset(FromIterable, CastItems, ToIterable): pass
+register(QuerySetToIterable(to=list), Mm(from_any=djmodels.Manager))
+register(IterableToQueryset(), Mm(from_any=list, to_any=djmodels.Manager))
+register(ModelToMapping(to=dict), Mm(from_any=djmodels.Model))
+register(MappingToModel(), Mm(to_any=djmodels.Model))

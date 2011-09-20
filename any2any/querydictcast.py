@@ -74,7 +74,7 @@ class QueryDictCast(FromMapping, CastItems, ToMapping):
         list_keys = [],
     )
 
-    def get_to_class(self, key):
+    def get_item_to(self, key):
         if (key in self.list_keys) or self.value_is_list(key):
             return list
         else:
