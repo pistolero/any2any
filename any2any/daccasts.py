@@ -87,6 +87,9 @@ class ObjectType(SpecializedType):
     #TODO: Spz(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Spz.__eq__
     #TODO: if Mm(aspztype) matches Mm(atype): cast, then cast's from_ will be overriden, along with its schema.  
     #TODO: rename to 'wrapped' instead of 'specialized'
+    #TODO: instance creating could be handled by ObjectType.
+    #TODO: as well as attribute access
+    #TODO: Mm, from_ and to maybe don't make sense anymore... only from_any and to_any
     #TODO: document
 
     defaults = dict(

@@ -233,7 +233,10 @@ class Cast(object):
         self.settings.update(settings)
 
     def __repr__(self):
-        return '%s.%s(%s->%s)' % (self.__class__.__module__, self.__class__.__name__, self.from_, self.to) 
+        if self.from_ or self.to:
+            return '%s.%s(%s=>%s)' % (self.__class__.__module__, self.__class__.__name__, self.from_ or '', self.to or '')
+        else:
+            return '%s.%s()' % (self.__class__.__module__, self.__class__.__name__)
 
     @property
     def from_(self):

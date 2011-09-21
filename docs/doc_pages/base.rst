@@ -122,17 +122,12 @@ You can register a cast as global default for a metamorphosis, using the functio
 
     >>> from any2any.base import register
     >>> class AnyToAnyBasestring(Cast):
-    ...   
-    ...     defaults = CastSettings(
-    ...         to = str,
-    ...     )
     ...     
     ...     def call(self, inpt):
-    ...         output_class = self.to
-    ...         return output_class('%s' % inpt)
+    ...         return self.to('%s' % inpt)
     ...
     >>> default_any2str = AnyToAnyBasestring()
-    >>> register(default_any2str, Mm(from_any=object, to_any=basestring))
+    >>> register(default_any2str, Mm(to_any=basestring))
 
 Then :meth:`Cast.cast_for` will pick it if it is the best match
 
@@ -204,8 +199,8 @@ Finally, after a few calls, we can check that the logging worked :
     >>> spitted = cast.call(1)
     >>> fd.seek(0)
     >>> print fd.read()
-    any2any.simple.Identity(<type 'int'>->None).call <= 1
-    any2any.simple.Identity(<type 'int'>->None).call => 1
+    any2any.simple.Identity().call <= 1
+    any2any.simple.Identity().call => 1
     <BLANKLINE>
     <BLANKLINE>
 
