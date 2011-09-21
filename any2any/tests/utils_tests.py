@@ -149,38 +149,38 @@ class Specialization_Test(object):
         Test Specialization.issubclass
         """
         # built-in types
-        ok_(Spz.issubclass(int, object))
-        ok_(not Spz.issubclass(object, int))
-        ok_(Spz.issubclass(object, object))
+        ok_(Wrap.issubclass(int, object))
+        ok_(not Wrap.issubclass(object, int))
+        ok_(Wrap.issubclass(object, object))
         # specialization + built-in type
-        ok_(Spz.issubclass(SpecializedType(str), str))
-        ok_(not Spz.issubclass(str, SpecializedType(str)))
-        ok_(Spz.issubclass(SpecializedType(str), SpecializedType(str)))
-        ok_(Spz.issubclass(SpecializedType(SpecializedType(str)), SpecializedType(str)))
+        ok_(Wrap.issubclass(TypeWrap(str), str))
+        ok_(not Wrap.issubclass(str, TypeWrap(str)))
+        ok_(Wrap.issubclass(TypeWrap(str), TypeWrap(str)))
+        ok_(Wrap.issubclass(TypeWrap(TypeWrap(str)), TypeWrap(str)))
         # test with different superclass.
-        spz_type = SpecializedType(int, str)
-        ok_(Spz.issubclass(spz_type, str))
+        spz_type = TypeWrap(int, str)
+        ok_(Wrap.issubclass(spz_type, str))
         class Dumb(object): pass
-        spz_type = SpecializedType(int, Dumb, str)
-        ok_(Spz.issubclass(spz_type, str))
-        ok_(Spz.issubclass(spz_type, Dumb))
+        spz_type = TypeWrap(int, Dumb, str)
+        ok_(Wrap.issubclass(spz_type, str))
+        ok_(Wrap.issubclass(spz_type, Dumb))
 
     def instantiate_test(self):
         """
         Test instantiate a Specialization
         """
-        SpzStr = SpecializedType(str)
-        a_spz_str = SpzStr("blabla")
+        WrappedStr = TypeWrap(str)
+        a_spz_str = WrappedStr("blabla")
         ok_(type(a_spz_str) == str)
         ok_(a_spz_str == "blabla")
 
-        SpzSpzStr = SpecializedType(SpzStr)
-        a_spz_str = SpzSpzStr("bloblo")
+        WrappedWrappedStr = TypeWrap(WrappedStr)
+        a_spz_str = WrappedWrappedStr("bloblo")
         ok_(type(a_spz_str) == str)
         ok_(a_spz_str == "bloblo")
 
-        SpzInt = SpecializedType(int, str)
-        a_spz_int = SpzInt(198)
+        WrappedInt = TypeWrap(int, str)
+        a_spz_int = WrappedInt(198)
         ok_(a_spz_int == 198)
         ok_(type(a_spz_int) == int)
 

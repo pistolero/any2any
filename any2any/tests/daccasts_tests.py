@@ -2,7 +2,7 @@
 from nose.tools import assert_raises, ok_
 from any2any.daccasts import *
 from any2any.base import Cast
-from any2any.utils import Spz
+from any2any.utils import Wrap
 
 class FromDictToDict(ToMapping, CastItems, FromMapping):
 
@@ -46,15 +46,15 @@ class CastItems_Test(object):
         cast = FromDictToDict(key_cast=ToStr())
         ok_(cast({1: 'bla', 2: 'bla', u'blo': None, 'coucou': [1]}) == {'1': 'bla', '2': 'bla', 'blo': None, 'coucou': [1]})
         
-class ObjectType_Test(object):
+class ObjectWrap_Test(object):
     """
-    Test ObjectType
+    Test ObjectWrap
     """
 
     def setUp(self):
         class AnObject(object): pass
         self.AnObject = AnObject
-        class AnObjectType(ObjectType):
+        class AnObjectWrap(ObjectWrap):
             def default_schema(self):
                 return {'a': float, 'b': unicode, 'c': float}
             def guess_class(self, key):
@@ -62,51 +62,51 @@ class ObjectType_Test(object):
                     return {'mystery': float}[key]
                 except KeyError:
                     return NotImplemented
-        self.AnObjectType = AnObjectType
+        self.AnObjectWrap = AnObjectWrap
 
     def get_schema_test(self):
         """
-        Test ObjectType.get_schema
+        Test ObjectWrap.get_schema
         """
         # provided schema
-        obj_type = ObjectType(self.AnObject, extra_schema={'a': int, 'b': str})
+        obj_type = ObjectWrap(self.AnObject, extra_schema={'a': int, 'b': str})
         ok_(obj_type.get_schema() == {'a': int, 'b': str})
         # with exclude
-        obj_type = ObjectType(self.AnObject, extra_schema={'a': int, 'b': str}, exclude=['a'])
+        obj_type = ObjectWrap(self.AnObject, extra_schema={'a': int, 'b': str}, exclude=['a'])
         ok_(obj_type.get_schema() == {'b': str})
         # default schema
-        obj_type = self.AnObjectType(self.AnObject)
+        obj_type = self.AnObjectWrap(self.AnObject)
         ok_(obj_type.get_schema() == {'a': float, 'b': unicode, 'c': float})
         # default schema + exclude
-        obj_type = self.AnObjectType(self.AnObject, exclude=['b', 'c', 'd'])
+        obj_type = self.AnObjectWrap(self.AnObject, exclude=['b', 'c', 'd'])
         ok_(obj_type.get_schema() == {'a': float})
         # default schema + extra_schema
-        obj_type = self.AnObjectType(self.AnObject, extra_schema={'a': unicode, 'd': str})
+        obj_type = self.AnObjectWrap(self.AnObject, extra_schema={'a': unicode, 'd': str})
         ok_(obj_type.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
         # default schema + extra_schema + exclude
-        obj_type = self.AnObjectType(self.AnObject, extra_schema={'a': unicode, 'd': str, 'e': int}, exclude=['d', 'a', 'b'])
+        obj_type = self.AnObjectWrap(self.AnObject, extra_schema={'a': unicode, 'd': str, 'e': int}, exclude=['d', 'a', 'b'])
         ok_(obj_type.get_schema() == {'c': float, 'e': int})
         # default schema + include
-        obj_type = self.AnObjectType(self.AnObject, include=['a', 'b'])
+        obj_type = self.AnObjectWrap(self.AnObject, include=['a', 'b'])
         ok_(obj_type.get_schema() == {'a': float, 'b': unicode})
         # default schema + extra_schema + include
-        obj_type = self.AnObjectType(self.AnObject, extra_schema={'d': str}, include=['a', 'd'])
+        obj_type = self.AnObjectWrap(self.AnObject, extra_schema={'d': str}, include=['a', 'd'])
         ok_(obj_type.get_schema() == {'a': float, 'd': str})
         # default schema + extra_schema + exclude + include
-        obj_type = self.AnObjectType(self.AnObject, extra_schema={'d': str, 'e': int}, include=['a', 'b', 'e'], exclude=['a'])
+        obj_type = self.AnObjectWrap(self.AnObject, extra_schema={'d': str, 'e': int}, include=['a', 'b', 'e'], exclude=['a'])
         ok_(obj_type.get_schema() == {'b': unicode, 'e': int})
 
     def get_class_test(self):
         """
-        Test ObjectType.get_class
+        Test ObjectWrap.get_class
         """
         # provided schema
-        obj_type = ObjectType(self.AnObject, extra_schema={'a': int, 'b': str})
+        obj_type = ObjectWrap(self.AnObject, extra_schema={'a': int, 'b': str})
         ok_(obj_type.get_class('a') == int)
         ok_(obj_type.get_class('b') == str)
         assert_raises(KeyError, obj_type.get_class, 'c')
         # default schema
-        obj_type = self.AnObjectType(self.AnObject)
+        obj_type = self.AnObjectWrap(self.AnObject)
         ok_(obj_type.get_class('a') == float)
         ok_(obj_type.get_class('b') == unicode)
         ok_(obj_type.get_class('c') == float)
@@ -117,64 +117,64 @@ class ObjectType_Test(object):
         Test guessing a class
         """
         # default schema
-        obj_type = self.AnObjectType(self.AnObject, extra_schema={'mystery': NotImplemented, 'mystery2': NotImplemented})
+        obj_type = self.AnObjectWrap(self.AnObject, extra_schema={'mystery': NotImplemented, 'mystery2': NotImplemented})
         ok_(obj_type.get_class('mystery') == float)
         ok_(obj_type.get_class('mystery2') == NotImplemented)
 
-ListOfObjects = ContainerType(list, value_type=object)
-ListOfStr = ContainerType(list, value_type=str)
-ListOfInt = ContainerType(list, value_type=int)
+ListOfObjects = ContainerWrap(list, value_type=object)
+ListOfStr = ContainerWrap(list, value_type=str)
+ListOfInt = ContainerWrap(list, value_type=int)
 
-class ContainerType_Test(object):
+class ContainerWrap_Test(object):
     """
-    Test ContainerType
+    Test ContainerWrap
     """
 
     def issubclass_test(self):
         """
-        Tests for isubclass with ContainerType
+        Tests for isubclass with ContainerWrap
         """
         # Nested specializations
-        ok_(Spz.issubclass(
-            ContainerType(list, value_type=ContainerType(
+        ok_(Wrap.issubclass(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfStr
             )),
-            ContainerType(list, value_type=ContainerType(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfObjects
             ))
         ))
-        ok_(not Spz.issubclass(
-            ContainerType(list, value_type=ContainerType(
+        ok_(not Wrap.issubclass(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfObjects
             )),
-            ContainerType(list, value_type=ContainerType(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfStr
             ))
         ))
-        ok_(Spz.issubclass(
-            ContainerType(list, value_type=ContainerType(
+        ok_(Wrap.issubclass(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfObjects
             )),
-            ContainerType(list, value_type=ContainerType(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=list
             ))
         ))
-        ok_(Spz.issubclass(
-            ContainerType(list, value_type=ContainerType(
+        ok_(Wrap.issubclass(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfObjects
             )),
             list
         ))
-        ok_(Spz.issubclass(
-            ContainerType(list, value_type=ContainerType(
+        ok_(Wrap.issubclass(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfObjects
             )),
-            ContainerType(list, value_type=ListOfObjects)
+            ContainerWrap(list, value_type=ListOfObjects)
         ))
-        ok_(not Spz.issubclass(
-            ContainerType(list, value_type=ContainerType(
+        ok_(not Wrap.issubclass(
+            ContainerWrap(list, value_type=ContainerWrap(
                 list, value_type=ListOfObjects
             )),
-            ContainerType(list, value_type=ListOfInt)
+            ContainerWrap(list, value_type=ListOfInt)
         ))
     

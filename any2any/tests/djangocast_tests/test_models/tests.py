@@ -4,36 +4,36 @@ from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.manager import Manager
 
 from any2any.djangocast import *
-from any2any.utils import Spz
+from any2any.utils import Wrap
 from models import *
 
 from nose.tools import assert_raises, ok_
 
-class DjModelType_Test(object):
+class DjModelWrap_Test(object):
 
     def fields_test(self):
         """
-        Test DjModelType.fields
+        Test DjModelWrap.fields
         """
-        columnist_fields = DjModelType(Columnist).default_schema()
-        gourmand_fields = DjModelType(Gourmand).default_schema()
-        wsausage_fields = DjModelType(WritingSausage).default_schema()
+        columnist_fields = DjModelWrap(Columnist).default_schema()
+        gourmand_fields = DjModelWrap(Gourmand).default_schema()
+        wsausage_fields = DjModelWrap(WritingSausage).default_schema()
         ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(Spz.issubclass(columnist_fields['id'], AutoField))
-        ok_(Spz.issubclass(columnist_fields['lastname'], CharField))
-        ok_(Spz.issubclass(columnist_fields['nickname'], CharField))
-        ok_(Spz.issubclass(columnist_fields['journal'], ForeignKey))
+        ok_(Wrap.issubclass(columnist_fields['id'], AutoField))
+        ok_(Wrap.issubclass(columnist_fields['lastname'], CharField))
+        ok_(Wrap.issubclass(columnist_fields['nickname'], CharField))
+        ok_(Wrap.issubclass(columnist_fields['journal'], ForeignKey))
         ok_(set(gourmand_fields) == set(['id', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(Spz.issubclass(gourmand_fields['firstname'], CharField))
-        ok_(Spz.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
-        ok_(Spz.issubclass(gourmand_fields['pseudo'], CharField))
+        ok_(Wrap.issubclass(gourmand_fields['firstname'], CharField))
+        ok_(Wrap.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
+        ok_(Wrap.issubclass(gourmand_fields['pseudo'], CharField))
         ok_(set(wsausage_fields) == set(['id', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
 
     def nk_test(self):
         """
-        Test DjModelType.extract_pk
+        Test DjModelWrap.extract_pk
         """
-        columnist_type = DjModelType(Columnist, key_schema=('firstname', 'lastname'))
+        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
         ok_(columnist_type.extract_pk({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
@@ -145,8 +145,8 @@ class ModelToMapping_Test(BaseModel):
         Test ModelToMapping.call serializing a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey
-        journalist_type = DjModelType(Journalist, include=['firstname', 'lastname'])
-        journal_type = DjModelType(Journal, 
+        journalist_type = DjModelWrap(Journalist, include=['firstname', 'lastname'])
+        journal_type = DjModelWrap(Journal, 
             extra_schema={'journalist_set': NotImplemented},
             exclude=['id'],
             key_schema=('firstname', 'lastname')
@@ -165,9 +165,9 @@ class ModelToMapping_Test(BaseModel):
         # reverse m2m
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
-        gourmand_type = DjModelType(Gourmand, include=['pseudo'])
+        gourmand_type = DjModelWrap(Gourmand, include=['pseudo'])
         gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
-        dish_type = DjModelType(Dish, include=['gourmand_set', 'name'])
+        dish_type = DjModelWrap(Dish, include=['gourmand_set', 'name'])
         cast = ModelToMapping(from_=dish_type, to=dict, mm_to_cast={Mm(from_any=Gourmand): gourmand_cast})
         ok_(cast.call(self.salmon) == {
             'gourmand_set': [
@@ -180,8 +180,8 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call serializing date and datetime
         """
-        issue_type = DjModelType(Issue, include=['journal', 'issue_date', 'last_char_datetime'])
-        journal_type = DjModelType(Journal, include=['name'])
+        issue_type = DjModelWrap(Issue, include=['journal', 'issue_date', 'last_char_datetime'])
+        journal_type = DjModelWrap(Journal, include=['name'])
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
         cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
         ok_(cast.call(self.issue) == {
@@ -339,7 +339,7 @@ class MappingToModel_Test(BaseModel):
         Test MappingToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey
-        journal_type = DjModelType(Journal, 
+        journal_type = DjModelWrap(Journal, 
             extra_schema={'journalist_set': NotImplemented},
         )
         cast = MappingToModel(to=journal_type)
@@ -348,7 +348,7 @@ class MappingToModel_Test(BaseModel):
             'journalist_set': [],
         })
         # reverse m2m
-        dish_type = DjModelType(Dish, 
+        dish_type = DjModelWrap(Dish, 
             extra_schema={'gourmand_set': NotImplemented},
         )
         self.gourmand.save()
@@ -365,7 +365,7 @@ class MappingToModel_Test(BaseModel):
         """
         Test update an object with its natural key, natural key already existing.
         """
-        columnist_type = DjModelType(Columnist, key_schema=('firstname', 'lastname'))
+        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
         columnist_before = Columnist.objects.count()
         columnist_cast = MappingToModel(to=columnist_type)
         jamy = columnist_cast.call({
@@ -383,7 +383,7 @@ class MappingToModel_Test(BaseModel):
         """
         Test deserialize and create an object with its natural key.
         """
-        columnist_type = DjModelType(Columnist, key_schema=('firstname', 'lastname'))
+        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
         columnist_before = Columnist.objects.count()
         columnist_cast = MappingToModel(to=columnist_type)
         fred = columnist_cast.call({

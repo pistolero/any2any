@@ -7,7 +7,7 @@ Basic usage
 First, we'll import our casts, and a few models we'll demontrate with :
 
     >>> from djangocast_tests.test_models.models import Author, Book, Dish, Gourmand
-    >>> from any2any.djangocast import ModelToMapping, MappingToModel, DjModelType
+    >>> from any2any.djangocast import ModelToMapping, MappingToModel, DjModelWrap
     >>> from any2any.utils import Mm
 
 Converting an object to a dictionary
@@ -52,7 +52,7 @@ and reverse relationships (i.e. ForeignKeys and ManyToManyFields) :
     >>> willy = Gourmand(pseudo='Willy', firstname='Free', lastname='William') ; willy.save()
     >>> willy.favourite_dishes.add(salmon)
     >>> willy.save()
-    >>> WrappedDish = DjModelType(Dish, include=['gourmand_set']) # You have to add it explicitely to the output
+    >>> WrappedDish = DjModelWrap(Dish, include=['gourmand_set']) # You have to add it explicitely to the output
     >>> cast = ModelToMapping(from_=WrappedDish, to=dict)
     >>> cast(salmon) == {
     ...     'gourmand_set': [
@@ -110,7 +110,8 @@ By specifying the id, you can now update this same author. Notice that no new ob
 
 You can also prevent the cast from creating an author at all, by setting the *create* setting of the cast to False. Then, exisiting objects are still updated :
 
-    >>> cast = MappingToModel(to=Author, create=False)
+    >>> WrappedAuthor = DjModelWrap(Author, create=False)
+    >>> cast = MappingToModel(to=WrappedAuthor)
     >>> before = Author.objects.count()
     >>> author = cast({'firstname': 'JC', 'lastname': 'Ballard', 'id': author.pk})
     >>> Author.objects.count() == before # No author was created
@@ -153,14 +154,14 @@ In order to select which fields to serialize, you can use the settings *include*
 Say, I want to serialize a book but include only the title :
 
     >>> book = Book.objects.get(title='1984')
-    >>> WrappedBook = DjModelType(Book, include=['title'])
+    >>> WrappedBook = DjModelWrap(Book, include=['title'])
     >>> cast = ModelToMapping(from_=WrappedBook, to=dict)
     >>> cast(book) == {'title': '1984'}
     True
 
 Or maybe I want to exclude the id and author from the output :
 
-    >>> WrappedBook = DjModelType(Book, exclude=['id', 'author'])
+    >>> WrappedBook = DjModelWrap(Book, exclude=['id', 'author'])
     >>> cast = ModelToMapping(from_=WrappedBook, to=dict)
     >>> cast(book) == {'title': '1984', 'comments': ''}
     True
@@ -173,7 +174,7 @@ Let's add something to the output, for example the model name. As the model name
     >>> def get_model_name(obj, name):
     ...     return obj.__class__.__name__.lower()
     ... 
-    >>> WrappedBook = DjModelType(Book, include=['title', 'model_name'])
+    >>> WrappedBook = DjModelWrap(Book, include=['title', 'model_name'])
     >>> cast = ModelToMapping(
     ...     from_=WrappedBook,
     ...     to=dict,
@@ -191,7 +192,7 @@ Deserializing with a natural key
 
 In order to deserialize an object by using a natural key, you can use the setting *key_schema*. For example, if I want to refer to my authors only by the pair ``(<firstname>, <lastname>)`` :
 
-    >>> WrappedAuthor = DjModelType(Author, key_schema=('firstname', 'lastname'))
+    >>> WrappedAuthor = DjModelWrap(Author, key_schema=('firstname', 'lastname'))
     >>> cast = MappingToModel(to=WrappedAuthor)
     >>> before = Author.objects.count()
     >>> author = cast({'firstname': 'George', 'lastname': 'Orwell', 'nickname': 'Jojo'})
@@ -210,7 +211,7 @@ To deserialize virtual attributes you need to use the setting *attrname_to_sette
     ...     obj.firstname = firstname
     ...     obj.lastname = lastname
     ...     
-    >>> WrappedAuthor = DjModelType(Author, include=['combined_names'])
+    >>> WrappedAuthor = DjModelWrap(Author, include=['combined_names'])
     >>> cast = MappingToModel(to=WrappedAuthor, attrname_to_setter={'combined_names': set_names})
     >>> author = cast({'combined_names': 'Boris Vian'})
     >>> author.firstname, author.lastname
@@ -270,7 +271,7 @@ Setting a cast for a given attribute
 
 If you want to override the default behaviour only for a given attribute, you can use the setting *key_to_cast*. For example, say we want to deserialize authors by using the natural key ``(<firstname>, <lastname>)`` (see example above) :
 
-    >>> WrappedAuthor = DjModelType(Author, key_schema=('firstname', 'lastname'))
+    >>> WrappedAuthor = DjModelWrap(Author, key_schema=('firstname', 'lastname'))
     >>> author_cast = MappingToModel(to=WrappedAuthor)
     >>> book_cast = MappingToModel(to=Book, key_to_cast={'author': author_cast})
     >>> author_before = Author.objects.count() ; book_before = Book.objects.count()

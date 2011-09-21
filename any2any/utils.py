@@ -28,7 +28,7 @@ class ClassSet(object):
         # B) self.klass < other.klass
         if other.singleton:
             return False
-        elif Spz.issubclass(self.klass, other.klass) and not other == self:
+        elif Wrap.issubclass(self.klass, other.klass) and not other == self:
             return True
         else:
             return False
@@ -36,7 +36,7 @@ class ClassSet(object):
     def __gt__(self, other):
         if self.singleton:
             return False
-        elif Spz.issubclass(other.klass, self.klass) and not other == self:
+        elif Wrap.issubclass(other.klass, self.klass) and not other == self:
             return True
         else:
             return False
@@ -169,12 +169,12 @@ class Metamorphosis(object):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 Mm = Metamorphosis
 
-class SpecializedType(object):
+class TypeWrap(object):
     """
     A metaclass for building specialized types.
 
-        >>> PositiveInt = SpecializedType(int, greater_than=0)
-        >>> Spz.issubclass(PositiveInt, int)
+        >>> PositiveInt = TypeWrap(int, greater_than=0)
+        >>> Wrap.issubclass(PositiveInt, int)
         True
         >>> PositiveInt.greater_than
         0
@@ -209,7 +209,7 @@ class SpecializedType(object):
         return self.factory(*args, **kwargs)
 
     def __repr__(self):
-        return 'SpzOf%s' % self.base.__name__.capitalize()
+        return 'Wrapped%s' % self.base.__name__.capitalize()
 
     def __getattr__(self, name):
         try:
@@ -218,38 +218,38 @@ class SpecializedType(object):
             return self.__getattribute__(name)
 
     def __eq__(self, other):
-        if isinstance(other, SpecializedType):
+        if isinstance(other, TypeWrap):
             return (self.superclasses == other.superclasses 
             and self.features == other.features)
         else:
             return False
 
     def __superclasshook__(self, C):
-        if isinstance(C, SpecializedType): C = C.base
+        if isinstance(C, TypeWrap): C = C.base
         # *C* is superclass of *self*,
         # if *C* is superclass of one of *self.superclasses* 
         for parent in self.superclasses:
-            if Spz.issubclass(parent, C):
+            if Wrap.issubclass(parent, C):
                 return True
         return False
 
     @staticmethod
     def issubclass(c1, c2s):
         if not isinstance(c2s, tuple): c2s = (c2s,)
-        # If *c1* is *SpecializedType*, we use its *__superclasshook__*
-        if isinstance(c1, SpecializedType):
+        # If *c1* is *TypeWrap*, we use its *__superclasshook__*
+        if isinstance(c1, TypeWrap):
             for c2 in c2s:
                 if c1.__superclasshook__(c2):
                     return True
         else:
             for c2 in c2s:
-                # *SpecializedType* cannot be a superclass of a normal class
-                if isinstance(c2, SpecializedType):
+                # *TypeWrap* cannot be a superclass of a normal class
+                if isinstance(c2, TypeWrap):
                     return False
                 elif issubclass(c1, c2):
                     return True
         return False
-Spz = SpecializedType
+Wrap = TypeWrap
 
 def closest_parent(klass, other_classes):
     """
@@ -259,7 +259,7 @@ def closest_parent(klass, other_classes):
     #We select only the super classes of *klass*
     candidates = []
     for oclass in other_classes:
-        if Spz.issubclass(klass, oclass):
+        if Wrap.issubclass(klass, oclass):
             candidates.append(oclass)
 
     #This is used to sort the list and take the closer parent of *klass*
@@ -267,11 +267,11 @@ def closest_parent(klass, other_classes):
         def __init__(self, klass):
             self.klass = klass
         def __lt__(self, other):
-            return Spz.issubclass(self.klass, other.klass)
+            return Wrap.issubclass(self.klass, other.klass)
         def __eq__(self, other):
             return self.klass == other.klass
         def __gt__(self, other):
-            return Spz.issubclass(other.klass, klass.klass)
+            return Wrap.issubclass(other.klass, klass.klass)
     
     if not candidates:
         return object

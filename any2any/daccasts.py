@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast
-from utils import closest_parent, SpecializedType, Mm, memoize
+from utils import closest_parent, TypeWrap, Mm, memoize
 
 # Abstract DivideAndConquerCast
 #======================================
@@ -81,13 +81,12 @@ class DivideAndConquerCast(Cast):
 
 # Specialized types
 #======================================
-class ObjectType(SpecializedType):
-    #TODO: for looking-up best mm, when several superclasses in ObjectType, when several Mm match, choose the best one.
+class ObjectWrap(TypeWrap):
+    #TODO: for looking-up best mm, when several superclasses in ObjectWrap, when several Mm match, choose the best one.
     # ex : Journal, ForeignKey
-    #TODO: Spz(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Spz.__eq__
+    #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
     #TODO: if Mm(aspztype) matches Mm(atype): cast, then cast's from_ will be overriden, along with its schema.  
     #TODO: rename to 'wrapped' instead of 'specialized'
-    #TODO: instance creating could be handled by ObjectType.
     #TODO: as well as attribute access
     #TODO: Mm, from_ and to maybe don't make sense anymore... only from_any and to_any
     #TODO: document
@@ -131,7 +130,14 @@ class ObjectType(SpecializedType):
         """
         return {}
 
-class ContainerType(SpecializedType):
+    def __call__(self, *args, **kwargs):
+        return self.new_object(*args, **kwargs)
+
+    def new_object(self, *args, **kwargs):
+        return self.factory(*args, **kwargs), kwargs.keys()
+
+class ContainerWrap(TypeWrap):
+    #TODO: document
 
     defaults = dict(
         value_type = NotImplemented,
@@ -139,16 +145,16 @@ class ContainerType(SpecializedType):
     )
 
     def __superclasshook__(self, C):
-        if super(ContainerType, self).__superclasshook__(C):
-            if isinstance(C, ContainerType):
-                return SpecializedType.issubclass(self.value_type, C.value_type)
+        if super(ContainerWrap, self).__superclasshook__(C):
+            if isinstance(C, ContainerWrap):
+                return TypeWrap.issubclass(self.value_type, C.value_type)
             else:
                 return True
         else:
             return False
 
     def __repr__(self):
-        return 'Spz%s%s' % (self.base.__name__.capitalize(),
+        return 'Wrapped%s%s' % (self.base.__name__.capitalize(),
         '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
 
 # Mixins
@@ -249,10 +255,10 @@ class FromMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerType`.    
+    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(from_spz = ContainerType)
+    defaults = dict(from_spz = ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -264,10 +270,10 @@ class ToMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
-    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerType`.    
+    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(to_spz = ContainerType)
+    defaults = dict(to_spz = ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -279,10 +285,10 @@ class FromIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerType`.    
+    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(from_spz = ContainerType)
+    defaults = dict(from_spz = ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -294,10 +300,10 @@ class ToIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
-    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerType`.    
+    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(to_spz = ContainerType)
+    defaults = dict(to_spz = ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -310,9 +316,8 @@ class FromObject(DivideAndConquerCast):
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     """
     # TODO: document settings
-    # TODO: refactor with object SpecializedType
     defaults = dict(
-        from_spz = ObjectType,
+        from_spz = ObjectWrap,
         class_to_getter = {object: getattr,},
         attrname_to_getter = {},
     )
@@ -342,9 +347,8 @@ class ToObject(DivideAndConquerCast):
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     """
     # TODO: document settings
-    # TODO: refactor with object SpecializedType
     defaults = dict(
-        to_spz = ObjectType,
+        to_spz = ObjectWrap,
         class_to_setter = {object: setattr,},
         attrname_to_setter = {}
     )
@@ -353,23 +357,13 @@ class ToObject(DivideAndConquerCast):
         return self.to.get_class(key)
 
     def build_output(self, items_iter):
-        # TODO: bad because it breaks the laziness of generators
-        items = dict(items_iter)
-        new_object = self.new_object(items)
+        # Build new object, and set attributes not yet handled
+        items = dict(items_iter)# breaks the laziness of generators
+        new_object, keys_handled = self.to(**items)
+        [items.pop(key, None) for key in keys_handled]
         for name, value in items.items():
             self.get_setter(name)(new_object, name, value)
         return new_object
-
-    @abc.abstractmethod
-    def new_object(self, items):
-        """
-        Args:
-            items(dict). A dictionary containing all the casted items. Delete items from the dictionary if you don't want them to be handled automatically by the cast.
-
-        Returns:
-            object. An object created with the bare minimum from *items*. The rest will be automatically set by the cast, using the defined setters.
-        """
-        return
 
     def get_setter(self, name):
         # try to get accessor on a per-attribute basis
@@ -384,44 +378,3 @@ class ToObject(DivideAndConquerCast):
             parent = closest_parent(attr_class, self.class_to_setter.keys())
             return self.class_to_setter.get(parent, setattr)
 
-class RouteToOperands(DivideAndConquerCast):
-    #TODO: document
-    defaults = dict(
-        operands = []
-    )
-
-    def iter_output(self, items_iter):
-        for key, value in items_iter:            
-            yield key, self.operands[key](value)
-
-class ConcatMapping(DivideAndConquerCast):
-    #TODO: document
-
-    def build_output(self, items_iter):
-        concat_dict = {}
-        for key, value in items_iter:
-            concat_dict.update(value)
-        return concat_dict
-
-class SplitMapping(DivideAndConquerCast):
-    #TODO: document
-
-    defaults = dict(
-        key_to_route = {}
-    )
-
-    def iter_input(self, inpt):
-        dict_list = [dict() for o in self.operands]
-        for key, value in inpt.iteritems():
-            ind = self.route(key, value)
-            dict_list[ind][key] = value
-        return enumerate(dict_list)
-    
-    def get_route(self, key, value):
-        raise ValueError("Couldn't find route for key '%s'" % key)
-
-    def route(self, key, value):
-        if key in self.key_to_route:
-            return self.key_to_route[key]
-        else:
-            return self.get_route(key, value)

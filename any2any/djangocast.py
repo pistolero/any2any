@@ -7,19 +7,18 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.daccasts import CastItems, FromIterable, ToIterable, FromObject, ToMapping, FromMapping, ToObject, ContainerType, ObjectType
+from any2any.daccasts import CastItems, FromIterable, ToIterable, FromObject, ToMapping, FromMapping, ToObject, ContainerWrap, ObjectWrap
 from any2any.base import Cast, register
-from any2any.utils import Mm, SpecializedType
+from any2any.utils import Mm, TypeWrap
 
-ListOfDicts = ContainerType(list, value_type=dict)
-
-class DjModelType(ObjectType):
+class DjModelWrap(ObjectWrap):
 
     defaults = dict(
         key_schema = ('id',),
         extra_schema = {},
         exclude = [],
         include = [],
+        create = True,
         factory = None,
     )
 
@@ -35,14 +34,14 @@ class DjModelType(ObjectType):
             field_type = type(field)
             # If fk, we return the right model
             if isinstance(field, djmodels.ForeignKey):
-                wrapped_type = DjModelType(
+                wrapped_type = DjModelWrap(
                     field.rel.to, field_type
                 )
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):
-                wrapped_type = ContainerType(
+                wrapped_type = ContainerWrap(
                     field_type, djmodels.Manager, factory=list,
-                    value_type=DjModelType(field.rel.to)
+                    value_type=DjModelWrap(field.rel.to)
                 )
             # "Complex" Python types to the right type 
             elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
@@ -51,10 +50,10 @@ class DjModelType(ObjectType):
                     djmodels.DateTimeField: datetime.datetime,
                     djmodels.DateField: datetime.date,
                 }[field_type]
-                wrapped_type = SpecializedType(field_type, actual_type)
+                wrapped_type = TypeWrap(field_type, actual_type)
             # NotImplemented on the rest
             else:
-                wrapped_type = SpecializedType(field_type)
+                wrapped_type = TypeWrap(field_type)
             fields_dict[field.name] = wrapped_type
         return fields_dict
 
@@ -64,11 +63,31 @@ class DjModelType(ObjectType):
             # If related manager
             if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
-                return ContainerType(
+                return ContainerWrap(
                     type(model_attr), djmodels.Manager, factory=list,
                     value_type=model_attr.related.model
                 )
         return NotImplemented
+
+    def new_object(self, *args, **kwargs):
+        model = self.factory
+        key_tuple = self.extract_pk(kwargs) or ()
+        key_dict = dict(zip(self.key_schema, key_tuple))
+        if not key_dict:
+            if self.create:
+                key_dict = {'pk': None}
+            else:
+                raise ValueError("Input doesn't contain key for getting object")
+        try:
+            return model.objects.get(**key_dict), key_dict.keys()
+        except model.DoesNotExist:
+            if self.create:
+                return model(**key_dict), key_dict.keys()
+            else:
+                raise
+        except model.MultipleObjectsReturned:
+            raise ValueError("'%s' is not unique for '%s'" %
+            (self.key_schema, model))
 
     @property
     def pk_field_name(self):
@@ -107,7 +126,7 @@ class DjModelType(ObjectType):
 class FromModel(FromObject):
 
     defaults = dict(
-        from_spz = DjModelType
+        from_spz = DjModelWrap
     )
 
 def set_related(instance, name, value):
@@ -134,30 +153,11 @@ class ToModel(ToObject):
     """
 
     defaults = dict(
-        class_to_setter = {ContainerType(djmodels.Manager, value_type=djmodels.Model): set_related},
+        class_to_setter = {ContainerWrap(djmodels.Manager, value_type=djmodels.Model): set_related},
         create = True,
-        to_spz = DjModelType,
+        to_spz = DjModelWrap,
         _meta = {'class_to_setter': {'override': 'copy_and_update'}}
     )
-
-    def new_object(self, items):
-        key_tuple = self.to.extract_pk(items) or ()
-        key_dict = dict(zip(self.to.key_schema, key_tuple))
-        if not key_dict:
-            if self.create:
-                key_dict = {'pk': None}
-            else:
-                raise ValueError("Input doesn't contain key for getting object")
-        try:
-            return self.to.objects.get(**key_dict)
-        except self.to.DoesNotExist:
-            if self.create:
-                return self.to(**key_dict)
-            else:
-                raise
-        except self.to.MultipleObjectsReturned:
-            raise ValueError("'%s' is not unique for '%s'" %
-            (self.to.key_schema, self.to))
 
     def call(self, inpt):
         obj = super(ToModel, self).call(inpt)

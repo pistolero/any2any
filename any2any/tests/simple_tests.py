@@ -4,7 +4,7 @@ from nose.tools import assert_raises, ok_
 from any2any.base import *
 from any2any.utils import *
 from any2any.simple import *
-from any2any.daccasts import ObjectType
+from any2any.daccasts import ObjectWrap
 
 class Identity_Test(object):
     """
@@ -99,12 +99,16 @@ class ObjectToMapping_Test(Container_Test):
         super(ObjectToMapping_Test, self).setUp()
         class Object(object): pass
         self.Object = Object
+        class OType(ObjectWrap):
+            def new_object(self, *args, **kwargs):
+                return self.factory(), []
+        self.ObjectWrap = OType
 
     def call_test(self):
         """
         Test call
         """
-        obj_type = ObjectType(self.Object, extra_schema={'a1': int, 'blabla': str})
+        obj_type = self.ObjectWrap(self.Object, extra_schema={'a1': int, 'blabla': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
         cast = ObjectToMapping(from_=obj_type, to=dict)
         ok_(cast.call(obj) == {'a1': 90, 'blabla': 'coucou'})
@@ -113,7 +117,7 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test call, with a custom cast for attributes
         """
-        obj_type = ObjectType(self.Object, extra_schema={'a1': int, 'blabla': str, 'bb': str})
+        obj_type = self.ObjectWrap(self.Object, extra_schema={'a1': int, 'blabla': str, 'bb': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
         cast = ObjectToMapping(
             from_=obj_type,
@@ -127,7 +131,7 @@ class ObjectToMapping_Test(Container_Test):
         """
         Test serialize virtual attribute from object
         """
-        obj_type = ObjectType(self.Object, extra_schema={'a': int, 'virtual_a': str})
+        obj_type = self.ObjectWrap(self.Object, extra_schema={'a': int, 'virtual_a': str})
         obj = self.Object() ; obj.a = 90
         def get_my_virtual_attr(obj, name):
             return 'virtual %s' % obj.a
@@ -148,7 +152,11 @@ class MappingToObject_Test(Container_Test):
         super(MappingToObject_Test, self).setUp()
         class Object(object): pass
         self.Object = Object
-        self.ObjectSchema = ObjectType(Object, extra_schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
+        class OType(ObjectWrap):
+            def new_object(self, *args, **kwargs):
+                return self.factory(), []
+        self.ObjectWrap = OType
+        self.ObjectSchema = self.ObjectWrap(Object, extra_schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
 
     def call_test(self):
         """
@@ -191,19 +199,3 @@ class MappingToObject_Test(Container_Test):
         ok_(obj.virt1 == 90)
         ok_(obj.virt2 == 90)
 
-class ConcatMapping_Test(object):
-    """
-    Tests for ConcatMapping
-    """
-
-    def call_test(self):
-        """
-        Test call for ConcatMapping
-        """
-        DictOfStr = ContainerType(dict, value_type=str)
-        cast0 = MappingToMapping(to=dict)
-        cast1 = MappingToMapping(to=DictOfStr, value_cast=ToType())
-        cast = ConcatMapping(key_to_route={'a': 1, 'b': 0, 'c': 1}, operands=[cast0, cast1], to=dict)
-        ok_(cast({
-            'a': 987, 'b': 88, 'c': 34
-        }) == {'a': '987', 'b': 88, 'c': '34'})
