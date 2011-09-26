@@ -16,6 +16,7 @@ class Issue(Model):
     journal = ForeignKey(Journal)
 
 class Person (Model):
+    mypk = CharField(max_length=100, primary_key=True)
     firstname = CharField(max_length=100)
     lastname = CharField(max_length=100)
 

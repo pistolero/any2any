@@ -24,19 +24,7 @@ except ImportError:
     from compat import abc
 import collections
 from functools import wraps
-from utils import memoize
-
-mm_to_cast = {}
-"""
-dict. This dictionary maps a :class:`Mm` to a :class:`Cast`. This is any2any's global default mapping.
-"""
-
-def register(cast, mm):
-    """
-    Registers *cast* as the default cast for metamorphosis *mm*.
-    """
-    mm_to_cast[mm] = cast
-
+from utils import memoize, Mm
 
 class CastSettings(collections.MutableMapping):
     """
@@ -132,7 +120,18 @@ class CastSettings(collections.MutableMapping):
             except KeyError:
                 pass #TODO : propagation of setting breaks if different cast type in between ...
             else:
-                getattr(self, meth)(name, value)   
+                getattr(self, meth)(name, value) 
+
+    def init(self, settings):
+        # Updates the calling instance with *settings*.
+        # This method is used as to initialize the calling instance with *settings*.
+        for name, value in copy.copy(settings).items():
+            try:
+                meth = self._meta[name].get('init', '__setitem__')
+            except KeyError:
+                pass #TODO : propagation of setting breaks if different cast type in between ...
+            else:
+                getattr(self, meth)(name, value)
 
     def copy_and_update(self, name, value):
         new_value = copy.copy(self.get(name, None))
@@ -143,7 +142,7 @@ class CastSettings(collections.MutableMapping):
         pass
     
     def update_if_not_none(self, name, value):
-        if value != None:
+        if value != None or self.get(name, None) == None:
             self[name] = value
 
 
@@ -188,7 +187,6 @@ class CastType(abc.ABCMeta):
                 return call(self, *args, **kwargs)
         return _wrapped_call
 
-
 class Cast(object):
     """
     Base class for all casts. This class is virtual, and all subclasses must implement :meth:`Cast.call`.
@@ -230,7 +228,7 @@ class Cast(object):
         self._context = {} # operation context
         self._cache = {} # used for caching
         self._depth = 0 # used for logging
-        self.settings.update(settings)
+        self.settings.init(settings)
 
     def __repr__(self):
         if self.from_ or self.to:
@@ -265,12 +263,9 @@ class Cast(object):
 
         .. seealso:: :ref:`How<configuring-cast_for>` to control the behaviour of *cast_for*.
         """
-        # builds all choices from global map and local map
-        choices = mm_to_cast.copy()
-        choices.update(self.mm_to_cast)
         # gets better choice
-        closest_mm = mm.pick_closest_in(choices.keys())
-        cast = choices[closest_mm]
+        closest_mm = mm.pick_closest_in(self.mm_to_cast.keys())
+        cast = self.mm_to_cast[closest_mm]
         # builds a customized version of the cast, override settings
         cast = copy.copy(cast)
         cast._depth = cast._depth + 1
@@ -330,3 +325,16 @@ class Cast(object):
         if self.logs:
             indent = ' ' * 4 * self._depth
             logger.debug(indent + message)
+
+class CastStack(Cast):
+    #TODO: document
+
+    defaults = dict(_meta={'mm_to_cast': {'init': 'copy_and_update'}})
+
+    def call(self, inpt, to=None):
+        if not to:
+            to = self.to
+        mm = Mm(self.from_, to)
+        cast = self.cast_for(mm)
+        return cast(inpt)
+

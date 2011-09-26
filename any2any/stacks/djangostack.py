@@ -7,11 +7,16 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any.daccasts import CastItems, FromIterable, ToIterable, FromObject, ToMapping, FromMapping, ToObject, ContainerWrap, ObjectWrap
-from any2any.base import Cast, register
-from any2any.utils import Mm, TypeWrap
+from any2any import (Cast, Mm, TypeWrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
+FromMapping, ToObject, ContainerWrap, ObjectWrap)
+from any2any.stacks.basicstack import Any2Any
 
+# Model Wrap
+#======================================
 class DjModelWrap(ObjectWrap):
+    """
+        - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
+    """
 
     defaults = dict(
         key_schema = ('id',),
@@ -123,6 +128,8 @@ class DjModelWrap(ObjectWrap):
             ptr_fields += self.collect_ptrs(parent_model)
         return ptr_fields
 
+# Mixins
+#======================================
 class FromModel(FromObject):
 
     defaults = dict(
@@ -146,15 +153,10 @@ def set_related(instance, name, value):
 class ToModel(ToObject):
     """
     This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to.
-
-    :class:`ToModel` defines the following settings :
-
-        - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
     """
 
     defaults = dict(
         class_to_setter = {ContainerWrap(djmodels.Manager, value_type=djmodels.Model): set_related},
-        create = True,
         to_spz = DjModelWrap,
         _meta = {'class_to_setter': {'override': 'copy_and_update'}}
     )
@@ -169,11 +171,88 @@ class FromQuerySet(FromIterable):
     def iter_input(self, inpt):
         return enumerate(inpt.all())
 
+# Casts for QueryDict
+#======================================
+class ListToFirstElem(Cast):
+
+    def call(self, inpt):
+        try:
+            return inpt[0]
+        except IndexError:
+            return self.no_elem_error()
+
+    def no_elem_error(self):
+        pass
+
+class OneElemToList(Cast):
+
+    def call(self, inpt):
+        return [inpt]
+
+class StripEmptyValues(IterableToIterable):
+
+    defaults = dict(
+        empty_value = '_empty',
+        to = list
+    )
+    
+    def strip_item(self, key, value):
+        if value == self.empty_value:
+            return True
+
+class FromQueryDict(FromMapping):
+    
+    def iter_input(self, qd):
+        return qd.iterlists()
+
+class QueryDictFlatener(FromQueryDict, CastItems, ToMapping):
+    """
+    Cast for flatening a querydict.
+
+        >>> cast = QueryDictFlatener(list_keys=['a_list', 'another_list'])
+        >>> cast({'a_list': [1, 2], 'a_normal_key': [1, 2, 3], 'another_list': []}) == {
+        ...     'a_list': [1, 2],
+        ...     'a_normal_key': 1,
+        ...     'another_list': []
+        ... }
+        True
+    """
+
+    defaults = dict(
+        to = dict,
+        mm_to_cast = {
+            Mm(from_=list): ListToFirstElem(),
+            Mm(to=list): OneElemToList(),
+            Mm(list, list): Identity(),
+        },
+        list_keys = [],
+    )
+
+    def get_item_to(self, key):
+        if (key in self.list_keys) or self.value_is_list(key):
+            return list
+        else:
+            return object
+
+    def value_is_list(self, key):
+        return False
+
+# Building stack for Django
+#======================================
 class ModelToMapping(FromModel, ToMapping, CastItems): pass
 class MappingToModel(ToModel, FromMapping, CastItems): pass
 class QuerySetToIterable(FromQuerySet, CastItems, ToIterable): pass
 class IterableToQueryset(FromIterable, CastItems, ToIterable): pass
-register(QuerySetToIterable(to=list), Mm(from_any=djmodels.Manager))
-register(IterableToQueryset(), Mm(from_any=list, to_any=djmodels.Manager))
-register(ModelToMapping(to=dict), Mm(from_any=djmodels.Model))
-register(MappingToModel(), Mm(to_any=djmodels.Model))
+
+class DjangoStack(CastStack):
+
+    defaults = dict(
+        mm_to_cast = {
+            Mm(from_any=djmodels.Manager): QuerySetToIterable(to=list),
+            Mm(from_any=list, to_any=djmodels.Manager): IterableToQueryset(),
+            Mm(from_any=djmodels.Model): ModelToMapping(to=dict),
+            Mm(to_any=djmodels.Model): MappingToModel(),
+        }
+    )
+
+any2any = DjangoStack()

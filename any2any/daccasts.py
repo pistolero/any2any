@@ -79,7 +79,7 @@ class DivideAndConquerCast(Cast):
         iter_ouput = self.iter_output(iter_input)
         return self.build_output(iter_ouput)
 
-# Specialized types
+# Type wraps
 #======================================
 class ObjectWrap(TypeWrap):
     #TODO: for looking-up best mm, when several superclasses in ObjectWrap, when several Mm match, choose the best one.

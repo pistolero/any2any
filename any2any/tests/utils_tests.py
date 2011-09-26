@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from any2any.utils import *
 from nose.tools import assert_raises, ok_
 
@@ -190,7 +191,11 @@ class Memoization_Test(object):
     """
 
     def setUp(self):
-        from any2any.simple import Identity
+        from any2any import Cast
+        class Identity(Cast):
+            def call(self, inpt):
+                return inpt
+
         class TestMemCast(Identity):
 
             @memoize(key=lambda args, kwargs: (args[1], kwargs['kwarg1']))

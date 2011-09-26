@@ -8,7 +8,7 @@ run(argv=['dummy', '--exclude-dir=djangocast_tests'])
 
 print """
 ----------------------------------------------------------------------
-TESTING djangocast
+TESTING djangostack
 """
 import os
 from django.core import management

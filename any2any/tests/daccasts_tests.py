@@ -4,9 +4,18 @@ from any2any.daccasts import *
 from any2any.base import Cast
 from any2any.utils import Wrap
 
+# Casts for the tests 
+class Identity(Cast):
+
+    def call(self, inpt):
+        return inpt
+
 class FromDictToDict(ToMapping, CastItems, FromMapping):
 
-    defaults = dict(to=dict)
+    defaults = dict(
+        to = dict,
+        mm_to_cast = {Mm(): Identity()}
+    )
 
 class CastItems_Test(object):
     """
