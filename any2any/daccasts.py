@@ -212,10 +212,10 @@ class CastItems(DivideAndConquerCast):
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
             cast = copy.copy(cast)
-            cast.set_mm(mm)
+            cast.customize(**{'from_': mm.from_, 'to': mm.to})
         elif self.value_cast:
             cast = self.value_cast
-            cast.set_mm(mm)
+            cast.customize(**{'from_': mm.from_, 'to': mm.to})
         # otherwise try to get it by getting item's *mm* and calling *cast_for*.
         else:
             cast = self.cast_for(mm)
@@ -258,7 +258,7 @@ class FromMapping(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(from_spz = ContainerWrap)
+    defaults = dict(from_wrap = ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -273,7 +273,7 @@ class ToMapping(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(to_spz = ContainerWrap)
+    defaults = dict(to_wrap = ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -288,7 +288,7 @@ class FromIterable(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(from_spz = ContainerWrap)
+    defaults = dict(from_wrap = ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -303,7 +303,7 @@ class ToIterable(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(to_spz = ContainerWrap)
+    defaults = dict(to_wrap = ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -317,7 +317,7 @@ class FromObject(DivideAndConquerCast):
     """
     # TODO: document settings
     defaults = dict(
-        from_spz = ObjectWrap,
+        from_wrap = ObjectWrap,
         class_to_getter = {object: getattr,},
         attrname_to_getter = {},
     )
@@ -348,7 +348,7 @@ class ToObject(DivideAndConquerCast):
     """
     # TODO: document settings
     defaults = dict(
-        to_spz = ObjectWrap,
+        to_wrap = ObjectWrap,
         class_to_setter = {object: setattr,},
         attrname_to_setter = {}
     )

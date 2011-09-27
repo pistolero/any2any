@@ -133,7 +133,7 @@ class DjModelWrap(ObjectWrap):
 class FromModel(FromObject):
 
     defaults = dict(
-        from_spz = DjModelWrap
+        from_wrap = DjModelWrap
     )
 
 def set_related(instance, name, value):
@@ -157,7 +157,7 @@ class ToModel(ToObject):
 
     defaults = dict(
         class_to_setter = {ContainerWrap(djmodels.Manager, value_type=djmodels.Model): set_related},
-        to_spz = DjModelWrap,
+        to_wrap = DjModelWrap,
         _meta = {'class_to_setter': {'override': 'copy_and_update'}}
     )
 

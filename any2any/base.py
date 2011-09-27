@@ -145,6 +145,10 @@ class CastSettings(collections.MutableMapping):
         if value != None or self.get(name, None) == None:
             self[name] = value
 
+    def update_if_current_is_none(self, name, value):
+        if self.get(name, None) == None:
+            self[name] = value
+
 
 class CastType(abc.ABCMeta):
 
@@ -208,14 +212,16 @@ class Cast(object):
         mm_to_cast = {},
         from_ = None,
         to = None,
-        from_spz = None,
-        to_spz = None,
+        from_wrap = None,
+        to_wrap = None,
         logs = False,
         _meta = {
             'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
             'logs': {'customize': '__setitem__'},
-            'from_spz': {'override': 'update_if_not_none'},
-            'to_spz': {'override': 'update_if_not_none'},
+            'from_wrap': {'override': 'update_if_not_none'},
+            'to_wrap': {'override': 'update_if_not_none'},
+            'from_': {'customize': 'update_if_current_is_none'},
+            'to': {'customize': 'update_if_current_is_none'},
         },
     )
 
@@ -243,16 +249,16 @@ class Cast(object):
         if from_ == None and 'input' in self._context:
             from_ = type(self._context['input'])
         # Wrapping *from_* in specialized type, if provided.
-        if self.from_spz and from_ != None and not isinstance(from_, self.from_spz):
-            from_= self.from_spz(from_)
+        if self.from_wrap and from_ != None and not isinstance(from_, self.from_wrap):
+            from_= self.from_wrap(from_)
         return from_
 
     @property
     def to(self):
         to = self.settings['to']
         # Wrapping *to* in specialized type, if provided.
-        if self.to_spz and to != None and not isinstance(to, self.to_spz):
-            to = self.to_spz(to)
+        if self.to_wrap and to != None and not isinstance(to, self.to_wrap):
+            to = self.to_wrap(to)
         return to
 
     @memoize()
@@ -270,17 +276,7 @@ class Cast(object):
         cast = copy.copy(cast)
         cast._depth = cast._depth + 1
         cast.settings.customize(self.settings)
-        cast.set_mm(mm)
         return cast
-
-    def set_mm(self, mm):
-        # Sets *from_* and *to* for the calling cast only if they 
-        # are unique classes (not *from_any* or *to_any*),
-        # and if they are not already set.
-        if mm.from_ and not self.from_:
-            self.configure(from_=mm.from_)
-        if mm.to and not self.to:
-            self.configure(to=mm.to)
 
     @abc.abstractmethod
     def call(self, inpt):
