@@ -7,9 +7,9 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
-from any2any import (Cast, Mm, TypeWrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
+from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
 FromMapping, ToObject, ContainerWrap, ObjectWrap)
-from any2any.stacks.basicstack import Any2Any
+from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
 # Model Wrap
 #======================================
@@ -55,10 +55,10 @@ class DjModelWrap(ObjectWrap):
                     djmodels.DateTimeField: datetime.datetime,
                     djmodels.DateField: datetime.date,
                 }[field_type]
-                wrapped_type = TypeWrap(field_type, actual_type)
+                wrapped_type = Wrap(field_type, actual_type)
             # NotImplemented on the rest
             else:
-                wrapped_type = TypeWrap(field_type)
+                wrapped_type = Wrap(field_type)
             fields_dict[field.name] = wrapped_type
         return fields_dict
 
@@ -244,7 +244,7 @@ class MappingToModel(ToModel, FromMapping, CastItems): pass
 class QuerySetToIterable(FromQuerySet, CastItems, ToIterable): pass
 class IterableToQueryset(FromIterable, CastItems, ToIterable): pass
 
-class DjangoStack(CastStack):
+class DjangoStack(BasicStack):
 
     defaults = dict(
         mm_to_cast = {
@@ -254,5 +254,3 @@ class DjangoStack(CastStack):
             Mm(to_any=djmodels.Model): MappingToModel(),
         }
     )
-
-any2any = DjangoStack()

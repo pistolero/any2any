@@ -1,10 +1,10 @@
-# coding=utf-8
+# -*- coding: utf-8 -*-
 
 from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.manager import Manager
 
-from any2any.djangocast import *
-from any2any.utils import Wrap
+from any2any.stacks.djangostack import *
+from any2any import Wrap
 from models import *
 
 from nose.tools import assert_raises, ok_
@@ -66,6 +66,8 @@ class BaseModel(object):
         self.journalist.save()
         self.columnist.save()
 
+        self.cast = DjangoStack()
+
     def tearDown(self):
         self.author.delete()
         self.book.delete()
@@ -86,15 +88,13 @@ class ModelToMapping_Test(BaseModel):
         """
         Simple test ModelToMapping.call
         """
-        cast = ModelToMapping(to=dict)
-        ok_(cast.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
+        ok_(self.cast.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
 
     def mti_test(self):
         """
         Test ModelToMapping.call with a model with long inheritance chain.
         """
-        cast = ModelToMapping(to=dict)
-        ok_(cast.call(self.columnist) == {
+        ok_(self.cast.call(self.columnist) == {
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': self.journal.pk, 'name': "C'est pas sorcier"},
@@ -107,8 +107,7 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with foreignkeys
         """
-        cast = ModelToMapping(to=dict)
-        ok_(cast.call(self.book) == {
+        ok_(self.cast.call(self.book) == {
             'id': self.book.pk,
             'title': 'Grapes of Wrath',
             'author': {
@@ -124,15 +123,14 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with many2many field.
         """
-        cast = ModelToMapping(to=dict)
-        ok_(cast.call(self.gourmand) == {
+        ok_(self.cast.call(self.gourmand) == {
             'id': self.gourmand.pk, 'pseudo': 'Taz', 'favourite_dishes': [],
             'firstname': 'T', 'lastname': 'Aznicniev'
         })
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.favourite_dishes.add(self.foiegras)
         self.gourmand.save()
-        ok_(cast.call(self.gourmand) == {
+        ok_(self.cast.call(self.gourmand) == {
             'id': self.gourmand.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
             'favourite_dishes': [
                 {'id': self.foiegras.pk, 'name': 'Foie gras'},
@@ -152,8 +150,10 @@ class ModelToMapping_Test(BaseModel):
             key_schema=('firstname', 'lastname')
         )
         journalist_cast = ModelToMapping(from_=journalist_type, to=dict)
-        cast = ModelToMapping(from_=journal_type, to=dict, mm_to_cast={
-            Mm(from_any=Journalist): journalist_cast
+        journal_cast = ModelToMapping(from_=journal_type, to=dict)
+        cast = DjangoStack(mm_to_cast={
+            Mm(from_any=Journalist): journalist_cast,
+            Mm(from_any=Journal): journal_cast,
         })
         ok_(cast.call(self.journal) == {
             'journalist_set': [
@@ -166,9 +166,13 @@ class ModelToMapping_Test(BaseModel):
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
         gourmand_type = DjModelWrap(Gourmand, include=['pseudo'])
-        gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
         dish_type = DjModelWrap(Dish, include=['gourmand_set', 'name'])
-        cast = ModelToMapping(from_=dish_type, to=dict, mm_to_cast={Mm(from_any=Gourmand): gourmand_cast})
+        gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
+        dish_cast = ModelToMapping(from_=dish_type, to=dict)
+        cast = DjangoStack(mm_to_cast={
+            Mm(from_any=Gourmand): gourmand_cast,
+            Mm(from_any=Dish): dish_cast,
+        })
         ok_(cast.call(self.salmon) == {
             'gourmand_set': [
                 {'pseudo': u'Taz'},
@@ -183,7 +187,8 @@ class ModelToMapping_Test(BaseModel):
         issue_type = DjModelWrap(Issue, include=['journal', 'issue_date', 'last_char_datetime'])
         journal_type = DjModelWrap(Journal, include=['name'])
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
-        cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
+        issue_cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
+        cast = DjangoStack(mm_to_cast={Mm(from_any=Issue): issue_cast})
         ok_(cast.call(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
@@ -199,9 +204,8 @@ class MappingToModel_Test(BaseModel):
         """
         Simple test MappingToModel.call
         """
-        cast = MappingToModel(to=Author)
         authors_before = Author.objects.count()
-        james = cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JC Ballard'})
+        james = self.cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JC Ballard'}, to=Author)
         james = Author.objects.get(pk = james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
@@ -215,13 +219,12 @@ class MappingToModel_Test(BaseModel):
         """
         Test deserialize already existing object with an already existing foreignkey 
         """
-        book_cast = MappingToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = book_cast.call({
+        book = self.cast.call({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
             'author': {'id': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
-        })
+        }, to=Book)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(pk=book.author.pk)
         # We check the fields
@@ -236,13 +239,12 @@ class MappingToModel_Test(BaseModel):
         """
         Test deserialize new object with new foreignkey with automatically picked PK. 
         """
-        book_cast = MappingToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = book_cast.call({
+        book = self.cast.call({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
-        })
+        }, to=Book)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -260,13 +262,12 @@ class MappingToModel_Test(BaseModel):
         """
         Test deserialize new object with new foreignkey, PK provided. 
         """
-        book_cast = MappingToModel(to=Book)
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = book_cast.call({
+        book = self.cast.call({
             'id': 989, 'title': '1984', 'comments': 'great great great',
             'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
-        })
+        }, to=Book)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -288,15 +289,14 @@ class MappingToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand_cast = MappingToModel(to=Gourmand)
-        gourmand = gourmand_cast.call({
+        gourmand = self.cast.call({
             'id': self.gourmand.pk,
             'pseudo': 'Taaaaz',
             'favourite_dishes': [
                 {'id': self.salmon.pk, 'name': 'Pretty much'},
                 {'id': self.foiegras.pk, 'name': 'Anything'},
             ]
-        })
+        }, to=Gourmand)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         salmon = Dish.objects.get(pk=self.salmon.pk)
         foiegras = Dish.objects.get(pk=self.foiegras.pk)
@@ -315,15 +315,14 @@ class MappingToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand_cast = MappingToModel(to=Gourmand)
-        gourmand = gourmand_cast.call({
+        gourmand = self.cast.call({
             'pseudo': 'Touz',
             'favourite_dishes': [
                 {'id': 888, 'name': 'Vitamine O'},
                 {'id': self.salmon.pk},
                 {'id': self.foiegras.pk},
             ]
-        })
+        }, to=Gourmand)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         vitamineo = Dish.objects.get(pk=888)
         # We check the fields
@@ -338,41 +337,41 @@ class MappingToModel_Test(BaseModel):
         """
         Test MappingToModel.call updating a reverse relationship (fk, m2m).
         """
-        # reverse ForeignKey
-        journal_type = DjModelWrap(Journal, 
-            extra_schema={'journalist_set': NotImplemented},
-        )
-        cast = MappingToModel(to=journal_type)
-        assert_raises(TypeError, cast.call, {
+        # reverse ForeignKey - only works if fk can be null
+        journal_type = DjModelWrap(Journal, extra_schema={'journalist_set': NotImplemented})
+        journal = self.cast.call({
             'id': self.journal.id,
             'journalist_set': [],
-        })
+        }, to=journal_type)
+        ok_(set(journal.journalist_set.all()) == set())
+        journal = self.cast.call({
+            'id': self.journal.id,
+            'journalist_set': [
+                {'id': self.journalist.id},
+            ],
+        }, to=journal_type)
+        ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
-        dish_type = DjModelWrap(Dish, 
-            extra_schema={'gourmand_set': NotImplemented},
-        )
-        self.gourmand.save()
-        cast = MappingToModel(to=dish_type)
-        salmon = cast.call({
+        dish_type = DjModelWrap(Dish, extra_schema={'gourmand_set': NotImplemented})
+        salmon = self.cast.call({
             'id': self.salmon.id,
             'gourmand_set': [
                 {'id': self.gourmand.id},
             ]
-        })
+        }, to=dish_type)
         ok_(set(salmon.gourmand_set.all()) == set([self.gourmand]))
 
     def update_object_with_nk_test(self):
         """
         Test update an object with its natural key, natural key already existing.
         """
-        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
         columnist_before = Columnist.objects.count()
-        columnist_cast = MappingToModel(to=columnist_type)
-        jamy = columnist_cast.call({
+        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
+        jamy = self.cast.call({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'column': 'truck'
-        })
+        }, to=columnist_type)
         jamy = Columnist.objects.get(pk=jamy.pk)
         # We check the fields
         ok_(jamy.column == 'truck')
@@ -383,32 +382,30 @@ class MappingToModel_Test(BaseModel):
         """
         Test deserialize and create an object with its natural key.
         """
-        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
         columnist_before = Columnist.objects.count()
-        columnist_cast = MappingToModel(to=columnist_type)
-        fred = columnist_cast.call({
+        columnist_type = DjModelWrap(Columnist, key_schema=('firstname', 'lastname'))
+        fred = self.cast.call({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
             'journal': {'id': self.journal.pk},
             'column': 'on the field',
-        })
+        }, to=columnist_type)
         fred = Columnist.objects.get(pk=fred.pk)
         # We check the fields
         ok_(fred.column == 'on the field')
         # We check that items were created
         ok_(columnist_before + 1 == Columnist.objects.count())
         fred.delete()
-
+    
     def update_date_and_datetime_test(self):
         """
         Test ModelToMapping.call serializing date and datetime
         """
-        cast = MappingToModel(to=Issue)
-        issue = cast.call({
+        issue = self.cast.call({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
             'last_char_datetime': {'year': 1864, 'month': 12, 'day': 31, 'hour': 1},
-        })
+        }, to=Issue)
         ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 

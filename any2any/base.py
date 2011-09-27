@@ -145,11 +145,6 @@ class CastSettings(collections.MutableMapping):
         if value != None or self.get(name, None) == None:
             self[name] = value
 
-    def update_if_current_is_none(self, name, value):
-        if self.get(name, None) == None:
-            self[name] = value
-
-
 class CastType(abc.ABCMeta):
 
     def __new__(cls, name, bases, attrs):        
@@ -220,8 +215,6 @@ class Cast(object):
             'logs': {'customize': '__setitem__'},
             'from_wrap': {'override': 'update_if_not_none'},
             'to_wrap': {'override': 'update_if_not_none'},
-            'from_': {'customize': 'update_if_current_is_none'},
-            'to': {'customize': 'update_if_current_is_none'},
         },
     )
 
@@ -275,7 +268,8 @@ class Cast(object):
         # builds a customized version of the cast, override settings
         cast = copy.copy(cast)
         cast._depth = cast._depth + 1
-        cast.settings.customize(self.settings)
+        cast.customize(**self.settings)
+        cast.customize_mm(mm)
         return cast
 
     @abc.abstractmethod
@@ -311,6 +305,14 @@ class Cast(object):
         self._cache.clear()
         self.settings.customize(settings)
 
+    def customize_mm(self, mm):
+        # Sets *from_* and *to* for the calling cast only if they 
+        # are unique classes (not *from_any* or *to_any*).
+        if mm.from_ and not self.from_:
+            self.configure(from_=mm.from_)
+        if mm.to and not self.to:
+            self.configure(to=mm.to)
+
     def log(self, message):
         """
         Logs a message to **any2any**'s logger.
@@ -327,9 +329,11 @@ class CastStack(Cast):
 
     defaults = dict(_meta={'mm_to_cast': {'init': 'copy_and_update'}})
 
-    def call(self, inpt, to=None):
+    def call(self, inpt, from_=None, to=None):
         if not to:
             to = self.to
+        if not from_:
+            from_ = self.from_
         mm = Mm(self.from_, to)
         cast = self.cast_for(mm)
         return cast(inpt)

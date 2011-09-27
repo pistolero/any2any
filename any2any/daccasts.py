@@ -212,10 +212,12 @@ class CastItems(DivideAndConquerCast):
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
             cast = copy.copy(cast)
-            cast.customize(**{'from_': mm.from_, 'to': mm.to})
+            cast.customize(**self.settings)
+            cast.customize_mm(mm)
         elif self.value_cast:
             cast = self.value_cast
-            cast.customize(**{'from_': mm.from_, 'to': mm.to})
+            cast.customize(**self.settings)
+            cast.customize_mm(mm)
         # otherwise try to get it by getting item's *mm* and calling *cast_for*.
         else:
             cast = self.cast_for(mm)
@@ -225,12 +227,7 @@ class CastItems(DivideAndConquerCast):
     @property
     @memoize()
     def key_cast(self):
-        key_cast = copy.copy(self.settings['key_cast'])
-        key_cast.settings.update({
-            'from_': self.from_,
-            'to': self.to
-        })
-        return key_cast
+        return copy.copy(self.settings['key_cast'])
             
     @property
     @memoize()
