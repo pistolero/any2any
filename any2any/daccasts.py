@@ -85,9 +85,8 @@ class ObjectWrap(TypeWrap):
     #TODO: for looking-up best mm, when several superclasses in ObjectWrap, when several Mm match, choose the best one.
     # ex : Journal, ForeignKey
     #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
-    #TODO: if Mm(aspztype) matches Mm(atype): cast, then cast's from_ will be overriden, along with its schema.  
-    #TODO: rename to 'wrapped' instead of 'specialized'
-    #TODO: as well as attribute access
+    #TODO: if Mm(aspztype) matches Mm(atype): cast, then cast's from_ will be overriden, along with its schema.
+    #TODO: put attribute access in there
     #TODO: Mm, from_ and to maybe don't make sense anymore... only from_any and to_any
     #TODO: document
 

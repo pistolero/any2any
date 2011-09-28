@@ -3,6 +3,7 @@ import copy
 import datetime
 
 from django.db import models as djmodels
+from django.http import QueryDict
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
@@ -11,9 +12,59 @@ from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromOb
 FromMapping, ToObject, ContainerWrap, ObjectWrap)
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
+# Model instrospector
+#======================================
+class DjModelIntrospector(object):
+    """
+    Mixin for adding introspection capabilities to Wraps.
+    """
+
+    @property
+    def fields(self):
+        # Returns a dictionary {<field_name>: <field>}, with all the fields,
+        # but excluding the pointers used for MTI
+        mod_opts = self.model._meta
+        ptr_fields = self.collect_ptrs(self.model)
+        all_fields = mod_opts.fields + mod_opts.many_to_many
+        return set(all_fields) - set(ptr_fields)
+
+    @property
+    def pk_field_name(self):
+        # We get pk's field name from the "super" parent (i.e. the "eldest").
+        # This allows to handle MTI nicely (and transparently).
+        mod_opts = self.model._meta
+        if mod_opts.parents:
+            super_parent = filter(lambda p: issubclass(p, djmodels.Model), mod_opts.get_parent_list())[0]
+            return super_parent._meta.pk.name
+        else:
+            return mod_opts.pk.name
+
+    def extract_pk(self, data):
+        # Extracts and returns the primary key from the dictionary *data*, or None
+        key_tuple = []
+        for field_name in self.key_schema:
+            try:
+                if field_name == 'pk':
+                    value = data.get('pk') or data[self.pk_field_name]
+                else:
+                    value = data[field_name]
+            except KeyError:
+                return None
+            else:
+                key_tuple.append(value)
+        return tuple(key_tuple)
+
+    def collect_ptrs(self, model):
+        # Recursively collects all the fields pointing to parents of *model*
+        ptr_fields = []
+        for parent_model, ptr_field in model._meta.parents.iteritems():
+            ptr_fields.append(ptr_field)
+            ptr_fields += self.collect_ptrs(parent_model)
+        return ptr_fields
+
 # Model Wrap
 #======================================
-class DjModelWrap(ObjectWrap):
+class DjModelWrap(DjModelIntrospector, ObjectWrap):
     """
         - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
     """
@@ -28,14 +79,8 @@ class DjModelWrap(ObjectWrap):
     )
 
     def default_schema(self):
-        # Returns a dictionary {<field_name>: <field>}, with all the fields,
-        # but excluding the pointers used for MTI
-        mod_opts = self.base._meta
-        ptr_fields = self.collect_ptrs(self.base)
-        all_fields = mod_opts.fields + mod_opts.many_to_many
-        fields = list(set(all_fields) - set(ptr_fields))
         fields_dict = {}
-        for field in fields:
+        for field in self.fields:
             field_type = type(field)
             # If fk, we return the right model
             if isinstance(field, djmodels.ForeignKey):
@@ -95,38 +140,8 @@ class DjModelWrap(ObjectWrap):
             (self.key_schema, model))
 
     @property
-    def pk_field_name(self):
-        # We get pk's field name from the "super" parent (i.e. the "eldest").
-        # This allows to handle MTI nicely (and transparently).
-        mod_opts = self.base._meta
-        if mod_opts.parents:
-            super_parent = filter(lambda p: issubclass(p, djmodels.Model), mod_opts.get_parent_list())[0]
-            return super_parent._meta.pk.name
-        else:
-            return mod_opts.pk.name
-
-    def extract_pk(self, data):
-        # Extracts and returns the primary key from the dictionary *data*, or None
-        key_tuple = []
-        for field_name in self.key_schema:
-            try:
-                if field_name == 'pk':
-                    value = data.get('pk') or data[self.pk_field_name]
-                else:
-                    value = data[field_name]
-            except KeyError:
-                return None
-            else:
-                key_tuple.append(value)
-        return tuple(key_tuple)
-
-    def collect_ptrs(self, model):
-        # Recursively collects all the fields pointing to parents of *model*
-        ptr_fields = []
-        for parent_model, ptr_field in model._meta.parents.iteritems():
-            ptr_fields.append(ptr_field)
-            ptr_fields += self.collect_ptrs(parent_model)
-        return ptr_fields
+    def model(self):
+        return self.base
 
 # Mixins
 #======================================
@@ -205,6 +220,32 @@ class FromQueryDict(FromMapping):
     def iter_input(self, qd):
         return qd.iterlists()
 
+class QueryDictWrap(Wrap, DjModelIntrospector):
+
+    defaults = dict(
+        keys_list = [],
+        model = None,
+        factory = None,
+    )
+
+    def get_class(self, key):
+        if (key in self.keys_list) or self.is_list(key):
+            return list
+        else:
+            return NotImplemented
+
+    def is_list(self, key):
+        if self.model:
+            try:
+                field = filter(lambda f: f.name == key, self.fields)[0]
+            except IndexError:
+                pass
+            else:
+                field_type = type(field)
+                if isinstance(field, djmodels.ManyToManyField):
+                    return True
+        return False
+
 class QueryDictFlatener(FromQueryDict, CastItems, ToMapping):
     """
     Cast for flatening a querydict.
@@ -219,23 +260,17 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping):
     """
 
     defaults = dict(
-        to = dict,
+        to_wrap = QueryDictWrap,
         mm_to_cast = {
             Mm(from_=list): ListToFirstElem(),
             Mm(to=list): OneElemToList(),
             Mm(list, list): Identity(),
         },
-        list_keys = [],
+        _meta = {'mm_to_cast': {'customize': 'do_nothing'}}
     )
 
     def get_item_to(self, key):
-        if (key in self.list_keys) or self.value_is_list(key):
-            return list
-        else:
-            return object
-
-    def value_is_list(self, key):
-        return False
+        return self.to.get_class(key)
 
 # Building stack for Django
 #======================================
@@ -252,5 +287,6 @@ class DjangoStack(BasicStack):
             Mm(from_any=list, to_any=djmodels.Manager): IterableToQueryset(),
             Mm(from_any=djmodels.Model): ModelToMapping(to=dict),
             Mm(to_any=djmodels.Model): MappingToModel(),
+            Mm(from_any=QueryDict): QueryDictFlatener(),
         }
     )

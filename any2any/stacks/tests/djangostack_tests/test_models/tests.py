@@ -2,6 +2,7 @@
 
 from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.manager import Manager
+from django.http import QueryDict
 
 from any2any.stacks.djangostack import *
 from any2any import Wrap
@@ -409,6 +410,54 @@ class MappingToModel_Test(BaseModel):
         ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 
+class QueryDictFlatener_Test(object):
+    """
+    Tests for QueryDictFlatener
+    """
+
+    def setUp(self):
+        self.cast = DjangoStack()
+
+    def call_test(self):
+        """
+        Test QueryDictFlatener.call
+        """
+        WrappedQueryDict = QueryDictWrap(dict, keys_list=['a_list'])
+        ok_(self.cast(QueryDict('a_list=1&a_list=2&a_normal_key=1&a_normal_key=2&a_normal_key=3'), to=WrappedQueryDict) == {
+            'a_list': ['1', '2'],
+            'a_normal_key': '1',
+        })
+        
+    def call_with_model_test(self):
+        """
+        Test QueryDictFlatener.call configured for a model
+        """
+        WrappedQueryDict = QueryDictWrap(dict, model=Gourmand)
+        ok_(self.cast(QueryDict('favourite_dishes=1&favourite_dishes=2&pseudo=Taz&pseudo=Touz'), to=WrappedQueryDict) == {
+            'favourite_dishes': ['1', '2'],
+            'pseudo': 'Taz',
+        })
+
+    def call_with_model_and_empty_list_test(self):
+        """
+        Test QueryDictFlatener.call configured for a model
+        """
+        WrappedQueryDict = QueryDictWrap(dict, model=Gourmand)
+        # Test that life is sad
+        ok_(self.cast(QueryDict('favourite_dishes='), to=WrappedQueryDict) == {
+            'favourite_dishes': [''],
+        })
+        # Test that with our cast it is much brighter
+        qd_cast = QueryDictFlatener(mm_to_cast={
+            Mm(list, list): StripEmptyValues(empty_value='EMPTY')
+        })
+        cast = DjangoStack(mm_to_cast={
+            Mm(QueryDict): qd_cast
+        })
+        ok_(cast(QueryDict('favourite_dishes=EMPTY'), to=WrappedQueryDict) == {
+            'favourite_dishes': [],
+        })
+
 donttest="""
 
 .. currentmodule:: spiteat.djangosrz
@@ -417,33 +466,6 @@ This module contains a serializer :class:`ModelSrz` for your Django models. This
 
     - Deep serialization. Foreign keys, and foreign keys of foreign keys, and so on ... are completely serialized.
     - Support multi-table inheritance. All attributes from parent models can be serialized.
-
-
-new_object
----------------
-
-If we provide the primary key, we can do this either by using the property name *pk*, or the explicit primary key field name :
-
-    >>> author = author_srz.new_object({'id': 5})
-    >>> isinstance(author, Author)
-    True
-    >>> author.pk
-    5
-
-    >>> author = author_srz.new_object({'pk': 5})
-    >>> isinstance(author, Author)
-    True
-    >>> author.pk
-    5
-
-:class:`NCModelSrz` never create new objects :
-
-    >>> author.save()
-    >>> ncauthor_srz = NCModelSrz(custom_for=Author)
-    >>> author_copy = ncauthor_srz.eat({'id': 5})
-    >>> author_copy == author
-    True
-    >>> ncauthor_srz.eat({'id': 5777777})
 
 
 Content type - GenericForeignKey

@@ -107,7 +107,6 @@ class BasicStack(CastStack):
             Mm(from_any=tuple): IterableToIterable(to=tuple), # Any tuple to a tuple (of undefined elements)
             Mm(from_any=set): IterableToIterable(to=set), # Any tuple to a tuple (of undefined elements)
             Mm(from_any=dict): MappingToMapping(to=dict), # Any set to set (of undefined elements)
-            Mm(to_any=dict): ObjectToMapping(),
             Mm(from_any=datetime.date): ObjectToMapping(from_=WrappedDate, to=dict), # TODO: pb : from_ can't be customized
             Mm(from_any=datetime.datetime): ObjectToMapping(from_=WrappedDateTime, to=dict),
             Mm(to_any=datetime.date): MappingToObject(to=WrappedDate),

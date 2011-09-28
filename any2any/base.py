@@ -329,6 +329,9 @@ class CastStack(Cast):
 
     defaults = dict(_meta={'mm_to_cast': {'init': 'copy_and_update'}})
 
+    def __call__(self, inpt, *args, **kwargs):
+        return self.call(inpt, *args, **kwargs)
+
     def call(self, inpt, from_=None, to=None):
         if not to:
             to = self.to
