@@ -2,14 +2,13 @@
 from any2any.base import *
 from nose.tools import assert_raises, ok_
 
-
 class CastSettings_Test(object):
     """
     Tests for CastSettings
     """
 
     def setUp(self):
-        _meta = {'override': 'copy_and_update', 'customize': 'copy_and_update', 'init': 'copy_and_update'}
+        _meta = {'override': update_setting_cb, 'customize': update_setting_cb}
         self._meta = _meta
         self.settings = CastSettings(
             _meta={'a_setting': _meta},
@@ -60,28 +59,10 @@ class CastSettings_Test(object):
         ok_(self.settings._values['moremore'] == {'D': 'd'})
         ok_(self.settings._values['more'] == {'c': 'C'})
         ok_(self.settings._meta == {
-            'a_setting': {'override': 'copy_and_update', 'customize': 'do_nothing', 'bla': 'blo', 'init': 'copy_and_update'},
+            'a_setting': {'override': update_setting_cb, 'customize': 'do_nothing', 'bla': 'blo'},
             'moremore': {1: 2},
             'more': {},
             'another': {},
-        })
-
-    def init_test(self):
-        """
-        Test CastSettings.init
-        """
-        self.settings.init(CastSettings(
-            a_setting={'a': 2, 'c': 3},
-            moremore={'D': 'd'},
-            _meta={'a_setting': {}, 'moremore': {1: 2}},
-        ))
-        ok_(self.settings._values['a_setting'] == {'a': 2, 'b': 2, 'c': 3})
-        ok_(not 'moremore' in self.settings._values)
-        ok_(self.settings._values['more'] == {'c': 'C'})
-        ok_(self.settings._meta == {
-            'a_setting': self._meta,
-            'another': {},
-            'more': {},
         })
 
     def customize_test(self):
@@ -100,6 +81,7 @@ class CastSettings_Test(object):
             'a_setting': self._meta,
             'another': {},
             'more': {},
+            'moremore': {1: 2}
         })
 
     def copy_test(self):

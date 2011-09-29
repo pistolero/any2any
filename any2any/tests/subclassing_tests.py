@@ -50,7 +50,7 @@ class Cast_subclassing_Test(object):
         class Child(Parent1, Parent2):
             defaults = CastSettings(
                 set2 = {'a': 9},
-                _meta = {'set2': {'override': 'copy_and_update'}},
+                _meta = {'set2': {'override': update_setting_cb}},
             )
         ok_(Child.defaults['set1'] == 1)
         ok_(Child.defaults['set2'] == {1: 8, 'a': 9})

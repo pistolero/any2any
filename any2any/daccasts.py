@@ -12,13 +12,13 @@ from utils import closest_parent, TypeWrap, Mm, memoize
 
 class DivideAndConquerCast(Cast):
     """
-    Abstract base cast for metamorphosing *from* and *to* any complex object or container.
+    Abstract base cast for metamorphosing `from` and `to` any complex object or container.
 
     In order to achieve casting, this class uses a "divide and conquer" strategy :
 
-        1. *Divide into sub-problems* - :meth:`DivideAndConquerCast.iter_input`
-        2. *Solve sub-problems* - :meth:`DivideAndConquerCast.iter_output`
-        3. *Combine solutions* - :meth:`DivideAndConquerCast.build_output`
+        1. `Divide into sub-problems` - :meth:`DivideAndConquerCast.iter_input`
+        2. `Solve sub-problems` - :meth:`DivideAndConquerCast.iter_output`
+        3. `Combine solutions` - :meth:`DivideAndConquerCast.build_output`
     """
 
     @abc.abstractmethod
@@ -30,14 +30,14 @@ class DivideAndConquerCast(Cast):
             inpt(object). The cast's input.
 
         Returns:
-            iterator. ``(<key>, <value_to_cast>)``. An iterator on all items to cast in order to completely cast *inpt*.
+            iterator. ``(<key>, <value_to_cast>)``. An iterator on all items to cast in order to completely cast `inpt`.
         """
         return
 
     @abc.abstractmethod
     def iter_output(self, items_iter):
         """
-        Casts all the items from *items_iter*.
+        Casts all the items from `items_iter`.
 
         Args:
             items_iter(iterator). ``(<key>, <value_to_cast>)``. An iterator on items to cast.
@@ -50,7 +50,7 @@ class DivideAndConquerCast(Cast):
     @abc.abstractmethod
     def build_output(self, items_iter):
         """
-        Combines all the items from *items_iter* into a final output.
+        Combines all the items from `items_iter` into a final output.
 
         Args:
             items_iter(iterator). ``(<key>, <casted_value>)``. Iterator on casted items.
@@ -63,14 +63,14 @@ class DivideAndConquerCast(Cast):
     def get_item_from(self, key):
         """
         Returns:
-            type or NotImplemented. The type of the value associated with *key* if it is known `a priori` (without knowing the input), or *NotImplemented* to let the cast guess.
+            type or NotImplemented. The type of the value associated with `key` if it is known "a priori" (without knowing the input), or `NotImplemented` to let the cast guess.
         """
         return NotImplemented
 
     def get_item_to(self, key):
         """
         Returns:
-            type or NotImplemented. Type the value associated with *key* must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
+            type or NotImplemented. Type the value associated with `key` must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
         """
         return NotImplemented
 
@@ -162,20 +162,17 @@ class ContainerWrap(TypeWrap):
 class CastItems(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_output`.
-
-    :class:`CastItems` defines the following settings :
-
-        - key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use.
-        - key_to_mm(dict). ``{<key>: <mm>}``. Maps a key with the metamorphosis to realize.
-        - value_cast(Cast). The cast to use on all values.
-        - key_cast(Cast). The cast to use on all keys.
     """
-    #TODO: key_cast is ugly ...
 
     defaults = dict(
         key_to_cast = {},
         value_cast = None,
         key_cast = None,
+        _meta = {
+            'key_to_cast': {'__doc__': 'key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use.'},
+            'value_cast': {'__doc__': 'value_cast(Cast). The cast to use on all values.'},
+            'key_cast': {'__doc__': 'key_cast(Cast). The cast to use on all keys.'},
+        }
     )
 
     def iter_output(self, items_iter):
@@ -186,7 +183,7 @@ class CastItems(DivideAndConquerCast):
             yield key, cast(value)
 
     def get_item_mm(self, key, value):
-        # Returns the metamorphosis *mm* to apply on item *key*, *value*.
+        # Returns the metamorphosis `mm` to apply on item `key`, `value`.
         from_ = self.get_item_from(key)
         to = self.get_item_to(key)
         # If NotImplemented, we make guesses
@@ -196,15 +193,13 @@ class CastItems(DivideAndConquerCast):
             return Mm(from_=from_, to_any=object)
         return Mm(from_, to)
 
-    # TODO: PB ! That's not always optimal ... e.g. with a (big) list
-    @memoize(key=lambda args, kwargs: (args[0], type(args[1])))
     def cast_for_item(self, key, value):
-        # Returns the cast to use for item *key*, *value*.
+        # Returns the cast to use for item `key`, `value`.
         # The lookup order is the following :
-        #   1. setting *key_to_cast*
-        #   2. setting *value_cast*
+        #   1. setting `key_to_cast`
+        #   2. setting `value_cast`
         #   3. finally, the method gets the metamorphosis to apply on the item
-        #       and a suitable cast by calling *Cast.cast_for*.
+        #       and a suitable cast by calling `Cast.cast_for`.
         self.log('Item %s' % key)
         mm = self.get_item_mm(key, value)
         # try to get cast with the per-key map
@@ -217,7 +212,7 @@ class CastItems(DivideAndConquerCast):
             cast = self.value_cast
             cast.customize(**self.settings)
             cast.customize_mm(mm)
-        # otherwise try to get it by getting item's *mm* and calling *cast_for*.
+        # otherwise try to get it by getting item's `mm` and calling `cast_for`.
         else:
             cast = self.cast_for(mm)
         cast._depth = self._depth + 1
@@ -235,15 +230,7 @@ class CastItems(DivideAndConquerCast):
 
     def strip_item(self, key, value):
         """
-        Override for use. If *True* is returned, the item ``<key>, <value>`` will be stripped
-        from the output.
-
-        Args:
-            key (object). Item's key
-            value (object). Item's value, before casting.
-
-        Returns:
-            bool. True to strip the item, False to keep it.
+        Override for use. If `True` is returned, the item ``<key>, <value>`` will be stripped from the output.
         """
         return False
 
@@ -251,7 +238,7 @@ class FromMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerWrap`.    
+    :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
     defaults = dict(from_wrap = ContainerWrap)
@@ -266,7 +253,7 @@ class ToMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
-    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerWrap`.    
+    :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.    
     """
 
     defaults = dict(to_wrap = ContainerWrap)
@@ -281,7 +268,7 @@ class FromIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
 
-    :meth:`get_item_from` can guess the type of values if *from_* is a :class:`ContainerWrap`.    
+    :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
     defaults = dict(from_wrap = ContainerWrap)
@@ -296,7 +283,7 @@ class ToIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
 
-    :meth:`get_item_to` can guess the type of values if *to* is a :class:`ContainerWrap`.    
+    :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.
     """
 
     defaults = dict(to_wrap = ContainerWrap)
@@ -310,8 +297,10 @@ class ToIterable(DivideAndConquerCast):
 class FromObject(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
+
+    :meth:`get_item_from` can guess the type of values if `from` is an :class:`ObjectWrap`.    
     """
-    # TODO: document settings
+
     defaults = dict(
         from_wrap = ObjectWrap,
         class_to_getter = {object: getattr,},
@@ -341,8 +330,9 @@ class FromObject(DivideAndConquerCast):
 class ToObject(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
+    :meth:`get_item_to` can guess the type of values if `to` is a :class:`ObjectWrap`.
     """
-    # TODO: document settings
+
     defaults = dict(
         to_wrap = ObjectWrap,
         class_to_setter = {object: setattr,},

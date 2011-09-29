@@ -6,13 +6,8 @@
 # Logging 
 #====================================
 # TODO : cooler logging (html page with cast settings and so on)
-# TODO : rename to 'debug', and have a simpler way to activate that
-# TODO : better way of documenting settings
-# anyways, logging needs a bit refactoring.
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler())
 
 # Cast 
 #====================================
@@ -28,36 +23,13 @@ from utils import memoize, Mm
 
 class CastSettings(collections.MutableMapping):
     """
-    *settings* of a cast class or a cast instance. It implements :class:`collections.MutableMapping`, and is therefore usable as a dictionary :
-
-        >>> c = CastSettings(my_setting={'a': 1}, my_other_setting=1)
-        >>> c['my_other_setting']
-        1
-
-    The constructor optionally takes a keyword `_meta` that allows to configure different things for a given setting.
-    For each setting, the schema can contain :
-
-    - *override* : method to use when overriding the setting :
-
-        >>> c = CastSettings(my_setting={'a': 1}, _meta={'my_setting': {'override': 'copy_and_update'}})
-        >>> c.override({'my_setting': {'b': 2}})
-        >>> c['my_setting'] == {'a': 1, 'b': 2}
-        True
-
-    - *customize* : method to use when customizing the setting :
-
-        >>> c = CastSettings(my_setting={'a': 1}, _meta={'my_setting': {'customize': 'copy_and_update'}})
-        >>> c.customize({'my_setting': {'b': 2}})
-        >>> c['my_setting'] == {'a': 1, 'b': 2}
-        True
+    Settings of a cast class or a cast instance. It implements :class:`collections.MutableMapping`, and is therefore usable as a dictionary.
+    The constructor optionally takes a keyword argument `_meta` which allows to configure the behaviour of some of the setting's methods.
     """
-    def __init__(self, _meta={}, **settings):
-        # initializing the schema
-        self._meta = dict.fromkeys(settings, {})
-        self._meta.update(_meta)
-        # initializing the values
-        self._values = dict()
-        self.update(settings)
+
+    def __init__(self, **settings):
+        self._meta, self._values = {}, {}
+        self._update_values_and_meta(settings, '__init__', CastSettings.__setitem__)
         
     def __getitem__(self, name):
         try:
@@ -82,68 +54,46 @@ class CastSettings(collections.MutableMapping):
         return len(self._meta)
 
     def __iter__(self):
+        # iter values only, because _meta might contain unset settings
         return iter(self._values)
 
     def __copy__(self):
-        # Only shallow copy is realized
         copied = {'_meta': self._meta.copy()}
         copied.update(self)
         return self.__class__(**copied)
 
     def override(self, settings):
-        # Performs override of the calling instance and its schema with *settings*.
-        # This method is used for inheritance of settings between two classes.
-        # Handling schema updating
-        if isinstance(settings, CastSettings):
-            _meta = settings._meta
-        elif isinstance(settings, dict):
-            _meta = settings.pop('_meta', {})
-        for name, value in _meta.items():
-            if name in self._meta:
-                self._meta[name].update(value)
-            else:
-                self._meta[name] = copy.copy(value)
-        # Create default schema for all settings
-        for name in settings:
-            self._meta.setdefault(name, {})
-        # Handling settings updating
-        for name, value in copy.copy(settings).items():
-            meth = self._meta[name].get('override', '__setitem__')
-            getattr(self, meth)(name, value)
+        """
+        Performs override of the calling instance with <settings>.
+        This method is used for inheritance of settings between two classes.
+        """
+        self._update_values_and_meta(settings, 'override', CastSettings.__setitem__)
 
     def customize(self, settings):
-        # Customizes the calling instance with *settings*.
-        # This method is used for transmission of settings between two cast instances.
-        for name, value in copy.copy(settings).items():
-            try:
-                meth = self._meta[name].get('customize', 'do_nothing')
-            except KeyError:
-                pass #TODO : propagation of setting breaks if different cast type in between ...
-            else:
-                getattr(self, meth)(name, value) 
+        """
+        Customizes the calling instance with <settings>.
+        This method is used for transmission of settings between two cast instances.
+        """
+        self._update_values_and_meta(settings, 'override', lambda *args: None)
 
-    def init(self, settings):
-        # Updates the calling instance with *settings*.
-        # This method is used as to initialize the calling instance with *settings*.
-        for name, value in copy.copy(settings).items():
-            try:
-                meth = self._meta[name].get('init', '__setitem__')
-            except KeyError:
-                pass #TODO : propagation of setting breaks if different cast type in between ...
-            else:
-                getattr(self, meth)(name, value)
+    def _update_values_and_meta(self, settings, op_name, default_cb):
+        if hasattr(settings, '_meta'):
+            _meta = settings._meta
+        elif '_meta' in settings:
+            _meta = settings['_meta']
+        else:
+            _meta = {}
+        # We must iterate over both values and meta, because there might be
+        # values with no meta, and meta with no value.
+        for name, value in _meta.items():
+            self._declare_setting(name, value)
+        for name in set(settings) - {'_meta'}:
+            self._declare_setting(name)
+            cb = self._meta[name].get(op_name, default_cb)
+            cb(self, name, settings[name])
 
-    def copy_and_update(self, name, value):
-        new_value = copy.copy(self.get(name, None))
-        if new_value: new_value.update(value)
-        self[name] = new_value or copy.copy(value)
-
-    def do_nothing(self, name, value):
-        pass
-    
-    def update_if_not_none(self, name, value):
-        if value != None or self.get(name, None) == None:
-            self[name] = value
+    def _declare_setting(self, name, meta={}):
+        self._meta[name] = dict(self._meta.get(name, {}), **meta)
 
 class CastType(abc.ABCMeta):
 
@@ -155,9 +105,12 @@ class CastType(abc.ABCMeta):
         for base in reversed(parents):
             attrs['defaults'].override(base.defaults)
         attrs['defaults'].override(new_defaults)
+        # generating docs
+        doc = cls.build_doc(attrs.get('__doc__', ''), attrs['defaults'])
+        if doc: attrs['__doc__'] = doc
         # creating new class
         new_cast_class = super(CastType, cls).__new__(cls, name, bases, attrs)
-        # wrapping *call* to automate logging and context management
+        # wrapping `call` to automate logging and context management
         new_cast_class.call = cls.wrap_call(new_cast_class)
         return new_cast_class
 
@@ -166,39 +119,42 @@ class CastType(abc.ABCMeta):
         call = cast_class.call
         @wraps(call)
         def _wrapped_call(self, *args, **kwargs):
-            # Following is a hack to avoid executing the wrapping code when doing :
+            # The if/else block is a hack to avoid executing the wrapping code when doing :
             #     super(MyCast, self).call(*args, **kwargs)
             if (type(self) == cast_class):
-                # context management : should be first, because logging might use it.
+                # context management should be first, because logging might use it.
                 self._context = {'input': args[0] if args else None}
-                # logging
                 self.log('%s.%s' % (self, call.__name__) + ' <= ' + repr(args[0] if args else None))
-                # the actual call
                 returned = call(self, *args, **kwargs)
-                # logging
                 self.log('%s.%s' % (self, call.__name__) + ' => ' + repr(returned))
                 if self._depth == 0:
                     self.log('')
-                # context management
                 self._context = {}
                 return returned
             else:
                 return call(self, *args, **kwargs)
         return _wrapped_call
 
+    @classmethod
+    def build_doc(cls, class_doc, settings):
+        # Builds the doc of the new cast, by collecting docs of all settings,
+        # and appending them to the doc of the class.
+        settings_docs = ['\t' + v['__doc__'] for k, v in settings._meta.items() if '__doc__' in v]
+        all_docs = [class_doc] + settings_docs
+        all_docs = filter(bool, all_docs)
+        return '\n'.join(all_docs)
+
+# callbacks for setting's meta
+def set_setting_cb(s, n, v):
+    s[n] = v
+def update_setting_cb(s, n, v):
+    s[n] = dict(s.get(n, {}), **v)
+def update_setting_if_not_none_cb(s, n, v):
+    if v != None or not n in s: s[n] = v
+
 class Cast(object):
     """
     Base class for all casts. This class is virtual, and all subclasses must implement :meth:`Cast.call`.
-
-    :class:`Cast` defines the following settings :
-
-        - mm_to_cast(dict). ``{<mm>: <cast>}``. It allows to specify which cast :meth:`Cast.cast_for` should pick for a given metamorphosis (see also : :ref:`How<configuring-cast_for>` to use *mm_to_cast*).
-
-        - to(type). The type to cast to.
-        
-        - from_(type). The type to cast from. If not given, the type of the input is used.
-
-        - logs(bool). If True, the cast writes debug to :var:`logger`.
     """
 
     __metaclass__ = CastType
@@ -211,10 +167,28 @@ class Cast(object):
         to_wrap = None,
         logs = False,
         _meta = {
-            'mm_to_cast': {'override': 'copy_and_update', 'customize': '__setitem__'},
-            'logs': {'customize': '__setitem__'},
-            'from_wrap': {'override': 'update_if_not_none'},
-            'to_wrap': {'override': 'update_if_not_none'},
+            'to': {
+                '__doc__': 'to(type). The type to cast to.',
+            },
+            'from_': {
+                '__doc__': 'from_(type). The type to cast from. If not given, the type of the input is used.',
+            },
+            'mm_to_cast': {
+                '__doc__': 'mm_to_cast(dict). ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis.',
+                'override': update_setting_cb, 'customize': set_setting_cb,
+            },
+            'logs': {
+                '__doc__': 'logs(bool). If True, the cast writes debug to :var:`logger`.',
+                'customize': set_setting_cb,
+            },
+            'from_wrap': {
+                '__doc__': 'from_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`.',
+                'override': update_setting_if_not_none_cb,
+            },
+            'to_wrap': {
+                '__doc__': 'to_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`.',
+                'override': update_setting_if_not_none_cb,
+            },
         },
     )
 
@@ -227,7 +201,7 @@ class Cast(object):
         self._context = {} # operation context
         self._cache = {} # used for caching
         self._depth = 0 # used for logging
-        self.settings.init(settings)
+        self.configure(**settings)
 
     def __repr__(self):
         if self.from_ or self.to:
@@ -238,10 +212,8 @@ class Cast(object):
     @property
     def from_(self):
         from_ = self.settings['from_']
-        # Getting *from_* from input, if needed and if possible
         if from_ == None and 'input' in self._context:
             from_ = type(self._context['input'])
-        # Wrapping *from_* in specialized type, if provided.
         if self.from_wrap and from_ != None and not isinstance(from_, self.from_wrap):
             from_= self.from_wrap(from_)
         return from_
@@ -249,7 +221,6 @@ class Cast(object):
     @property
     def to(self):
         to = self.settings['to']
-        # Wrapping *to* in specialized type, if provided.
         if self.to_wrap and to != None and not isinstance(to, self.to_wrap):
             to = self.to_wrap(to)
         return to
@@ -258,14 +229,12 @@ class Cast(object):
     def cast_for(self, mm):
         """
         Returns:
-            Cast. A cast suitable for metamorphosis *mm*, and customized with calling cast's settings.
-
-        .. seealso:: :ref:`How<configuring-cast_for>` to control the behaviour of *cast_for*.
+            Cast. A cast suitable for metamorphosis `mm`, and customized with calling cast's settings.
         """
-        # gets better choice
+        # gets best choice
         closest_mm = mm.pick_closest_in(self.mm_to_cast.keys())
         cast = self.mm_to_cast[closest_mm]
-        # builds a customized version of the cast, override settings
+        # copies and builds a customized version
         cast = copy.copy(cast)
         cast._depth = cast._depth + 1
         cast.customize(**self.settings)
@@ -275,21 +244,12 @@ class Cast(object):
     @abc.abstractmethod
     def call(self, inpt):
         """
-        Casts *inpt*.
+        Casts `inpt`.
         """
         return
 
     def __call__(self, inpt):
         return self.call(inpt)
-
-    def __copy__(self):
-        return self.__class__(**copy.copy(self.settings))
-
-    def __getattr__(self, name):
-        try:
-            return self.settings[name]
-        except KeyError:
-            return self.__getattribute__(name)
 
     def configure(self, **settings):
         """
@@ -306,16 +266,25 @@ class Cast(object):
         self.settings.customize(settings)
 
     def customize_mm(self, mm):
-        # Sets *from_* and *to* for the calling cast only if they 
-        # are unique classes (not *from_any* or *to_any*).
+        # Sets `from_` and `to` for the calling cast only if they 
+        # are unique classes (not `from_any` or `to_any`).
         if mm.from_ and not self.from_:
             self.configure(from_=mm.from_)
         if mm.to and not self.to:
             self.configure(to=mm.to)
 
+    def __copy__(self):
+        return self.__class__(**copy.copy(self.settings))
+
+    def __getattr__(self, name):
+        try:
+            return self.settings[name]
+        except KeyError:
+            return self.__getattribute__(name)
+
     def log(self, message):
         """
-        Logs a message to **any2any**'s logger.
+        Logs a message to `any2any`'s logger.
 
         Args:
             state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place.
@@ -324,10 +293,20 @@ class Cast(object):
             indent = ' ' * 4 * self._depth
             logger.debug(indent + message)
 
-class CastStack(Cast):
-    #TODO: document
+    def set_debug_mode_on(self):
+        """
+        Set debug mode: all debug logs will be printed on stderr.
+        """
+        self.configure(logs=True)
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
 
-    defaults = dict(_meta={'mm_to_cast': {'init': 'copy_and_update'}})
+class CastStack(Cast):
+    """
+    A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with `cast_for` and calling it. For example. 
+    """
+
+    defaults = dict(_meta={'mm_to_cast': {'__init__': update_setting_cb}})
 
     def __call__(self, inpt, *args, **kwargs):
         return self.call(inpt, *args, **kwargs)

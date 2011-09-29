@@ -180,22 +180,10 @@ Debugging
 
 **any2any** logs all the calls in order to help debugging. By default, the logger's handler is :class:`NullHandler`, so no message is logged. To activate **any2any**'s logging, just add any handler to :attr:`logger`, and set the logger's level to :attr:`DEBUG`.
 
-For example, here we create a temporary file, and a :class:`StreamHandler` that will write to this file :
-
-    >>> from tempfile import TemporaryFile
-    >>> import logging
-    >>> fd = TemporaryFile()
-    >>> h = logging.StreamHandler(fd)
-
-Then we set the handler's formatter (optional), add our handler to **any2any**'s logger and set the logging level to :attr:`DEBUG`.
-
-    >>> from any2any.base import logger
-    >>> logger.addHandler(h)
-    >>> logger.setLevel(logging.DEBUG)
-
 Finally, after a few calls, we can check that the logging worked : 
 
-    >>> cast = Identity(logs=True)
+    >>> cast = Identity()
+    >>> cast.set_debug_mode_on()
     >>> spitted = cast.call(1)
     >>> fd.seek(0)
     >>> print fd.read()

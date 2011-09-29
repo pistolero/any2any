@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# TODO: cleaning, clarifying and refactoring
 import copy
 import collections
 try:
