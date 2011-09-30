@@ -73,7 +73,6 @@ class BaseCast_subclassing_test(object):
         ok_(set(Child._meta.settings_dict.keys()) == set(['set1', 'set2', 'set3', 'set4', 'set5']))
         ok_(Child._meta.settings_dict['set1'].default == 1)
         ok_(Child._meta.settings_dict['set2'].default == {1: 8, 'a': 9})
-        ok_(Child._meta.settings_dict['set2'].default is Parent._meta.settings_dict['set2'].default)
         ok_(Child._meta.settings_dict['set3'].default == 8)
         ok_(Child._meta.settings_dict['set4'].default == 'coucou')
         ok_(Child._meta.settings_dict['set5'].default == 'blabla')
@@ -160,7 +159,7 @@ class BaseCast_instantiate_test(object):
         copied_cast = copy.copy(cast)
         ok_(copied_cast.set1 == 1)
         ok_(copied_cast.set2 == {1: 1})
-        ok_(not copied_cast.set2 is cast.set2)
+        ok_(copied_cast.set2 is cast.set2)
         ok_(copied_cast.set3 == 123)
         ok_(copied_cast.set4 == '11')
 

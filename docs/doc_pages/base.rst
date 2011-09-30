@@ -1,8 +1,7 @@
 ..
     >>> import os, sys
     >>> sys.path.append(os.path.abspath('../..'))
-    >>> from any2any.base import *
-    >>> from any2any.simple import *
+    >>> from any2any import *
 
 .. currentmodule:: any2any.base
 
@@ -17,7 +16,7 @@ Virtual methods
 
 :class:`Cast` is a virtual class, and all subclasses must provide an implementation of :meth:`Cast.call`. For example :
 
-    >>> from any2any.base import Cast
+    >>> from any2any import Cast
     >>> class AnyToString(Cast):
     ...     
     ...     def call(self, inpt):
@@ -32,18 +31,17 @@ Defining/overriding settings
 
 Defining or overriding new settings is very straightforward.
 
-    >>> from any2any.base import Cast, CastSettings
+    >>> from any2any import Cast, CastSettings
     >>> class AnyToAnyBasestring(Cast):
     ...   
-    ...     defaults = CastSettings(
-    ...         prefix = '',                # new setting *prefix*
-    ...         suffix = '',                # new setting *suffix*
-    ...         to = str,                   # override value of Cast's *to* setting
-    ...     )
+    ...     prefix = Setting(default='')    # new setting *prefix*
+    ...     suffix = Setting(default='')    # new setting *suffix*
     ...     
+    ...     class Meta:
+    ...         defaults = {'to': str}
+    ...
     ...     def call(self, inpt):
-    ...         output_class = self.to
-    ...         return output_class('%s%s%s' % (self.prefix, inpt, self.suffix))
+    ...         return self.to('%s%s%s' % (self.prefix, inpt, self.suffix))
     ... 
 
 The constructor of a cast accepts any defined setting as keyword argument :
@@ -80,97 +78,6 @@ When calling a cast, it can be useful for several methods to share data. For thi
     sub bla blabla
     >>> cast._context == {}
     True
-
-Looking-up for a suitable cast
-===============================
-
-The :meth:`Cast.cast_for` method
------------------------------------
-
-..
-    >>> class MyCast(Cast):
-    ...     def call(self): pass
-
-To get a cast suitable for a given metamorphosis use the method :func:`Cast.cast_for` on a cast instance :
-
-    >>> from any2any.utils import Metamorphosis
-    >>> list_cast = cast.cast_for(Metamorphosis(list, list))
-
-**any2any** comes with a set of defaults. For example, :class:`IterableToIterable` is the default cast for casting a list to another list :
-
-    >>> isinstance(list_cast, IterableToIterable)
-    True
-
-The cast :class:`Identity` is always used as a fallback in case there isn't a better choice :
-
-    >>> from any2any.utils import Mm # Mm is a shorthand for Metamorphosis
-    >>> class Dumb(object): pass
-    >>> cast = cast.cast_for(Mm(Dumb, object))
-    >>> isinstance(cast, Identity)
-    True
-
-.. _configuring-cast_for:
-
-Configuring the behaviour of :meth:`Cast.cast_for`
---------------------------------------------------
-
-Of course, there wouldn't be much fun if you couldn't configure what cast :meth:`Cast.cast_for` should pick for a given metamorphosis. There is actually two ways to do this.
-
-**First solution**
-
-You can register a cast as global default for a metamorphosis, using the function :func:`register` :
-
-    >>> from any2any.base import register
-    >>> class AnyToAnyBasestring(Cast):
-    ...     
-    ...     def call(self, inpt):
-    ...         return self.to('%s' % inpt)
-    ...
-    >>> default_any2str = AnyToAnyBasestring()
-    >>> register(default_any2str, Mm(to_any=basestring))
-
-Then :meth:`Cast.cast_for` will pick it if it is the best match
-
-    >>> cast = MyCast()
-    >>> any2str = cast.cast_for(Mm(int, str))
-    >>> isinstance(any2str, AnyToAnyBasestring)
-    True
-
-Note that the cast returned by :meth:`Cast.cast_for` is not the instance you registered ... it is a copy customized for your needs :
-
-    >>> any2str.from_ == int
-    True
-    >>> default_any2str.from_ == None
-    True
-
-This allows the returned cast to be a little more clever, and output the requested type :
-
-    >>> any2str(1)
-    '1'
-    >>> any2unicode = cast.cast_for(Mm(int, unicode))
-    >>> any2unicode(1)
-    u'1'
-
-**Second solution**
-
-You can change the setting :attr:`mm_to_cast`. This won't modify global defaults, but rather override them on a cast instance level :
- 
-    >>> class AnyToCapitalStr(Cast):
-    ...     
-    ...     def call(self, inpt):
-    ...         return ('%s' % inpt).upper()
-    ... 
-    >>> cast = MyCast()
-    >>> custom_cast = MyCast(mm_to_cast={Mm(from_any=object, to=str): AnyToCapitalStr()})
-    >>> any2str = custom_cast.cast_for(Mm(object, str))
-    >>> any2str('coucou') # Choice for Mm(object, str) is overriden on instance level 
-    'COUCOU'
-    >>> any2str = cast.cast_for(Mm(object, str))
-    >>> any2str('coucou') # For other casts, global defaults still work 
-    'coucou'
-    >>> any2unicode = custom_cast.cast_for(Mm(object, unicode))
-    >>> any2unicode('coucou') # For other metamorphoses, defaults still work
-    u'coucou'
 
 Other functionalities
 =======================
