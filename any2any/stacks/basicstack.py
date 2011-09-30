@@ -2,7 +2,6 @@
 import datetime
 from types import FunctionType
 
-from any2any.base import update_setting_cb
 from any2any import (Cast, CastStack, FromMapping, ToMapping, FromIterable, ToIterable,
 FromObject, ToObject, ContainerWrap, ObjectWrap, Wrap, CastItems, Mm)
 
@@ -100,20 +99,19 @@ WrappedDate = ObjectWrap(datetime.date, extra_schema={
 
 class BasicStack(CastStack):
 
-    defaults = dict(
-        mm_to_cast = {
-            Mm(from_any=object, to_any=object): Identity(), # Fallback, when no cast was found
-            Mm(from_any=FunctionType): CallFunction(),
-            Mm(from_any=list): IterableToIterable(to=list), # Any list to a list (of undefined elements)
-            Mm(from_any=tuple): IterableToIterable(to=tuple), # Any tuple to a tuple (of undefined elements)
-            Mm(from_any=set): IterableToIterable(to=set), # Any tuple to a tuple (of undefined elements)
-            Mm(from_any=dict): MappingToMapping(to=dict), # Any set to set (of undefined elements)
-            Mm(from_any=datetime.date): ObjectToMapping(from_=WrappedDate, to=dict), # TODO: pb : from_ can't be customized
-            Mm(from_any=datetime.datetime): ObjectToMapping(from_=WrappedDateTime, to=dict),
-            Mm(to_any=datetime.date): MappingToObject(to=WrappedDate),
-            Mm(to_any=datetime.datetime): MappingToObject(to=WrappedDateTime),
-        },
-        _meta = dict(mm_to_cast={'override': update_setting_cb}),
-    )
+    class Meta:
+        defaults = {
+            'mm_to_cast': {
+                Mm(from_any=object, to_any=object): Identity(), # Fallback, when no cast was found
+                Mm(from_any=FunctionType): CallFunction(),
+                Mm(from_any=list): IterableToIterable(to=list), # Any list to a list (of undefined elements)
+                Mm(from_any=tuple): IterableToIterable(to=tuple), # Any tuple to a tuple (of undefined elements)
+                Mm(from_any=set): IterableToIterable(to=set), # Any tuple to a tuple (of undefined elements)
+                Mm(from_any=dict): MappingToMapping(to=dict), # Any set to set (of undefined elements)
+                Mm(from_any=datetime.date): ObjectToMapping(from_=WrappedDate, to=dict), # TODO: pb : from_ can't be customized
+                Mm(from_any=datetime.datetime): ObjectToMapping(from_=WrappedDateTime, to=dict),
+                Mm(to_any=datetime.date): MappingToObject(to=WrappedDate),
+                Mm(to_any=datetime.datetime): MappingToObject(to=WrappedDateTime),
+            }
+        }
 
-any2any = BasicStack()

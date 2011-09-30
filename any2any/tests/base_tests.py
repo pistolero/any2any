@@ -2,7 +2,7 @@
 from any2any.base import *
 from nose.tools import assert_raises, ok_
 
-class BaseCast_subclassing_Test(object):
+class BaseCast_subclassing_test(object):
     """
     Testing subclassing Cast
     """
@@ -73,10 +73,29 @@ class BaseCast_subclassing_Test(object):
         ok_(set(Child._meta.settings_dict.keys()) == set(['set1', 'set2', 'set3', 'set4', 'set5']))
         ok_(Child._meta.settings_dict['set1'].default == 1)
         ok_(Child._meta.settings_dict['set2'].default == {1: 8, 'a': 9})
-        ok_(not Child._meta.settings_dict['set2'].default is Parent._meta.settings_dict['set2'].default)
+        ok_(Child._meta.settings_dict['set2'].default is Parent._meta.settings_dict['set2'].default)
         ok_(Child._meta.settings_dict['set3'].default == 8)
         ok_(Child._meta.settings_dict['set4'].default == 'coucou')
         ok_(Child._meta.settings_dict['set5'].default == 'blabla')
+
+    def Meta_defaults_test(self):
+        """
+        Test Meta.defaults
+        """
+        class DictSetting(Setting):
+            def inherits(self, setting):
+                self.default = dict(setting.default, **self.default)
+        class Parent(BaseCast):
+            set1 = Setting(default=1)
+            set2 = DictSetting(default={1: 1, 2: 2})
+        class Child(Parent):
+            class Meta:
+                defaults = {
+                    'set2': {1: 2, 3: 3}
+                }
+        ok_(Child._meta.settings_dict['set1'].default == 1)
+        ok_(Child._meta.settings_dict['set2'].default == {1: 2, 2: 2, 3: 3})
+        ok_(type(Child._meta.settings_dict['set2']) == DictSetting)
 
 class BaseCast_instantiate_test(object):
 
@@ -88,12 +107,18 @@ class BaseCast_instantiate_test(object):
             def customize(self, instance, value):
                 new_value = dict(self.get(instance), **value)
                 self.set(instance, new_value)
-                
+        class IntSetting(Setting):
+            def init(self, instance, value):
+                try:
+                    self.set(instance, int(value))
+                except TypeError:
+                    self.set(instance, value)
         class MyCast(BaseCast):
             set1 = ViralSetting(default=1)
             set2 = DictSetting(default={1: 8})
             set3 = Setting(default=8)
             set4 = StrSetting(default='coucou')
+            set5 = IntSetting()
             def call(self, inpt):
                 return inpt
         self.MyCast = MyCast 
@@ -103,18 +128,18 @@ class BaseCast_instantiate_test(object):
         Test that defaults and settings get set right on BaseCast._init__
         """
         my_cast = self.MyCast()
-        ok_(my_cast._settings == {'set1': 1, 'set2': {1: 8}, 'set3': 8, 'set4': 'coucou'})
-        my_cast = self.MyCast(set1=999, set4=12)
-        ok_(my_cast._settings == {'set1': 999, 'set2': {1: 8}, 'set3': 8, 'set4': 12})
+        ok_(my_cast._settings == {'set1': 1, 'set2': {1: 8}, 'set3': 8, 'set4': 'coucou', 'set5': None})
+        my_cast = self.MyCast(set1=999, set4=12, set5='5')
+        ok_(my_cast._settings == {'set1': 999, 'set2': {1: 8}, 'set3': 8, 'set4': 12, 'set5': 5})
 
     def iter_settings_test(self):
         """
         Test BaseCast.iter_settings
         """
         my_cast = self.MyCast()
-        ok_(dict(my_cast.iter_settings()) == {'set1': 1, 'set2': {1: 8}, 'set3': 8, 'set4': 'coucou'})
+        ok_(dict(my_cast.iter_settings()) == {'set1': 1, 'set2': {1: 8}, 'set3': 8, 'set4': 'coucou', 'set5': None})
         my_cast = self.MyCast(set1=999, set4=66)
-        ok_(dict(my_cast.iter_settings()) == {'set1': 999, 'set2': {1: 8}, 'set3': 8, 'set4': '66'})
+        ok_(dict(my_cast.iter_settings()) == {'set1': 999, 'set2': {1: 8}, 'set3': 8, 'set4': '66', 'set5': None})
 
     def customize_cast_test(self):
         """
@@ -138,3 +163,38 @@ class BaseCast_instantiate_test(object):
         ok_(not copied_cast.set2 is cast.set2)
         ok_(copied_cast.set3 == 123)
         ok_(copied_cast.set4 == '11')
+
+class Cast_test(object):
+    """
+    Test Cast
+    """
+
+    def setUp(self):
+        class Identity(Cast):
+            def call(self, inpt):
+                return inpt
+        class ToStr(Cast):
+            def call(self, inpt):
+                return str(inpt)
+        self.Identity = Identity
+        self.ToStr = ToStr
+
+    def cast_for_test(self):
+        """
+        Test Cast.cast_for
+        """
+        cast = self.Identity(mm_to_cast={
+            Mm(int): self.ToStr()
+        })
+        ok_(isinstance(cast.cast_for(Mm(int)), self.ToStr))
+        ok_(isinstance(cast.cast_for(Mm(int, str)), self.ToStr))
+        assert_raises(ValueError, cast.cast_for, Mm(str))
+        cast = self.Identity(mm_to_cast={
+            Mm(int): self.ToStr(),
+            Mm(): self.Identity()
+        })
+        ok_(isinstance(cast.cast_for(Mm(int)), self.ToStr))
+        ok_(isinstance(cast.cast_for(Mm(int, str)), self.ToStr))
+        ok_(isinstance(cast.cast_for(Mm(str)), self.Identity))
+        ok_(isinstance(cast.cast_for(Mm(str, int)), self.Identity))
+        ok_(isinstance(cast.cast_for(Mm()), self.Identity))

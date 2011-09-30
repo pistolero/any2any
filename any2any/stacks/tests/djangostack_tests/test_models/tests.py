@@ -206,12 +206,12 @@ class MappingToModel_Test(BaseModel):
         Simple test MappingToModel.call
         """
         authors_before = Author.objects.count()
-        james = self.cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JC Ballard'}, to=Author)
+        james = self.cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
         james = Author.objects.get(pk = james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
         ok_(james.lastname == 'Ballard')
-        ok_(james.nickname == 'JC Ballard')
+        ok_(james.nickname == 'JG Ballard')
         # We check that new author was created
         ok_(Author.objects.count() == authors_before + 1)
         james.delete()

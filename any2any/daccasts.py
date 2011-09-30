@@ -139,7 +139,7 @@ class ObjectWrap(TypeWrap):
         return self.new_object(*args, **kwargs)
 
     def new_object(self, *args, **kwargs):
-        return self.factory(*args, **kwargs), kwargs.keys()
+        return self.factory(*args, **kwargs)
 
 class ContainerWrap(TypeWrap):
     #TODO: document
@@ -171,11 +171,11 @@ class CastItems(DivideAndConquerCast):
     """
 
     key_to_cast = Setting(default={})
-    """key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use."""
+    """dict. ``{<key>: <cast>}``. Maps a key with the cast to use."""
     value_cast = CopiedSetting()
-    """value_cast(Cast). The cast to use on all values."""
+    """Cast. The cast to use on all values."""
     key_cast = CopiedSetting()
-    """key_cast(Cast). The cast to use on all keys."""
+    """Cast. The cast to use on all keys."""
 
     def iter_output(self, items_iter):
         for key, value in items_iter:
@@ -208,12 +208,12 @@ class CastItems(DivideAndConquerCast):
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
             cast = copy.copy(cast)
-            cast.customize(**self.settings)
-            cast.customize_mm(mm)
+            cast.customize(self)
+            cast.set_mm(mm)
         elif self.value_cast:
             cast = self.value_cast
-            cast.customize(**self.settings)
-            cast.customize_mm(mm)
+            cast.customize(self)
+            cast.set_mm(mm)
         # otherwise try to get it by getting item's `mm` and calling `cast_for`.
         else:
             cast = self.cast_for(mm)
@@ -232,7 +232,8 @@ class FromMapping(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
-    from_wrap = Setting(default=ContainerWrap)
+    class Meta:
+        defaults = {'from_wrap': ContainerWrap}
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -246,7 +247,8 @@ class ToMapping(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.    
     """
 
-    to_wrap = Setting(default=ContainerWrap)
+    class Meta:
+        defaults = {'to_wrap': ContainerWrap}
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -260,7 +262,8 @@ class FromIterable(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
-    from_wrap = Setting(default=ContainerWrap)
+    class Meta:
+        defaults = {'from_wrap': ContainerWrap}
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -274,7 +277,8 @@ class ToIterable(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.
     """
 
-    to_wrap = Setting(default=ContainerWrap)
+    class Meta:
+        defaults = {'to_wrap': ContainerWrap}
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -288,7 +292,8 @@ class FromObject(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if `from` is an :class:`ObjectWrap`.    
     """
 
-    from_wrap = Setting(default=ObjectWrap)
+    class Meta:
+        defaults = {'from_wrap': ObjectWrap}
 
     def get_item_from(self, key):
         return self.from_.get_class(key)
@@ -303,11 +308,12 @@ class ToObject(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ObjectWrap`.
     """
 
-    to_wrap = Setting(default=ObjectWrap)
+    class Meta:
+        defaults = {'to_wrap': ObjectWrap}
 
     def get_item_to(self, key):
         return self.to.get_class(key)
 
     def build_output(self, items_iter):
-        return self.to(**items)
+        return self.to(**dict(items_iter))
 

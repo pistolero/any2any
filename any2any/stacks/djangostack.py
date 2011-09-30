@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
-FromMapping, ToObject, ContainerWrap, ObjectWrap)
+FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting)
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
 # Model instrospector
@@ -142,7 +142,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         # setting attributes
         for name, value in kwargs.iteritems():
             klass = self.get_class(name)
-            if Spz.issubclass(klass, djmodels.Manager):
+            if Wrap.issubclass(klass, djmodels.Manager):
                 obj.save()# Because otherwise we cannot handle manytomany
                 manager = getattr(obj, name)
                 # clear() only provided if the ForeignKey can have a value of null:
@@ -154,6 +154,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
                     raise TypeError("cannot update if the related ForeignKey cannot be null")
             else:
                 setattr(obj, name, value)
+        return obj
 
     @property
     def model(self):
@@ -163,15 +164,13 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
 #======================================
 class FromModel(FromObject):
 
-    defaults = dict(
-        from_wrap = DjModelWrap
-    )
+    class Meta:
+        defaults = {'from_wrap': DjModelWrap}
 
 class ToModel(ToObject):
 
-    defaults = dict(
-        to_wrap = DjModelWrap,
-    )
+    class Meta:
+        defaults = {'to_wrap': DjModelWrap}
 
     def call(self, inpt):
         obj = super(ToModel, self).call(inpt)
@@ -203,10 +202,10 @@ class OneElemToList(Cast):
 
 class StripEmptyValues(IterableToIterable):
 
-    defaults = dict(
-        empty_value = '_empty',
-        to = list
-    )
+    empty_value = Setting(default='_empty')
+    
+    class Meta:
+        defaults = {'to': list}
     
     def strip_item(self, key, value):
         if value == self.empty_value:
@@ -256,15 +255,14 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping):
         True
     """
 
-    defaults = dict(
-        to_wrap = QueryDictWrap,
-        mm_to_cast = {
-            Mm(from_=list): ListToFirstElem(),
-            Mm(to=list): OneElemToList(),
-            Mm(list, list): Identity(),
-        },
-        _meta = {'mm_to_cast': {'customize': 'do_nothing'}}
-    )
+    mm_to_cast = Setting(default={
+        Mm(from_=list): ListToFirstElem(),
+        Mm(to=list): OneElemToList(),
+        Mm(list, list): Identity(),
+    })
+
+    class Meta:
+        defaults = {'to_wrap': QueryDictWrap}
 
     def get_item_to(self, key):
         return self.to.get_class(key)
@@ -278,12 +276,13 @@ class IterableToQueryset(FromIterable, CastItems, ToIterable): pass
 
 class DjangoStack(BasicStack):
 
-    defaults = dict(
-        mm_to_cast = {
-            Mm(from_any=djmodels.Manager): QuerySetToIterable(to=list),
-            Mm(from_any=list, to_any=djmodels.Manager): IterableToQueryset(),
-            Mm(from_any=djmodels.Model): ModelToMapping(to=dict),
-            Mm(to_any=djmodels.Model): MappingToModel(),
-            Mm(from_any=QueryDict): QueryDictFlatener(),
+    class Meta:
+        defaults = {
+            'mm_to_cast': {
+                Mm(from_any=djmodels.Manager): QuerySetToIterable(to=list),
+                Mm(from_any=list, to_any=djmodels.Manager): IterableToQueryset(),
+                Mm(from_any=djmodels.Model): ModelToMapping(to=dict),
+                Mm(to_any=djmodels.Model): MappingToModel(),
+                Mm(from_any=QueryDict): QueryDictFlatener(),
+            }
         }
-    )

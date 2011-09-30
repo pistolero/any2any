@@ -45,6 +45,9 @@ class Setting(property):
         instance._cache.clear()
         instance._settings[self.name] = value
 
+    def init(self, instance, value):
+        self.set(instance, value)
+
     def customize(self, instance, value):
         pass
 
@@ -67,6 +70,9 @@ class ViralSetting(Setting):
         self.set(instance, value)
 
 class ViralDictSetting(ViralSetting):
+
+    def __init__(self, default={}):
+        super(ViralDictSetting, self).__init__(default)
 
     def inherits(self, setting):
         self.default = dict(setting.default, **self.default)
@@ -111,12 +117,13 @@ class Options(object):
 class CastType(abc.ABCMeta):
 
     def __new__(cls, class_name, bases, attrs):
+        Meta = attrs.pop('Meta', object())
         # collecting new settings
         new_settings_dict = dict(filter(lambda (k, v): isinstance(v, Setting), attrs.items()))
         # handling multiple inheritance of settings
         parents = [b for b in bases if isinstance(b, CastType)]
         all_settings_dict = {}
-        # 1. mixing-in inherited settings
+        #     1. mixing-in inherited settings
         inherited_settings = collections.defaultdict(list)
         for parent in parents:
             for name, setting in parent._meta.settings_dict.items():
@@ -124,11 +131,19 @@ class CastType(abc.ABCMeta):
         for name, setting_list in inherited_settings.items():
             setting = setting_list[0].mixin(*setting_list)
             all_settings_dict[name] = setting
-        # 2. handling overridings of inherited settings
+        #     2. handling overridings of inherited settings
         for name, setting in new_settings_dict.items():
             if name in all_settings_dict:
                 setting.inherits(all_settings_dict[name])
         all_settings_dict.update(new_settings_dict)
+        #     3. handling overridings through Meta
+        for name, new_default in getattr(Meta, 'defaults', {}).items():
+            if name in all_settings_dict:
+                setting = all_settings_dict[name]
+                new_setting = copy.copy(setting)
+                new_setting.default = new_default
+                new_setting.inherits(setting)
+                all_settings_dict[name] = new_setting
         # creating new class
         attrs['_meta'] = Options(all_settings_dict)
         new_cast_class = super(CastType, cls).__new__(cls, class_name, bases, attrs)
@@ -172,10 +187,11 @@ class BaseCast(object):
         self._context = {} # operation context
         self._cache = {} # used for caching
         self._depth = 0 # used for logging
+        cast_settings = self._meta.settings_dict
         for name, value in settings.items():
-            if not name in self._meta.settings_dict:
+            if not name in cast_settings:
                 raise TypeError("Setting '%s' is not defined" % name)
-            setattr(self, name, value)
+            cast_settings[name].init(self, value)
 
     @abc.abstractmethod
     def call(self, inpt):
@@ -201,7 +217,7 @@ class BaseCast(object):
             if setting: setting.customize(self, value)
 
     def __copy__(self):
-        settings = dict(((k, copy.copy(v)) for k, v in self.iter_settings()))
+        settings = dict(self.iter_settings())
         return self.__class__(**settings)
 
     def log(self, message):
@@ -219,17 +235,17 @@ class Cast(BaseCast):
     """
 
     mm_to_cast = ViralDictSetting(default={})
-    """mm_to_cast(dict). ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis."""
+    """dict. ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis."""
     from_ = FromSetting()
-    """from_(type). The type to cast from. If not given, the type of the input is used."""
+    """type. The type to cast from. If not given, the type of the input is used."""
     to = ToSetting()
-    """to(type). The type to cast to."""
+    """type. The type to cast to."""
     from_wrap = WrapSetting()
-    """from_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`."""
+    """type. A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`."""
     to_wrap = WrapSetting()
-    """to_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`."""
+    """type. A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`."""
     logs = ViralSetting(default=False)
-    """logs(bool). If True, the cast writes debug to :var:`logger`."""
+    """bool. If True, the cast writes debug to :var:`logger`."""
             #'from_wrap': {
             #    'override': update_setting_if_not_none_cb, 
 
@@ -252,10 +268,10 @@ class Cast(BaseCast):
         cast = copy.copy(cast)
         cast._depth = cast._depth + 1
         cast.customize(self)
-        cast.customize_mm(mm)
+        cast.set_mm(mm)
         return cast
 
-    def customize_mm(self, mm):
+    def set_mm(self, mm):
         # Sets `from_` and `to` for the calling cast only if they 
         # are unique classes (not `from_any` or `to_any`).
         if mm.from_ and not self.from_:
@@ -268,20 +284,26 @@ class Cast(BaseCast):
             indent = ' ' * 4 * self._depth
             logger.debug(indent + message)
 
-    def set_debug_mode_on(self):
+    def set_debug_on(self):
         """
         Set debug mode: all debug logs will be printed on stderr.
         """
-        self.configure(logs=True)
+        self.logs = True
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler())
+
+class MmToCastSetting(ViralDictSetting):
+    
+    def init(self, instance, value):
+        value = dict(self.default, **value)
+        self.set(instance, value)
 
 class CastStack(Cast):
     """
     A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with `cast_for` and calling it. For example. 
     """
 
-    #defaults = dict(_meta={'mm_to_cast': {'init': update_setting_cb}})
+    mm_to_cast = MmToCastSetting()
 
     def __call__(self, inpt, *args, **kwargs):
         return self.call(inpt, *args, **kwargs)
