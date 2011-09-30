@@ -41,6 +41,8 @@ class Setting(property):
         return instance._settings[self.name]
     
     def set(self, instance, value):
+        # invalidate cache
+        instance._cache.clear()
         instance._settings[self.name] = value
 
     def customize(self, instance, value):
@@ -48,6 +50,16 @@ class Setting(property):
 
     def inherits(self, setting):
         pass
+
+    @staticmethod
+    def mixin(*settings):
+        return settings[0]
+
+class CopiedSetting(Setting):
+
+    def get(self, instance):
+        value = super(CopiedSetting, self).get(instance)
+        return copy.copy(value)
 
 class ViralSetting(Setting):
 
@@ -77,6 +89,17 @@ class FromSetting(Setting):
             from_= instance.from_wrap(from_)
         return from_
 
+class WrapSetting(Setting):
+
+    @staticmethod
+    def mixin(*settings):
+        candidates = filter(lambda s: not s.default is None, settings)
+        if candidates:
+            return candidates[0]
+        else:
+            return settings[0]
+                
+
 class Options(object):
 
     def __init__(self, settings_dict):
@@ -88,27 +111,26 @@ class Options(object):
 class CastType(abc.ABCMeta):
 
     def __new__(cls, class_name, bases, attrs):
-        
         # collecting new settings
         new_settings_dict = dict(filter(lambda (k, v): isinstance(v, Setting), attrs.items()))
-
         # handling multiple inheritance of settings
         parents = [b for b in bases if isinstance(b, CastType)]
         all_settings_dict = {}
+        # 1. mixing-in inherited settings
+        inherited_settings = collections.defaultdict(list)
+        for parent in parents:
+            for name, setting in parent._meta.settings_dict.items():
+                inherited_settings[name].append(setting)
+        for name, setting_list in inherited_settings.items():
+            setting = setting_list[0].mixin(*setting_list)
+            all_settings_dict[name] = setting
+        # 2. handling overridings of inherited settings
         for name, setting in new_settings_dict.items():
-            for parent in parents: 
-                if name in parent._meta.settings_dict:
-                    setting.inherits(parent._meta.settings_dict[name])
-                    break
-        for parent in reversed(parents):
-            all_settings_dict.update(parent._meta.settings_dict)
+            if name in all_settings_dict:
+                setting.inherits(all_settings_dict[name])
         all_settings_dict.update(new_settings_dict)
-        attrs['_meta'] = Options(all_settings_dict)
-
-        # generating docs
-        #doc = cls.build_doc(attrs.get('__doc__', ''), attrs['defaults'])
-        #if doc: attrs['__doc__'] = doc
         # creating new class
+        attrs['_meta'] = Options(all_settings_dict)
         new_cast_class = super(CastType, cls).__new__(cls, class_name, bases, attrs)
         # wrapping `call` to automate logging and context management
         new_cast_class.call = cls.wrap_call(new_cast_class)
@@ -134,15 +156,6 @@ class CastType(abc.ABCMeta):
             else:
                 return call(self, *args, **kwargs)
         return _wrapped_call
-
-    @classmethod
-    def build_doc(cls, class_doc, settings):
-        # Builds the doc of the new cast, by collecting docs of all settings,
-        # and appending them to the doc of the class.
-        settings_docs = ['\t' + v['__doc__'] for k, v in settings._meta.items() if '__doc__' in v]
-        all_docs = [class_doc] + settings_docs
-        all_docs = filter(bool, all_docs)
-        return '\n'.join(all_docs)
 
 class BaseCast(object):
 
@@ -183,10 +196,9 @@ class BaseCast(object):
         Customizes the calling instance with settings of <cast>.
         This method is used for transmission of settings between two cast instances.
         """
-        self._cache.clear()
         for name, value in cast.iter_settings():
-            setting = self._meta.settings_dict[name]
-            setting.customize(self, value)
+            setting = self._meta.settings_dict.get(name, None)
+            if setting: setting.customize(self, value)
 
     def __copy__(self):
         settings = dict(((k, copy.copy(v)) for k, v in self.iter_settings()))
@@ -206,12 +218,18 @@ class Cast(BaseCast):
     Base class for all casts. This class is virtual, and all subclasses must implement :meth:`Cast.call`.
     """
 
-    mm_to_cast = ViralDictSetting(default={}, doc='mm_to_cast(dict). ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis.')
-    from_ = FromSetting(doc='from_(type). The type to cast from. If not given, the type of the input is used.')
-    to = ToSetting(doc='to(type). The type to cast to.')
-    from_wrap = Setting(doc='from_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`.')
-    to_wrap = Setting(doc='to_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`.')
-    logs = ViralSetting(default=False, doc='logs(bool). If True, the cast writes debug to :var:`logger`.')
+    mm_to_cast = ViralDictSetting(default={})
+    """mm_to_cast(dict). ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis."""
+    from_ = FromSetting()
+    """from_(type). The type to cast from. If not given, the type of the input is used."""
+    to = ToSetting()
+    """to(type). The type to cast to."""
+    from_wrap = WrapSetting()
+    """from_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`."""
+    to_wrap = WrapSetting()
+    """to_wrap(type). A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`."""
+    logs = ViralSetting(default=False)
+    """logs(bool). If True, the cast writes debug to :var:`logger`."""
             #'from_wrap': {
             #    'override': update_setting_if_not_none_cb, 
 

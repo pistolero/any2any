@@ -26,10 +26,36 @@ class BaseCast_subclassing_Test(object):
         Child().call(1)
         ok_(memory == ['Parent woohoo', 'Child woohoo'])
 
+    def settings_mixin_test(self):
+        """
+        Test that when subclassing mixing-in settings works
+        """
+        class SettingLikingInt(Setting):
+            @staticmethod
+            def mixin(*settings):
+                candidates = filter(lambda s: isinstance(s.default, int), settings)
+                if candidates:
+                    return candidates[0]
+                else:
+                    return settings[0]
+        class Parent(BaseCast):
+            set2 = Setting(default='1')
+            set1 = SettingLikingInt(default='1')
+        class Parent1(Parent): pass
+        class Parent2(Parent):
+            set2 = Setting(default=2)
+            set1 = Setting(default=2)
+        class Child(Parent1, Parent2): pass
+        ok_(Child._meta.settings_dict['set1'].default == 2)
+        ok_(Child._meta.settings_dict['set2'].default == '1')
+
     def settings_inherit_test(self):
         """
         Test that when subclassing settings inherit as expected
         """
+        class DictSetting(Setting):
+            def inherits(self, setting):
+                self.default = dict(setting.default, **self.default)
         class Parent(BaseCast):
             set1 = Setting(default=1)
             set2 = Setting(default={1: 8})
@@ -42,7 +68,7 @@ class BaseCast_subclassing_Test(object):
             set3 = Setting(default=10)
             set5 = Setting(default='blabla')
         class Child(Parent1, Parent2):
-            set2 = ViralDictSetting(default={'a': 9})
+            set2 = DictSetting(default={'a': 9})
 
         ok_(set(Child._meta.settings_dict.keys()) == set(['set1', 'set2', 'set3', 'set4', 'set5']))
         ok_(Child._meta.settings_dict['set1'].default == 1)

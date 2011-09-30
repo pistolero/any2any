@@ -4,7 +4,7 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast
+from base import Cast, Setting, CopiedSetting
 from utils import closest_parent, TypeWrap, Mm, memoize
 
 # Abstract DivideAndConquerCast
@@ -170,16 +170,12 @@ class CastItems(DivideAndConquerCast):
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_output`.
     """
 
-    defaults = dict(
-        key_to_cast = {},
-        value_cast = None,
-        key_cast = None,
-        _meta = {
-            'key_to_cast': {'__doc__': 'key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use.'},
-            'value_cast': {'__doc__': 'value_cast(Cast). The cast to use on all values.'},
-            'key_cast': {'__doc__': 'key_cast(Cast). The cast to use on all keys.'},
-        }
-    )
+    key_to_cast = Setting(default={})
+    """key_to_cast(dict). ``{<key>: <cast>}``. Maps a key with the cast to use."""
+    value_cast = CopiedSetting()
+    """value_cast(Cast). The cast to use on all values."""
+    key_cast = CopiedSetting()
+    """key_cast(Cast). The cast to use on all keys."""
 
     def iter_output(self, items_iter):
         for key, value in items_iter:
@@ -224,16 +220,6 @@ class CastItems(DivideAndConquerCast):
         cast._depth = self._depth + 1
         return cast
 
-    @property
-    @memoize()
-    def key_cast(self):
-        return copy.copy(self.settings['key_cast'])
-            
-    @property
-    @memoize()
-    def value_cast(self):
-        return copy.copy(self.settings['value_cast'])
-
     def strip_item(self, key, value):
         """
         Override for use. If `True` is returned, the item ``<key>, <value>`` will be stripped from the output.
@@ -246,7 +232,7 @@ class FromMapping(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(from_wrap = ContainerWrap)
+    from_wrap = Setting(default=ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -260,7 +246,7 @@ class ToMapping(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(to_wrap = ContainerWrap)
+    to_wrap = Setting(default=ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -274,7 +260,7 @@ class FromIterable(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
-    defaults = dict(from_wrap = ContainerWrap)
+    from_wrap = Setting(default=ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -288,7 +274,7 @@ class ToIterable(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.
     """
 
-    defaults = dict(to_wrap = ContainerWrap)
+    to_wrap = Setting(default=ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -302,7 +288,7 @@ class FromObject(DivideAndConquerCast):
     :meth:`get_item_from` can guess the type of values if `from` is an :class:`ObjectWrap`.    
     """
 
-    defaults = dict(from_wrap = ObjectWrap)
+    from_wrap = Setting(default=ObjectWrap)
 
     def get_item_from(self, key):
         return self.from_.get_class(key)
@@ -317,7 +303,7 @@ class ToObject(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ObjectWrap`.
     """
 
-    defaults = dict(to_wrap = ObjectWrap)
+    to_wrap = Setting(default=ObjectWrap)
 
     def get_item_to(self, key):
         return self.to.get_class(key)

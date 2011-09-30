@@ -226,7 +226,7 @@ class Memoization_Test(object):
         ok_(self.cast.method1(55, 2, kwarg1=3) == 1)
         ok_(self.cast.method1(55, 3, kwarg1=3) == 55)
         ok_(self.cast.method1(66, 3, kwarg1=3) == 55)
-        self.cast.configure(from_=object)
+        self.cast.from_ = object
         ok_(self.cast.method1(88, 2, kwarg1=3) == 88)
         ok_(self.cast.method1(66, 3, kwarg1=3) == 66)
 

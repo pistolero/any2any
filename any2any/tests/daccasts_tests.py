@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
 from any2any.daccasts import *
-from any2any.base import Cast
+from any2any.base import Cast, Setting, ViralDictSetting, ToSetting
 from any2any.utils import Wrap
 
 # Casts for the tests 
@@ -10,12 +10,9 @@ class Identity(Cast):
     def call(self, inpt):
         return inpt
 
-class FromDictToDict(ToMapping, CastItems, FromMapping):
-
-    defaults = dict(
-        to = dict,
-        mm_to_cast = {Mm(): Identity()}
-    )
+class FromDictToDict(FromMapping, CastItems, ToMapping):
+    to = ToSetting(default=dict)
+    mm_to_cast = ViralDictSetting(default={Mm(): Identity()})
 
 class CastItems_Test(object):
     """
