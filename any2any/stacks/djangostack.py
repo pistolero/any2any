@@ -95,7 +95,6 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
                 )
             # "Complex" Python types to the right type 
             elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
-                #TODO: doesn't work
                 actual_type = {
                     djmodels.DateTimeField: datetime.datetime,
                     djmodels.DateField: datetime.date,
@@ -121,6 +120,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
 
     def new_object(self, *args, **kwargs):
         model = self.factory
+        # Extracting primary key from kwargs
         key_tuple = self.extract_pk(kwargs) or ()
         key_dict = dict(zip(self.key_schema, key_tuple))
         if not key_dict:
@@ -128,16 +128,32 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
                 key_dict = {'pk': None}
             else:
                 raise ValueError("Input doesn't contain key for getting object")
+        # Creating new object
         try:
-            return model.objects.get(**key_dict), key_dict.keys()
+            obj = model.objects.get(**key_dict)
         except model.DoesNotExist:
             if self.create:
-                return model(**key_dict), key_dict.keys()
+                obj = model(**key_dict)
             else:
                 raise
         except model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (self.key_schema, model))
+        # setting attributes
+        for name, value in kwargs.iteritems():
+            klass = self.get_class(name)
+            if Spz.issubclass(klass, djmodels.Manager):
+                obj.save()# Because otherwise we cannot handle manytomany
+                manager = getattr(obj, name)
+                # clear() only provided if the ForeignKey can have a value of null:
+                if hasattr(manager, 'clear'):
+                    manager.clear()
+                    for element in value:
+                        manager.add(element)
+                else:
+                    raise TypeError("cannot update if the related ForeignKey cannot be null")
+            else:
+                setattr(obj, name, value)
 
     @property
     def model(self):
@@ -151,34 +167,15 @@ class FromModel(FromObject):
         from_wrap = DjModelWrap
     )
 
-def set_related(instance, name, value):
-    """
-    Setter for related managers.
-    """
-    instance.save()# Because otherwise we cannot handle manytomany
-    manager = getattr(instance, name)
-    # clear() only provided if the ForeignKey can have a value of null:
-    if hasattr(manager, 'clear'):
-        manager.clear()
-        for element in value:
-            manager.add(element)
-    else:
-        raise TypeError("cannot update if the related ForeignKey cannot be null")
-
 class ToModel(ToObject):
-    """
-    This casts deserializes a dictionary to an instance of :class:`Model`. You need to set the appropriate metamorphosis in order to specify what model to cast to.
-    """
 
     defaults = dict(
-        class_to_setter = {ContainerWrap(djmodels.Manager, value_type=djmodels.Model): set_related},
         to_wrap = DjModelWrap,
-        _meta = {'class_to_setter': {'override': 'copy_and_update'}}
     )
 
     def call(self, inpt):
         obj = super(ToModel, self).call(inpt)
-        obj.save()
+        obj.save() # TODO: WHY SAVE ?
         return obj
 
 class FromQuerySet(FromIterable):

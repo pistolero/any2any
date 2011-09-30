@@ -2,6 +2,7 @@
 import datetime
 from types import FunctionType
 
+from any2any.base import update_setting_cb
 from any2any import (Cast, CastStack, FromMapping, ToMapping, FromIterable, ToIterable,
 FromObject, ToObject, ContainerWrap, ObjectWrap, Wrap, CastItems, Mm)
 
@@ -112,7 +113,7 @@ class BasicStack(CastStack):
             Mm(to_any=datetime.date): MappingToObject(to=WrappedDate),
             Mm(to_any=datetime.datetime): MappingToObject(to=WrappedDateTime),
         },
-        _meta = dict(mm_to_cast={'override': 'copy_and_update'}),
+        _meta = dict(mm_to_cast={'override': update_setting_cb}),
     )
 
 any2any = BasicStack()

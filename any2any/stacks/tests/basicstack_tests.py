@@ -206,6 +206,7 @@ class BasicStack_Test(object):
         ok_(stack(1) == 1)
         ok_(stack('2') == '2')
         ok_(stack([1, 2, '3']) == [1, 2, '3'])
+        import pdb ; pdb.set_trace()
         stack = BasicStack(mm_to_cast={Mm(from_any=int): ToType(to=str)})
         ok_(stack(1) == '1')
         ok_(stack('2') == '2')

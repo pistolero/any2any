@@ -103,7 +103,7 @@ class ObjectWrap(TypeWrap):
             return schema[key]
         else:
             raise KeyError("'%s' not in schema" % key)
-
+    
     def get_schema(self):
         schema = self.default_schema()
         schema.update(self.extra_schema)
@@ -128,6 +128,12 @@ class ObjectWrap(TypeWrap):
         """
         """
         return {}
+
+    def setattr(self, obj, name, value):
+        setattr(obj, name, value)
+
+    def getattr(self, obj, name):
+        return getattr(obj, name)
 
     def __call__(self, *args, **kwargs):
         return self.new_object(*args, **kwargs)
@@ -237,7 +243,6 @@ class CastItems(DivideAndConquerCast):
 class FromMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-
     :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
@@ -252,7 +257,6 @@ class FromMapping(DivideAndConquerCast):
 class ToMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.    
     """
 
@@ -267,7 +271,6 @@ class ToMapping(DivideAndConquerCast):
 class FromIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-
     :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
     """
 
@@ -282,7 +285,6 @@ class FromIterable(DivideAndConquerCast):
 class ToIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.
     """
 
@@ -297,35 +299,17 @@ class ToIterable(DivideAndConquerCast):
 class FromObject(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-
     :meth:`get_item_from` can guess the type of values if `from` is an :class:`ObjectWrap`.    
     """
 
-    defaults = dict(
-        from_wrap = ObjectWrap,
-        class_to_getter = {object: getattr,},
-        attrname_to_getter = {},
-    )
+    defaults = dict(from_wrap = ObjectWrap)
 
     def get_item_from(self, key):
         return self.from_.get_class(key)
 
     def iter_input(self, inpt):
         for name in self.from_.get_schema().keys():
-            yield name, self.get_getter(name)(inpt, name)
-
-    def get_getter(self, name):
-        # try to get accessor on a per-attribute basis
-        if name in self.attrname_to_getter:
-            return self.attrname_to_getter[name]
-        # otherwise try to get it on a per-class basis
-        else:
-            attr_class = self.get_item_from(name)
-            # If NotImplemented, we guess ...
-            if attr_class == NotImplemented:
-                attr_class = object
-            parent = closest_parent(attr_class, self.class_to_getter.keys())
-            return self.class_to_getter.get(parent, getattr)
+            yield name, self.from_.getattr(inpt, name)
 
 class ToObject(DivideAndConquerCast):
     """
@@ -333,34 +317,11 @@ class ToObject(DivideAndConquerCast):
     :meth:`get_item_to` can guess the type of values if `to` is a :class:`ObjectWrap`.
     """
 
-    defaults = dict(
-        to_wrap = ObjectWrap,
-        class_to_setter = {object: setattr,},
-        attrname_to_setter = {}
-    )
+    defaults = dict(to_wrap = ObjectWrap)
 
     def get_item_to(self, key):
         return self.to.get_class(key)
 
     def build_output(self, items_iter):
-        # Build new object, and set attributes not yet handled
-        items = dict(items_iter)# breaks the laziness of generators
-        new_object, keys_handled = self.to(**items)
-        [items.pop(key, None) for key in keys_handled]
-        for name, value in items.items():
-            self.get_setter(name)(new_object, name, value)
-        return new_object
-
-    def get_setter(self, name):
-        # try to get accessor on a per-attribute basis
-        if name in self.attrname_to_setter:
-            return self.attrname_to_setter[name]
-        # otherwise try to get it on a per-class basis
-        else:
-            attr_class = self.get_item_to(name)
-            # If NotImplemented, we guess ...
-            if attr_class == NotImplemented:
-                attr_class = object
-            parent = closest_parent(attr_class, self.class_to_setter.keys())
-            return self.class_to_setter.get(parent, setattr)
+        return self.to(**items)
 
