@@ -154,36 +154,36 @@ class Specialization_Test(object):
         ok_(not Wrap.issubclass(object, int))
         ok_(Wrap.issubclass(object, object))
         # specialization + built-in type
-        ok_(Wrap.issubclass(TypeWrap(str), str))
-        ok_(not Wrap.issubclass(str, TypeWrap(str)))
-        ok_(Wrap.issubclass(TypeWrap(str), TypeWrap(str)))
-        ok_(Wrap.issubclass(TypeWrap(TypeWrap(str)), TypeWrap(str)))
+        ok_(Wrap.issubclass(Wrap(str), str))
+        ok_(not Wrap.issubclass(str, Wrap(str)))
+        ok_(Wrap.issubclass(Wrap(str), Wrap(str)))
+        ok_(Wrap.issubclass(Wrap(Wrap(str)), Wrap(str)))
         # test with different superclass.
-        spz_type = TypeWrap(int, str)
-        ok_(Wrap.issubclass(spz_type, str))
+        WrappedTypes = Wrap(int, str)
+        ok_(Wrap.issubclass(WrappedTypes, str))
         class Dumb(object): pass
-        spz_type = TypeWrap(int, Dumb, str)
-        ok_(Wrap.issubclass(spz_type, str))
-        ok_(Wrap.issubclass(spz_type, Dumb))
+        WrappedTypes = Wrap(int, Dumb, str)
+        ok_(Wrap.issubclass(WrappedTypes, str))
+        ok_(Wrap.issubclass(WrappedTypes, Dumb))
 
     def instantiate_test(self):
         """
         Test instantiate a Specialization
         """
-        WrappedStr = TypeWrap(str)
-        a_spz_str = WrappedStr("blabla")
-        ok_(type(a_spz_str) == str)
-        ok_(a_spz_str == "blabla")
+        WrappedStr = Wrap(str)
+        a_str = WrappedStr("blabla")
+        ok_(type(a_str) == str)
+        ok_(a_str == "blabla")
 
-        WrappedWrappedStr = TypeWrap(WrappedStr)
-        a_spz_str = WrappedWrappedStr("bloblo")
-        ok_(type(a_spz_str) == str)
-        ok_(a_spz_str == "bloblo")
+        WrappedWrappedStr = Wrap(WrappedStr)
+        a_str = WrappedWrappedStr("bloblo")
+        ok_(type(a_str) == str)
+        ok_(a_str == "bloblo")
 
-        WrappedInt = TypeWrap(int, str)
-        a_spz_int = WrappedInt(198)
-        ok_(a_spz_int == 198)
-        ok_(type(a_spz_int) == int)
+        WrappedInt = Wrap(int, str)
+        an_int = WrappedInt(198)
+        ok_(an_int == 198)
+        ok_(type(an_int) == int)
 
 class Memoization_Test(object):
     """

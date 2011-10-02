@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast, Setting, CopiedSetting
-from utils import closest_parent, TypeWrap, Mm, memoize
+from utils import closest_parent, Wrap, Mm, memoize
 
 # Abstract DivideAndConquerCast
 #======================================
@@ -81,7 +81,7 @@ class DivideAndConquerCast(Cast):
 
 # Type wraps
 #======================================
-class ObjectWrap(TypeWrap):
+class ObjectWrap(Wrap):
     #TODO: for looking-up best mm, when several superclasses in ObjectWrap, when several Mm match, choose the best one.
     # ex : Journal, ForeignKey
     #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
@@ -141,7 +141,7 @@ class ObjectWrap(TypeWrap):
     def new_object(self, *args, **kwargs):
         return self.factory(*args, **kwargs)
 
-class ContainerWrap(TypeWrap):
+class ContainerWrap(Wrap):
     #TODO: document
 
     defaults = dict(
@@ -152,7 +152,7 @@ class ContainerWrap(TypeWrap):
     def __superclasshook__(self, C):
         if super(ContainerWrap, self).__superclasshook__(C):
             if isinstance(C, ContainerWrap):
-                return TypeWrap.issubclass(self.value_type, C.value_type)
+                return Wrap.issubclass(self.value_type, C.value_type)
             else:
                 return True
         else:

@@ -170,18 +170,8 @@ class Metamorphosis(object):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 Mm = Metamorphosis
 
-class TypeWrap(object):
+class Wrap(object):
     """
-    A metaclass for building specialized types.
-
-        >>> PositiveInt = TypeWrap(int, greater_than=0)
-        >>> Wrap.issubclass(PositiveInt, int)
-        True
-        >>> PositiveInt.greater_than
-        0
-        >>> an_int = PositiveInt(11)
-        >>> an_int, type(an_int)
-        (11, <type 'int'>)
     """
 
     defaults = {'factory': None}
@@ -219,14 +209,14 @@ class TypeWrap(object):
             return self.__getattribute__(name)
 
     def __eq__(self, other):
-        if isinstance(other, TypeWrap):
+        if isinstance(other, Wrap):
             return (self.superclasses == other.superclasses 
             and self.features == other.features)
         else:
             return False
 
     def __superclasshook__(self, C):
-        if isinstance(C, TypeWrap): C = C.base
+        if isinstance(C, Wrap): C = C.base
         # *C* is superclass of *self*,
         # if *C* is superclass of one of *self.superclasses* 
         for parent in self.superclasses:
@@ -237,20 +227,20 @@ class TypeWrap(object):
     @staticmethod
     def issubclass(c1, c2s):
         if not isinstance(c2s, tuple): c2s = (c2s,)
-        # If *c1* is *TypeWrap*, we use its *__superclasshook__*
-        if isinstance(c1, TypeWrap):
+        # If *c1* is *Wrap*, we use its *__superclasshook__*
+        if isinstance(c1, Wrap):
             for c2 in c2s:
                 if c1.__superclasshook__(c2):
                     return True
         else:
             for c2 in c2s:
-                # *TypeWrap* cannot be a superclass of a normal class
-                if isinstance(c2, TypeWrap):
+                # *Wrap* cannot be a superclass of a normal class
+                if isinstance(c2, Wrap):
                     return False
                 elif issubclass(c1, c2):
                     return True
         return False
-Wrap = TypeWrap
+Wrap = Wrap
 
 def closest_parent(klass, other_classes):
     """
