@@ -7,6 +7,8 @@ except ImportError:
 from base import Cast, Setting, CopiedSetting
 from utils import closest_parent, Wrap, Mm, memoize
 
+#TODO: make REAL mixins, so no need for this clumsy WrapSetting
+
 # Abstract DivideAndConquerCast
 #======================================
 
@@ -113,16 +115,8 @@ class ObjectWrap(Wrap):
         if self.exclude:
             [schema.pop(k, None) for k in self.exclude]
         for key, cls in schema.iteritems():
-            # If NotImplemented, we make a guess.
-            if cls == NotImplemented:
-                cls = self.guess_class(key)
             schema[key] = cls
         return schema
-
-    def guess_class(self, key):
-        """
-        """
-        return NotImplemented
 
     def default_schema(self):
         """
@@ -130,10 +124,16 @@ class ObjectWrap(Wrap):
         return {}
 
     def setattr(self, obj, name, value):
-        setattr(obj, name, value)
+        if hasattr(self, 'set_%s' % name):
+            getattr(self, 'set_%s' % name)(obj, value)
+        else:
+            setattr(obj, name, value)
 
     def getattr(self, obj, name):
-        return getattr(obj, name)
+        if hasattr(self, 'get_%s' % name):
+            return getattr(self, 'get_%s' % name)(obj)
+        else:
+            return getattr(obj, name)
 
     def __call__(self, *args, **kwargs):
         return self.new_object(*args, **kwargs)
@@ -180,8 +180,8 @@ class CastItems(DivideAndConquerCast):
     def iter_output(self, items_iter):
         for key, value in items_iter:
             if self.strip_item(key, value): continue
-            if self.key_cast: key = self.key_cast(key)
             cast = self.cast_for_item(key, value)
+            if self.key_cast: key = self.key_cast(key)
             yield key, cast(value)
 
     def get_item_mm(self, key, value):
@@ -229,7 +229,7 @@ class CastItems(DivideAndConquerCast):
 class FromMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-    :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
+    :class:`FromMapping` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
     """
 
     class Meta:
@@ -244,7 +244,7 @@ class FromMapping(DivideAndConquerCast):
 class ToMapping(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-    :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.    
+    :class:`ToMapping` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
     """
 
     class Meta:
@@ -259,7 +259,7 @@ class ToMapping(DivideAndConquerCast):
 class FromIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-    :meth:`get_item_from` can guess the type of values if `from_` is a :class:`ContainerWrap`.    
+    :class:`FromIterable` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
     """
 
     class Meta:
@@ -274,7 +274,7 @@ class FromIterable(DivideAndConquerCast):
 class ToIterable(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-    :meth:`get_item_to` can guess the type of values if `to` is a :class:`ContainerWrap`.
+    :class:`ToIterable` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
     """
 
     class Meta:
@@ -289,7 +289,7 @@ class ToIterable(DivideAndConquerCast):
 class FromObject(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-    :meth:`get_item_from` can guess the type of values if `from` is an :class:`ObjectWrap`.    
+    :class:`FromObject` is more comfortable when the setting `from_` is an :class:`ObjectWrap`.
     """
 
     class Meta:
@@ -305,7 +305,7 @@ class FromObject(DivideAndConquerCast):
 class ToObject(DivideAndConquerCast):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-    :meth:`get_item_to` can guess the type of values if `to` is a :class:`ObjectWrap`.
+    :class:`ToObject` is more comfortable when the setting `to` is an :class:`ObjectWrap`.
     """
 
     class Meta:

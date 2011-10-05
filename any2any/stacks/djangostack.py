@@ -21,12 +21,20 @@ class DjModelIntrospector(object):
 
     @property
     def fields(self):
-        # Returns a dictionary {<field_name>: <field>}, with all the fields,
+        # Returns a set with all the fields,
         # but excluding the pointers used for MTI
         mod_opts = self.model._meta
         ptr_fields = self.collect_ptrs(self.model)
         all_fields = mod_opts.fields + mod_opts.many_to_many
         return set(all_fields) - set(ptr_fields)
+
+    @property
+    def related_dict(self):
+        # Returns a dictionary {<attr_name>: <descriptor>} with all the related descriptors,
+        def retrieve_desc((k, v)):
+            return isinstance(v, (ManyRelatedObjectsDescriptor,
+            ForeignRelatedObjectsDescriptor))
+        return dict(filter(retrieve_desc, self.model.__dict__.items()))
 
     @property
     def pk_field_name(self):
@@ -74,6 +82,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         extra_schema = {},
         exclude = [],
         include = [],
+        include_related = False,
         create = True,
         factory = None,
     )
@@ -104,19 +113,23 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
             else:
                 wrapped_type = Wrap(field_type)
             fields_dict[field.name] = wrapped_type
+        
+        # including related managers
+        for name, related in self.related_dict.items():
+            fields_dict[name] = ContainerWrap(
+                type(related), djmodels.Manager, factory=list,
+                value_type=related.related.model
+            )
         return fields_dict
 
-    def guess_class(self, key):
-        model_attr = getattr(self.base, key, None)
-        if model_attr:
-            # If related manager
-            if isinstance(model_attr, (ManyRelatedObjectsDescriptor,
-            ForeignRelatedObjectsDescriptor)):
-                return ContainerWrap(
-                    type(model_attr), djmodels.Manager, factory=list,
-                    value_type=model_attr.related.model
-                )
-        return NotImplemented
+    def get_schema(self):
+        schema = super(DjModelWrap, self).get_schema()
+        related_keys = self.related_dict.keys()
+        if not self.include_related:
+            for k in related_keys:
+                if not k in self.include and not k in self.extra_schema:
+                    schema.pop(k, None)
+        return schema
 
     def new_object(self, *args, **kwargs):
         model = self.factory
@@ -219,13 +232,13 @@ class FromQueryDict(FromMapping):
 class QueryDictWrap(Wrap, DjModelIntrospector):
 
     defaults = dict(
-        keys_list = [],
+        list_keys = [],
         model = None,
         factory = None,
     )
 
     def get_class(self, key):
-        if (key in self.keys_list) or self.is_list(key):
+        if (key in self.list_keys) or self.is_list(key):
             return list
         else:
             return NotImplemented

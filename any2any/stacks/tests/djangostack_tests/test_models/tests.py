@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from django.db.models import AutoField, CharField, ForeignKey, Model
+from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.db.models.manager import Manager
 from django.http import QueryDict
 
@@ -14,11 +15,13 @@ class DjModelWrap_Test(object):
 
     def fields_test(self):
         """
-        Test DjModelWrap.fields
+        Test DjModelWrap.default_schema
         """
         columnist_fields = DjModelWrap(Columnist).default_schema()
         gourmand_fields = DjModelWrap(Gourmand).default_schema()
         wsausage_fields = DjModelWrap(WritingSausage).default_schema()
+        journal_fields = DjModelWrap(Journal).default_schema()
+        dish_fields = DjModelWrap(Dish).default_schema()
         ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
         ok_(Wrap.issubclass(columnist_fields['id'], AutoField))
         ok_(Wrap.issubclass(columnist_fields['lastname'], CharField))
@@ -29,6 +32,13 @@ class DjModelWrap_Test(object):
         ok_(Wrap.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
         ok_(Wrap.issubclass(gourmand_fields['pseudo'], CharField))
         ok_(set(wsausage_fields) == set(['id', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
+        ok_(Wrap.issubclass(journal_fields['name'], CharField))
+        ok_(Wrap.issubclass(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor))
+        ok_(Wrap.issubclass(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor))
+        ok_(set(journal_fields) == set(['id', 'name', 'journalist_set', 'issue_set']))
+        ok_(Wrap.issubclass(dish_fields['name'], CharField))
+        ok_(Wrap.issubclass(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor))
+        ok_(set(dish_fields) == set(['id', 'name', 'gourmand_set']))
 
     def nk_test(self):
         """
@@ -145,9 +155,8 @@ class ModelToMapping_Test(BaseModel):
         """
         # reverse ForeignKey
         journalist_type = DjModelWrap(Journalist, include=['firstname', 'lastname'])
-        journal_type = DjModelWrap(Journal, 
-            extra_schema={'journalist_set': NotImplemented},
-            exclude=['id'],
+        journal_type = DjModelWrap(Journal,
+            include=['name', 'journalist_set'],
             key_schema=('firstname', 'lastname')
         )
         journalist_cast = ModelToMapping(from_=journalist_type, to=dict)
@@ -167,7 +176,7 @@ class ModelToMapping_Test(BaseModel):
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
         gourmand_type = DjModelWrap(Gourmand, include=['pseudo'])
-        dish_type = DjModelWrap(Dish, include=['gourmand_set', 'name'])
+        dish_type = DjModelWrap(Dish, exclude=['id'], include_related=True)
         gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
         dish_cast = ModelToMapping(from_=dish_type, to=dict)
         cast = DjangoStack(mm_to_cast={
@@ -339,7 +348,7 @@ class MappingToModel_Test(BaseModel):
         Test MappingToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey - only works if fk can be null
-        journal_type = DjModelWrap(Journal, extra_schema={'journalist_set': NotImplemented})
+        journal_type = DjModelWrap(Journal, include_related=True)
         journal = self.cast.call({
             'id': self.journal.id,
             'journalist_set': [],
@@ -353,7 +362,7 @@ class MappingToModel_Test(BaseModel):
         }, to=journal_type)
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
-        dish_type = DjModelWrap(Dish, extra_schema={'gourmand_set': NotImplemented})
+        dish_type = DjModelWrap(Dish, include_related=True)
         salmon = self.cast.call({
             'id': self.salmon.id,
             'gourmand_set': [
@@ -422,7 +431,7 @@ class QueryDictFlatener_Test(object):
         """
         Test QueryDictFlatener.call
         """
-        WrappedQueryDict = QueryDictWrap(dict, keys_list=['a_list'])
+        WrappedQueryDict = QueryDictWrap(dict, list_keys=['a_list'])
         ok_(self.cast(QueryDict('a_list=1&a_list=2&a_normal_key=1&a_normal_key=2&a_normal_key=3'), to=WrappedQueryDict) == {
             'a_list': ['1', '2'],
             'a_normal_key': '1',

@@ -313,7 +313,7 @@ class CastStack(Cast):
             to = self.to
         if not from_:
             from_ = self.from_
-        mm = Mm(self.from_, to)
+        mm = Mm(from_, to)
         cast = self.cast_for(mm)
         return cast(inpt)
 

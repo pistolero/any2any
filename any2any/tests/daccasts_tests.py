@@ -118,14 +118,32 @@ class ObjectWrap_Test(object):
         ok_(obj_type.get_class('c') == float)
         assert_raises(KeyError, obj_type.get_class, 'd')
 
-    def guess_class_test(self):
+    def getattr_test(self):
         """
-        Test guessing a class
+        Test ObjectWrap.getattr
         """
-        # default schema
-        obj_type = self.AnObjectWrap(self.AnObject, extra_schema={'mystery': NotImplemented, 'mystery2': NotImplemented})
-        ok_(obj_type.get_class('mystery') == float)
-        ok_(obj_type.get_class('mystery2') == NotImplemented)
+        class AnObjectWrap(ObjectWrap):
+            def get_a(self, obj):
+                return 'blabla'
+        obj_type = AnObjectWrap(self.AnObject)
+        obj = self.AnObject()
+        obj.b = 'bloblo'
+        ok_(obj_type.getattr(obj, 'a') == 'blabla')
+        ok_(obj_type.getattr(obj, 'b') == 'bloblo')
+                
+    def getattr_test(self):
+        """
+        Test ObjectWrap.setattr
+        """
+        class AnObjectWrap(ObjectWrap):
+            def set_a(self, obj, value):
+                obj.a = 'bloblo'
+        obj_type = AnObjectWrap(self.AnObject)
+        obj = self.AnObject()
+        obj_type.setattr(obj, 'a', 'blibli')
+        obj_type.setattr(obj, 'b', 'blabla')
+        ok_(obj.a == 'bloblo')
+        ok_(obj.b == 'blabla')
 
 ListOfObjects = ContainerWrap(list, value_type=object)
 ListOfStr = ContainerWrap(list, value_type=str)
