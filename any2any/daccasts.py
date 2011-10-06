@@ -7,9 +7,9 @@ except ImportError:
 from base import Cast, Setting, CopiedSetting, CastMixin
 from utils import closest_parent, Wrap, Mm, memoize
 
+
 # Abstract DivideAndConquerCast
 #======================================
-
 class DivideAndConquerCast(Cast):
     """
     Abstract base cast for metamorphosing `from` and `to` any complex object or container.
@@ -70,7 +70,7 @@ class DivideAndConquerCast(Cast):
     def get_item_to(self, key):
         """
         Returns:
-            type or NotImplemented. Type the value associated with `key` must be casted to, if it is known `a priori` (without knowing the input), or NotImplemented.
+            type or NotImplemented. Type the value associated with `key` must be casted to, if it is known `a priori` (without knowing the input), or `NotImplemented` to let the cast guess.
         """
         return NotImplemented
 
@@ -79,13 +79,17 @@ class DivideAndConquerCast(Cast):
         iter_ouput = self.iter_output(iter_input)
         return self.build_output(iter_ouput)
 
+
 # Type wraps
 #======================================
 class ObjectWrap(Wrap):
-    #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
-    #TODO: if Mm(aspztype) matches Mm(atype): cast, then cast's from_ will be overriden, along with its schema.
-    #TODO: Mm, from_ and to maybe don't make sense anymore... only from_any and to_any
-    #TODO: document
+    """
+    Wrapper for any subclass of object. `ObjectWrap` allows to fully customize the wrapped class' behaviour :
+
+        - attribute schema - :meth:`ObjectWrap.default_schema`
+        - attribute access - :meth:`ObjectWrap.setattr` and :meth:`ObjectWrap.getattr`
+        - creation of new instances - :meth:`ObjectWrap.new`
+    """
 
     defaults = dict(
         extra_schema = {},
@@ -94,14 +98,20 @@ class ObjectWrap(Wrap):
         factory = None,
     )
 
-    def get_class(self, key):
+    def get_class(self, attr_name):
+        """
+        Returns the class of attribute `attr_name`.
+        """
         schema = self.get_schema()
-        if key in schema:
-            return schema[key]
+        if attr_name in schema:
+            return schema[attr_name]
         else:
-            raise KeyError("'%s' not in schema" % key)
+            raise KeyError("'%s' not in schema" % attr_name)
     
     def get_schema(self):
+        """
+        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of the object, taking into account : `default_schema`, `extra_schema`, `include` and `exclude`.
+        """
         schema = self.default_schema()
         schema.update(self.extra_schema)
         if self.include:
@@ -109,35 +119,48 @@ class ObjectWrap(Wrap):
             [schema.pop(k) for k in schema.keys() if k not in self.include]
         if self.exclude:
             [schema.pop(k, None) for k in self.exclude]
-        for key, cls in schema.iteritems():
-            schema[key] = cls
+        for attr_name, cls in schema.iteritems():
+            schema[attr_name] = cls
         return schema
 
     def default_schema(self):
         """
+        Subclass in order to provide the schema - known a priori - of the wrapped object. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
         """
         return {}
 
     def setattr(self, obj, name, value):
+        """
+        Sets the attribute `name` on `obj`, with value `value`. If the calling :class:`ObjectWrap` has a method `set_<name>`, this method will be used to set the attribute.
+        """
         if hasattr(self, 'set_%s' % name):
             getattr(self, 'set_%s' % name)(obj, value)
         else:
             setattr(obj, name, value)
 
     def getattr(self, obj, name):
+        """
+        Gets the attribute `name` from `obj`. If the calling :class:`ObjectWrap` has a method `get_<name>`, this method will be used to get the attribute.
+        """
         if hasattr(self, 'get_%s' % name):
             return getattr(self, 'get_%s' % name)(obj)
         else:
             return getattr(obj, name)
 
-    def __call__(self, *args, **kwargs):
-        return self.new_object(*args, **kwargs)
+    def new(self, **kwargs):
+        """
+        Subclass to create and return a new instance of the wrapped type. 
+        """
+        return self.factory(**kwargs)
 
-    def new_object(self, *args, **kwargs):
-        return self.factory(*args, **kwargs)
+    def __call__(self, *args, **kwargs):
+        return self.new(**kwargs)
+
 
 class ContainerWrap(Wrap):
-    #TODO: document
+    """
+    Wrapper for any type of container.
+    """
 
     defaults = dict(
         value_type = NotImplemented,
@@ -145,6 +168,9 @@ class ContainerWrap(Wrap):
     )
 
     def __superclasshook__(self, C):
+        # this allows to implement the following behaviour :
+        # >>> Wrap.issubclass(ContainerWrap(list, value_type=str), ContainerWrap(list, value_type=basestring))
+        # True
         if super(ContainerWrap, self).__superclasshook__(C):
             if isinstance(C, ContainerWrap):
                 return Wrap.issubclass(self.value_type, C.value_type)
@@ -157,9 +183,9 @@ class ContainerWrap(Wrap):
         return 'Wrapped%s%s' % (self.base.__name__.capitalize(),
         '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
 
-# Mixins
-#========================================
 
+# Mixins for DivideAndConquerCast
+#========================================
 class CastItems(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_output`.
@@ -167,8 +193,10 @@ class CastItems(CastMixin):
 
     key_to_cast = Setting(default={})
     """dict. ``{<key>: <cast>}``. Maps a key with the cast to use."""
+
     value_cast = CopiedSetting()
     """Cast. The cast to use on all values."""
+
     key_cast = CopiedSetting()
     """Cast. The cast to use on all keys."""
 
@@ -221,6 +249,7 @@ class CastItems(CastMixin):
         """
         return False
 
+
 class FromMapping(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
@@ -234,6 +263,7 @@ class FromMapping(CastMixin):
 
     def iter_input(self, inpt):
         return inpt.iteritems()
+
 
 class ToMapping(CastMixin):
     """
@@ -249,6 +279,7 @@ class ToMapping(CastMixin):
     def build_output(self, items_iter):
         return self.to(items_iter)
 
+
 class FromIterable(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
@@ -262,6 +293,7 @@ class FromIterable(CastMixin):
 
     def iter_input(self, inpt):
         return enumerate(inpt)
+
 
 class ToIterable(CastMixin):
     """
@@ -277,6 +309,7 @@ class ToIterable(CastMixin):
     def build_output(self, items_iter):
         return self.to((value for key, value in items_iter))
 
+
 class FromObject(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
@@ -291,6 +324,7 @@ class FromObject(CastMixin):
     def iter_input(self, inpt):
         for name in self.from_.get_schema().keys():
             yield name, self.from_.getattr(inpt, name)
+
 
 class ToObject(CastMixin):
     """

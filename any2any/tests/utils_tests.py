@@ -32,55 +32,55 @@ class ClassSet_Test(object):
         """
         Test ClassSet.__eq__ 
         """
-        ok_(ClassSet(object, False) == ClassSet(object, False))
-        ok_(ClassSet(int, True) == ClassSet(int, True))
-        ok_(not ClassSet(object, False) == ClassSet(object, True))
-        ok_(not ClassSet(object, False) == ClassSet(int, False))
-        ok_(not ClassSet(object, True) == ClassSet(int, True))
+        ok_(AllSubSetsOf(object) == AllSubSetsOf(object))
+        ok_(Singleton(int) == Singleton(int))
+        ok_(not AllSubSetsOf(object) == Singleton(object))
+        ok_(not AllSubSetsOf(object) == AllSubSetsOf(int))
+        ok_(not Singleton(object) == Singleton(int))
 
-        ok_(ClassSet(object, True) == object)
-        ok_(not ClassSet(object, False) == object)
+        ok_(Singleton(object) == object)
+        ok_(not AllSubSetsOf(object) == object)
 
     def lt_test(self):
         """
         Test ClassSet.__lt__
         """
-        ok_(ClassSet(object, True) < ClassSet(object, False)) # {object} is included in subclasses of object
-        ok_(ClassSet(int, True) < ClassSet(object, False)) # {int} is included in subclasses of object
-        ok_(ClassSet(int, False) < ClassSet(object, False)) # subclasses of int are included in subclasses of object
+        ok_(Singleton(object) < AllSubSetsOf(object)) # {object} is included in subclasses of object
+        ok_(Singleton(int) < AllSubSetsOf(object)) # {int} is included in subclasses of object
+        ok_(AllSubSetsOf(int) < AllSubSetsOf(object)) # subclasses of int are included in subclasses of object
 
-        ok_(not ClassSet(object, False) < ClassSet(object, False)) # because ==
-        ok_(not ClassSet(int, True) < ClassSet(object, True)) # because other is singleton
-        ok_(not ClassSet(int, False) < ClassSet(object, True)) # ''
-        ok_(not ClassSet(int, False) < ClassSet(str, False)) # because no one is other's parent
+        ok_(not AllSubSetsOf(object) < AllSubSetsOf(object)) # because ==
+        ok_(not Singleton(int) < Singleton(object)) # because other is singleton
+        ok_(not AllSubSetsOf(int) < Singleton(object)) # ''
+        ok_(not AllSubSetsOf(int) < AllSubSetsOf(str)) # because no one is other's parent
 
-        ok_(not ClassSet(str, True) < object)
-        ok_(not ClassSet(object, True) < object)
-        ok_(not ClassSet(object, False) < object)
+        ok_(not Singleton(str) < object)
+        ok_(not Singleton(object) < object)
+        ok_(not AllSubSetsOf(object) < object)
 
     def comp_test(self):
         """
         Test ClassSet's rich comparison
         """
         # Revert of lt_tests
-        ok_(ClassSet(object, False) > ClassSet(object, True))
-        ok_(ClassSet(object, False) > ClassSet(int, True))
-        ok_(ClassSet(object, False) > ClassSet(int, False))
+        ok_(AllSubSetsOf(object) > Singleton(object))
+        ok_(AllSubSetsOf(object) > Singleton(int))
+        ok_(AllSubSetsOf(object) > AllSubSetsOf(int))
 
-        ok_(not ClassSet(object, False) > ClassSet(object, False)) # because ==
-        ok_(not ClassSet(int, True) > ClassSet(object, True)) # because other is singleton
-        ok_(not ClassSet(int, False) > ClassSet(object, True)) # ''
-        ok_(not ClassSet(int, False) > ClassSet(str, False)) # because no one is other's parent
+        ok_(not AllSubSetsOf(object) > AllSubSetsOf(object)) # because ==
+        ok_(not Singleton(int) > Singleton(object)) # because other is singleton
+        ok_(not AllSubSetsOf(int) > Singleton(object)) # ''
+        ok_(not AllSubSetsOf(int) > AllSubSetsOf(str)) # because no one is other's parent
         
-        ok_(ClassSet(object, False) > object)
-        ok_(ClassSet(object, False) > str)
-        ok_(not ClassSet(object, True) > str)
+        ok_(AllSubSetsOf(object) > object)
+        ok_(AllSubSetsOf(object) > str)
+        ok_(not Singleton(object) > str)
 
         # Other comparison operators
-        ok_(ClassSet(object, False) >= ClassSet(object, True))
-        ok_(ClassSet(object, False) >= ClassSet(int, True))
-        ok_(ClassSet(object, False) >= ClassSet(int, False))
-        ok_(ClassSet(object, False) >= ClassSet(object, False))
+        ok_(AllSubSetsOf(object) >= Singleton(object))
+        ok_(AllSubSetsOf(object) >= Singleton(int))
+        ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
+        ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
 class Metamorphosis_Test(object):
     """

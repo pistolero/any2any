@@ -9,35 +9,14 @@ except ImportError:
 
 class ClassSet(object):
 
-    def __init__(self, klass, singleton=False):
+    def __init__(self, klass):
         self.klass = klass
-        self.singleton = singleton
 
-    def __eq__(self, other):
-        if isinstance(other, ClassSet):
-            return (self.klass, self.singleton) == (other.klass, other.singleton)
-        elif self.singleton:
-            return self.klass == other
-        else:
-            return False
-        
     def __ne__(self, other):
         return not self == other
 
-    def __lt__(self, other):
-        # `other` can strictly include `self`, only if `other` is not a singleton.
-        # So there are 2 cases where self < other:
-        # 1) {self.klass} < other.klass
-        # 2) self.klass < other.klass
-        if not isinstance(other, ClassSet):
-            return False
-        elif other.singleton:
-            return False
-        else:
-            return Wrap.issubclass(self.klass, other.klass) and not other == self
-
     def __gt__(self, other):
-        if not isinstance(other, ClassSet): other = ClassSet(other, singleton=True)
+        other = self.default_to_singleton(other)
         return not self == other and other < self
 
     def __le__(self, other):
@@ -46,8 +25,43 @@ class ClassSet(object):
     def __ge__(self, other):
         return self > other or self == other
 
+    def default_to_singleton(self, klass):
+        if not isinstance(klass, ClassSet):
+            return Singleton(klass)
+        else:
+            return klass
+
+class AllSubSetsOf(ClassSet):
+
+    def __eq__(self, other):
+        if isinstance(other, AllSubSetsOf):
+            return self.klass == other.klass
+        else:
+            return False
+
+    def __lt__(self, other):
+        if isinstance(other, AllSubSetsOf):
+            return Wrap.issubclass(self.klass, other.klass) and not other == self
+        else:
+            return False
+
     def __repr__(self):
-        return u"'%s'" % self.klass.__name__ if self.singleton else u"Any '%s'" % self.klass.__name__
+        return u"Any '%s'" % self.klass.__name__
+
+class Singleton(ClassSet):
+
+    def __eq__(self, other):
+        other = self.default_to_singleton(other)
+        return self.klass == other.klass
+
+    def __lt__(self, other):
+        if isinstance(other, AllSubSetsOf):
+            return Wrap.issubclass(self.klass, other.klass)
+        else:
+            return False
+
+    def __repr__(self):
+        return u"'%s'" % self.klass.__name__
 
 class Metamorphosis(object):
     """
@@ -77,9 +91,9 @@ class Metamorphosis(object):
             raise TypeError("Arguments 'to_any' and 'to' cannot be provided at the same time")
         else:
             pass
-        # Sets used for easier comparison 
-        self._to_set = ClassSet(to or to_any, singleton=bool(to))
-        self._from_set = ClassSet(from_ or from_any, singleton=bool(from_))
+        # Sets used for easier comparison
+        self._to_set = Singleton(to) if to else AllSubSetsOf(to_any)
+        self._from_set = Singleton(from_) if from_ else AllSubSetsOf(from_any)
         # Keeping the arguments at hand
         self.from_any = from_any
         self.from_ = from_
@@ -122,6 +136,7 @@ Mm = Metamorphosis
 class Wrap(object):
     """
     """
+    #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
 
     defaults = {'factory': None}
 

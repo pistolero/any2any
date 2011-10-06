@@ -21,6 +21,6 @@ Running tests
 
 First, you need to install `nose` and `django-nose` (they are both available on pypi).
 
-Then, go to ``any2any/any2any/tests`` and run ::
+Then, go to ``any2any/any2any/`` and run ::
 
-    python run.py
+    ./run_tests.py

@@ -29,7 +29,10 @@ class Base_test(object):
                 return '%s %s' % (self.msg, inpt)
         self.MyCast = MyCast
 
-        class Object(object): pass
+        class Object(object):
+            def __init__(self, **kwargs):
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
         self.Object = Object
         class OType(ObjectWrap):
             def new_object(self, *args, **kwargs):

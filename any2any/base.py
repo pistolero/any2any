@@ -1,16 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-.. currentmodule:: any2any.base
-"""
- 
-# Logging 
-#====================================
-# TODO : cooler logging (html page with cast settings and so on)
-import logging
-logger = logging.getLogger()
-
-# Cast 
-#====================================
 import copy
 import re
 try:
@@ -19,53 +7,95 @@ except ImportError:
     from compat import abc
 import collections
 from functools import wraps
+import logging
+
 from utils import memoize, Mm, Wrap
 
-class Setting(property):
+ 
+# Logging 
+#====================================
+# TODO : cooler logging (html page with cast settings and so on)
+logger = logging.getLogger()
 
-    def __init__(self, default=None, doc=None):
+
+# Setting
+#====================================
+class Setting(property):
+    """
+    Base class for all setting types. 
+    """
+
+    def __init__(self, default=None):
         self.name = None
         self.default = default
-        self.doc = doc
 
-    def __get__(self, instance, owner):
-        if instance != None:
-            return self.get(instance)
+    def __get__(self, cast, owner):
+        if cast != None:
+            return self.get(cast)
         else:
             return self
 
-    def __set__(self, instance, value):
-        self.set(instance, value)
+    def __set__(self, cast, value):
+        self.set(cast, value)
 
-    def get(self, instance):
-        return instance._settings[self.name]
+    # Hooks for controlling setting's behaviour :
+    def get(self, cast):
+        """
+        Gets and returns the setting's value from `cast`. 
+        """
+        return cast._settings[self.name]
     
-    def set(self, instance, value):
+    def set(self, cast, value):
+        """
+        Sets the setting's value on `cast`.
+        """
         # invalidate cache
-        instance._cache.clear()
-        instance._settings[self.name] = value
+        cast._cache.clear()
+        cast._settings[self.name] = value
 
-    def init(self, instance, value):
-        self.set(instance, value)
+    def init(self, cast, value):
+        """
+        When instantiating a cast, this is called to initialize the setting's value. 
+        """
+        self.set(cast, value)
 
-    def customize(self, instance, value):
+    def customize(self, cast, value):
+        """
+        When customizing a cast, this is called to customize the setting's value. 
+        """
         pass
 
     def inherits(self, setting):
+        """
+        When overriding a setting, this is called on the new setting 
+        to take into account the parent setting.
+        """
         pass
 
-class CopiedSetting(Setting):
 
-    def get(self, instance):
-        value = super(CopiedSetting, self).get(instance)
+class CopiedSetting(Setting):
+    """
+    A setting that always returns a copy of its value
+    """
+
+    def get(self, cast):
+        value = super(CopiedSetting, self).get(cast)
         return copy.copy(value)
 
-class ViralSetting(Setting):
 
-    def customize(self, instance, value):
-        self.set(instance, value)
+class ViralSetting(Setting):
+    """
+    A setting that always catches the value it is customized with. 
+    """
+
+    def customize(self, cast, value):
+        self.set(cast, value)
+
 
 class ViralDictSetting(ViralSetting):
+    """
+    Viral setting which updates the inherited value instead of replacing it.
+    """
 
     def __init__(self, default={}):
         super(ViralDictSetting, self).__init__(default)
@@ -73,25 +103,11 @@ class ViralDictSetting(ViralSetting):
     def inherits(self, setting):
         self.default = dict(setting.default, **self.default)
 
-class ToSetting(Setting):
-    
-    def get(self, instance):
-        to = super(ToSetting, self).get(instance)
-        if instance.to_wrap and to != None and not isinstance(to, instance.to_wrap):
-            to = instance.to_wrap(to)
-        return to
 
-class FromSetting(Setting):
-    
-    def get(self, instance):
-        from_ = super(FromSetting, self).get(instance)
-        if from_ == None and 'input' in instance._context:
-            from_ = type(instance._context['input'])
-        if instance.from_wrap and from_ != None and not isinstance(from_, instance.from_wrap):
-            from_= instance.from_wrap(from_)
-        return from_
-
+# Metaclasses and bases for casts
+#====================================
 class Options(object):
+    # Options for a cast class.
 
     def __init__(self, settings_dict):
         for name, setting in settings_dict.items():
@@ -99,7 +115,11 @@ class Options(object):
         self.settings = settings_dict.values()
         self.settings_dict = settings_dict
 
+
 class BaseCastType(abc.ABCMeta):
+    # Metaclass implementing the basic behaviour of collecting
+    # all the settings, and creating an `Option` object for the new class.
+    # This is the metaclass for `CastMixin`.
 
     def __new__(cls, class_name, bases, attrs):
         Meta = attrs.pop('Meta', object())
@@ -111,12 +131,12 @@ class BaseCastType(abc.ABCMeta):
         parents = [b for b in bases if isinstance(b, BaseCastType)]
         for parent in reversed(parents):
             all_settings_dict.update(parent._meta.settings_dict)
-        #     2. handling overridings with new setting
+        #     2. handling overridings
         for name, setting in new_settings_dict.items():
             if name in all_settings_dict:
                 setting.inherits(all_settings_dict[name])
         all_settings_dict.update(new_settings_dict)
-        #     3. handling overridings through Meta
+        #     3. handling overridings of the default value through Meta
         for name, new_default in getattr(Meta, 'defaults', {}).items():
             if name in all_settings_dict:
                 setting = all_settings_dict[name]
@@ -124,21 +144,23 @@ class BaseCastType(abc.ABCMeta):
                 new_setting.default = new_default
                 new_setting.inherits(setting)
                 all_settings_dict[name] = new_setting
-        # creating new class
+        # creating the new class
         attrs['_meta'] = Options(all_settings_dict)
         new_cast_class = super(BaseCastType, cls).__new__(cls, class_name, bases, attrs)
         return new_cast_class
 
+
 class CastType(BaseCastType):
+    # Metaclass for `BaseCast`.
 
     def __new__(cls, class_name, bases, attrs):
         new_cast_class = super(CastType, cls).__new__(cls, class_name, bases, attrs)
-        # wrapping `call` to automate logging and context management
         new_cast_class.call = cls.wrap_call(new_cast_class)
         return new_cast_class
 
     @classmethod
     def wrap_call(cls, cast_class):
+        # this method wraps `call` in order to automate logging and context management
         call = cast_class.call
         @wraps(call)
         def _wrapped_call(self, *args, **kwargs):
@@ -158,15 +180,18 @@ class CastType(BaseCastType):
                 return call(self, *args, **kwargs)
         return _wrapped_call
 
+
 class BaseCast(object):
+    # Base for `Cast`.
 
     __metaclass__ = CastType
 
     def __new__(cls, *args, **kwargs):
         new_cast = super(BaseCast, cls).__new__(cls)
-        new_cast._settings = _settings = {} # raw settings values
+        # initializing raw setting values
+        new_cast._settings = {}
         for name, setting in new_cast._meta.settings_dict.items():
-            _settings[name] = setting.default
+            new_cast._settings[name] = setting.default
         return new_cast
 
     def __init__(self, **settings):
@@ -190,6 +215,9 @@ class BaseCast(object):
         return self.call(inpt)
 
     def iter_settings(self):
+        """
+        Returns an iterator on all settings ``(<name>, <value>)``.
+        """
         for name in self._meta.settings_dict:
             yield name, getattr(self, name)
 
@@ -202,10 +230,6 @@ class BaseCast(object):
             setting = self._meta.settings_dict.get(name, None)
             if setting: setting.customize(self, value)
 
-    def __copy__(self):
-        settings = dict(self.iter_settings())
-        return self.__class__(**settings)
-
     def log(self, message):
         """
         Logs a message to `any2any`'s logger.
@@ -215,6 +239,36 @@ class BaseCast(object):
         """
         pass
 
+    def __copy__(self):
+        settings = dict(self.iter_settings())
+        return self.__class__(**settings)
+
+
+# Cast, CastMixin, CastStack 
+#====================================
+class ToSetting(Setting):
+    # Automatically wraps `to` with the setting `to_wrap`, if provided.
+
+    def get(self, instance):
+        to = super(ToSetting, self).get(instance)
+        if instance.to_wrap and to != None and not isinstance(to, instance.to_wrap):
+            to = instance.to_wrap(to)
+        return to
+
+
+class FromSetting(Setting):
+    # Automatically wraps `from_` with the setting `from_wrap`, if provided.
+    # If `from_` is not provided, guesses it from the cast's input.
+
+    def get(self, instance):
+        from_ = super(FromSetting, self).get(instance)
+        if from_ == None and 'input' in instance._context:
+            from_ = type(instance._context['input'])
+        if instance.from_wrap and from_ != None and not isinstance(from_, instance.from_wrap):
+            from_= instance.from_wrap(from_)
+        return from_
+
+
 class Cast(BaseCast):
     """
     Base class for all casts. This class is virtual, and all subclasses must implement :meth:`Cast.call`.
@@ -222,18 +276,21 @@ class Cast(BaseCast):
 
     mm_to_cast = ViralDictSetting(default={})
     """dict. ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis."""
+
     from_ = FromSetting()
     """type. The type to cast from. If not given, the type of the input is used."""
+
     to = ToSetting()
     """type. The type to cast to."""
+
     from_wrap = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`."""
+    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause `from_` to be automatically wrapped."""
+
     to_wrap = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`."""
+    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause `to` to be automatically wrapped."""
+
     logs = ViralSetting(default=False)
     """bool. If True, the cast writes debug to :var:`logger`."""
-            #'from_wrap': {
-            #    'override': update_setting_if_not_none_cb, 
 
     def __repr__(self):
         if self.from_ or self.to:
@@ -258,19 +315,21 @@ class Cast(BaseCast):
         return cast
 
     def set_mm(self, mm):
-        # Sets `from_` and `to` for the calling cast only if they 
-        # are unique classes (not `from_any` or `to_any`).
+        # Sets `from_` and `to` for the calling cast with mm's, only if mm's 
+        # are singletons (not `from_any` or `to_any`).
         if mm.from_ and not self.from_:
             self.from_ = mm.from_
         if mm.to and not self.to:
             self.to = mm.to
 
     def _pick_best_match(self, mm, mm_list):
-        # Picks best match of `mm` in `mm_list`
+        # Picks in `mm_list` the best match for `mm`.
+        # Keep only the supersets of `mm`.
         filtered = mm.super_mms(mm_list)
         if not filtered:
             raise ValueError("No suitable metamorphosis found for '%s'" % mm)
-        # We prefer if `to_set` is more precise and then `from_set`.
+        # We prefer if `to_set` is more precise.
+        # e.g. if mm is `str -> str`, we prefer `any object -> str` than `str -> any object`.
         for v1 in list(filtered):
             for v2 in list(filtered):
                 if v1._to_set < v2._to_set:
@@ -279,7 +338,9 @@ class Cast(BaseCast):
             for v2 in list(filtered):
                 if v1._from_set < v2._from_set:
                     filtered.remove(v2)
-        # If wraps, we prefer mms that match a wrap's superclass in better position
+        # If wraps, we give preference to wrap's superclasses in the order
+        # they are declared.
+        # e.g. if mm is `Wrap(int, str) -> object`, we prefer `int -> object` than `str -> object`.
         from_class, to_class = mm._from_set.klass, mm._to_set.klass
         if isinstance(to_class, Wrap):
             for k in to_class.superclasses:
@@ -308,19 +369,29 @@ class Cast(BaseCast):
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler())
 
+
 class CastMixin(object):
+    """
+    Base class for declaring mixins for cast classes. This allows to declare mixins with settings,
+    and even a `Meta` container.
+    """
 
     __metaclass__ = BaseCastType
 
+
 class MmToCastSetting(ViralDictSetting):
-    
+    # Setting for mm_to_cast for CastStack.
+    # When initializing the instance, default `mm_to_cast` will be updated
+    # instead of being overriden (like it is with normal settings).
+
     def init(self, instance, value):
         value = dict(self.default, **value)
         self.set(instance, value)
 
+
 class CastStack(Cast):
     """
-    A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with `cast_for` and calling it. For example. 
+    A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with `cast_for` and calling it. 
     """
 
     mm_to_cast = MmToCastSetting()

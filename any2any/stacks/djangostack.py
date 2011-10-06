@@ -131,7 +131,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
                     schema.pop(k, None)
         return schema
 
-    def new_object(self, *args, **kwargs):
+    def new(self, *args, **kwargs):
         model = self.factory
         # Extracting primary key from kwargs
         key_tuple = self.extract_pk(kwargs) or ()
