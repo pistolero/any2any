@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# TODO: cleaning, clarifying and refactoring
 import copy
 import collections
 try:
@@ -7,7 +6,10 @@ try:
 except ImportError:
     from compat import abc
 
+
 class ClassSet(object):
+    # Set of classes, allowing to easily calculate inclusions
+    # with comparison operators : `a < B` <=> "A strictly included in B"
 
     def __init__(self, klass):
         self.klass = klass
@@ -31,6 +33,7 @@ class ClassSet(object):
         else:
             return klass
 
+
 class AllSubSetsOf(ClassSet):
 
     def __eq__(self, other):
@@ -48,6 +51,7 @@ class AllSubSetsOf(ClassSet):
     def __repr__(self):
         return u"Any '%s'" % self.klass.__name__
 
+
 class Singleton(ClassSet):
 
     def __eq__(self, other):
@@ -63,13 +67,10 @@ class Singleton(ClassSet):
     def __repr__(self):
         return u"'%s'" % self.klass.__name__
 
+
 class Metamorphosis(object):
     """
     A metamorphosis between two types :
-
-        >>> mm = Metamorphosis(Mammal, Human)
-
-    This represents the metamorphosis from a Mammal to a Human.
 
     Kwargs:
         from_(type). Metamorphosis only from type `from_` (and no subclass).
@@ -133,8 +134,26 @@ class Metamorphosis(object):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 Mm = Metamorphosis
 
+
 class Wrap(object):
     """
+    Wrapper mocking a class declaration :
+
+        >>> Wrapped = Wrap(str, int)
+        >>> a_str = Wrapped("blabla")
+        >>> isinstance(a_str, str)
+        True
+
+    while allowing customization of `issubclass` behaviour :
+
+        >>> Wrap.issubclass(Wrapped, int)
+        True
+        >>> Wrap.issubclass(Wrapped, str)
+        True
+
+    Kwargs:
+
+        factory(type). The type the wrap will use for instance creation
     """
     #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
 
@@ -205,10 +224,10 @@ class Wrap(object):
                     return True
         return False
 
+
 def closest_parent(klass, other_classes):
     """
-    Returns:
-        The closest parent of `klass` picked from the list `other_classes`. If no parent was found in `other_classes`, returns `object`.
+    Returns the closest parent of `klass` picked from the list `other_classes`. If no parent was found in `other_classes`, returns `object`.
     """
     #We select only the super classes of `klass`
     candidates = []
@@ -231,6 +250,7 @@ def closest_parent(klass, other_classes):
         return object
     else:
         return sorted(candidates, key=K)[0]
+
 
 class memoize(object):
     """
@@ -263,6 +283,7 @@ class memoize(object):
     def get_cache(self, cast, method):
         # Gets and returns from `cast` the dict containing cache for `method`
         return cast._cache.setdefault(method, {})
+
 
 class Iter(object):
     """

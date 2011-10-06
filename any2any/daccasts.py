@@ -89,6 +89,13 @@ class ObjectWrap(Wrap):
         - attribute schema - :meth:`ObjectWrap.default_schema`
         - attribute access - :meth:`ObjectWrap.setattr` and :meth:`ObjectWrap.getattr`
         - creation of new instances - :meth:`ObjectWrap.new`
+
+    Kwargs:
+
+        factory(type). The type the wrap will use for instance creation.
+        include(list). The list of attributes to include in the schema see, :meth:`ObjectWrap.get_schema`.
+        exclude(list). The list of attributes to exclude from the schema see, :meth:`ObjectWrap.get_schema`.
+        extra_schema(dict). ``{<attribute_name>: <attribute_type>}``. Adds extra attributes to the default schema, see :meth:`ObjectWrap.get_schema`.
     """
 
     defaults = dict(

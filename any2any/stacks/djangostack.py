@@ -74,7 +74,12 @@ class DjModelIntrospector(object):
 #======================================
 class DjModelWrap(DjModelIntrospector, ObjectWrap):
     """
-        - create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
+    Wrap for django models.
+
+    Kwargs:
+        
+        create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
+        key_schema(tuple). ``(<field_name>)``. Tuple of field names used to fetch the object from the database.
     """
 
     defaults = dict(
@@ -185,7 +190,7 @@ class ToModel(ToObject):
 
     def call(self, inpt):
         obj = super(ToModel, self).call(inpt)
-        obj.save() # TODO: WHY SAVE ?
+        obj.save() # TODO: why save ?
         return obj
 
 class FromQuerySet(FromIterable):
