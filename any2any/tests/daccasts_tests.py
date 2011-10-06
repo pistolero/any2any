@@ -10,7 +10,7 @@ class Identity(Cast):
     def call(self, inpt):
         return inpt
 
-class FromDictToDict(FromMapping, CastItems, ToMapping):
+class FromDictToDict(FromMapping, CastItems, ToMapping, DivideAndConquerCast):
     to = ToSetting(default=dict)
     mm_to_cast = ViralDictSetting(default={Mm(): Identity()})
 

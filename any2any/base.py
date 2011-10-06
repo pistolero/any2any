@@ -54,10 +54,6 @@ class Setting(property):
     def inherits(self, setting):
         pass
 
-    @staticmethod
-    def mixin(*settings):
-        return settings[0]
-
 class CopiedSetting(Setting):
 
     def get(self, instance):
@@ -95,17 +91,6 @@ class FromSetting(Setting):
             from_= instance.from_wrap(from_)
         return from_
 
-class WrapSetting(Setting):
-
-    @staticmethod
-    def mixin(*settings):
-        candidates = filter(lambda s: not s.default is None, settings)
-        if candidates:
-            return candidates[0]
-        else:
-            return settings[0]
-                
-
 class Options(object):
 
     def __init__(self, settings_dict):
@@ -114,24 +99,19 @@ class Options(object):
         self.settings = settings_dict.values()
         self.settings_dict = settings_dict
 
-class CastType(abc.ABCMeta):
+class BaseCastType(abc.ABCMeta):
 
     def __new__(cls, class_name, bases, attrs):
         Meta = attrs.pop('Meta', object())
         # collecting new settings
         new_settings_dict = dict(filter(lambda (k, v): isinstance(v, Setting), attrs.items()))
         # handling multiple inheritance of settings
-        parents = [b for b in bases if isinstance(b, CastType)]
         all_settings_dict = {}
-        #     1. mixing-in inherited settings
-        inherited_settings = collections.defaultdict(list)
-        for parent in parents:
-            for name, setting in parent._meta.settings_dict.items():
-                inherited_settings[name].append(setting)
-        for name, setting_list in inherited_settings.items():
-            setting = setting_list[0].mixin(*setting_list)
-            all_settings_dict[name] = setting
-        #     2. handling overridings of inherited settings
+        #     1. collecting inherited settings
+        parents = [b for b in bases if isinstance(b, BaseCastType)]
+        for parent in reversed(parents):
+            all_settings_dict.update(parent._meta.settings_dict)
+        #     2. handling overridings with new setting
         for name, setting in new_settings_dict.items():
             if name in all_settings_dict:
                 setting.inherits(all_settings_dict[name])
@@ -146,6 +126,12 @@ class CastType(abc.ABCMeta):
                 all_settings_dict[name] = new_setting
         # creating new class
         attrs['_meta'] = Options(all_settings_dict)
+        new_cast_class = super(BaseCastType, cls).__new__(cls, class_name, bases, attrs)
+        return new_cast_class
+
+class CastType(BaseCastType):
+
+    def __new__(cls, class_name, bases, attrs):
         new_cast_class = super(CastType, cls).__new__(cls, class_name, bases, attrs)
         # wrapping `call` to automate logging and context management
         new_cast_class.call = cls.wrap_call(new_cast_class)
@@ -240,9 +226,9 @@ class Cast(BaseCast):
     """type. The type to cast from. If not given, the type of the input is used."""
     to = ToSetting()
     """type. The type to cast to."""
-    from_wrap = WrapSetting()
+    from_wrap = Setting()
     """type. A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `from_`."""
-    to_wrap = WrapSetting()
+    to_wrap = Setting()
     """type. A subclass of :class:`any2any.utils.Wrap` that will be used to wrap `to`."""
     logs = ViralSetting(default=False)
     """bool. If True, the cast writes debug to :var:`logger`."""
@@ -291,6 +277,10 @@ class Cast(BaseCast):
         self.logs = True
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler())
+
+class CastMixin(object):
+
+    __metaclass__ = BaseCastType
 
 class MmToCastSetting(ViralDictSetting):
     

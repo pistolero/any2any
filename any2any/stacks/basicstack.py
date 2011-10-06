@@ -3,7 +3,7 @@ import datetime
 from types import FunctionType
 
 from any2any import (Cast, CastStack, FromMapping, ToMapping, FromIterable, ToIterable,
-FromObject, ToObject, ContainerWrap, ObjectWrap, Wrap, CastItems, Mm)
+FromObject, ToObject, ContainerWrap, ObjectWrap, Wrap, CastItems, Mm, DivideAndConquerCast)
 
 #TODO: document, reorganize tests
 
@@ -44,7 +44,7 @@ class CallFunction(Cast):
     def call(self, func):
         return func()
 
-class MappingToMapping(FromMapping, CastItems, ToMapping):
+class MappingToMapping(FromMapping, CastItems, ToMapping, DivideAndConquerCast):
     """
     Dictionaries to dictionaries :
 
@@ -53,7 +53,7 @@ class MappingToMapping(FromMapping, CastItems, ToMapping):
     """
     pass
 
-class IterableToIterable(FromIterable, CastItems, ToIterable):
+class IterableToIterable(FromIterable, CastItems, ToIterable, DivideAndConquerCast):
     """
     List to list :
 
@@ -62,7 +62,7 @@ class IterableToIterable(FromIterable, CastItems, ToIterable):
     """
     pass
 
-class ObjectToMapping(FromObject, CastItems, ToMapping):
+class ObjectToMapping(FromObject, CastItems, ToMapping, DivideAndConquerCast):
     """
     Object to dictionary :
 
@@ -71,7 +71,7 @@ class ObjectToMapping(FromObject, CastItems, ToMapping):
     """
     pass
 
-class MappingToObject(FromMapping, CastItems, ToObject):
+class MappingToObject(FromMapping, CastItems, ToObject, DivideAndConquerCast):
     """
     Dictionary to object :
 

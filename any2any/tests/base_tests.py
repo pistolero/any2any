@@ -26,28 +26,32 @@ class BaseCast_subclassing_test(object):
         Child().call(1)
         ok_(memory == ['Parent woohoo', 'Child woohoo'])
 
-    def settings_mixin_test(self):
+    def mixin_test(self):
         """
-        Test that when subclassing mixing-in settings works
+        Test that when subclassing mixing settings with non-Casts works
         """
-        class SettingLikingInt(Setting):
-            @staticmethod
-            def mixin(*settings):
-                candidates = filter(lambda s: isinstance(s.default, int), settings)
-                if candidates:
-                    return candidates[0]
-                else:
-                    return settings[0]
         class Parent(BaseCast):
-            set2 = Setting(default='1')
-            set1 = SettingLikingInt(default='1')
-        class Parent1(Parent): pass
-        class Parent2(Parent):
+            set1 = Setting(default=1)
+            set2 = Setting(default=1)
+        class Mixin1(CastMixin):
             set2 = Setting(default=2)
-            set1 = Setting(default=2)
-        class Child(Parent1, Parent2): pass
-        ok_(Child._meta.settings_dict['set1'].default == 2)
-        ok_(Child._meta.settings_dict['set2'].default == '1')
+            set3 = Setting(default=2)
+        class Mixin2(CastMixin):
+            set4 = Setting(default=2)
+        class Mixin3(Mixin1): pass
+        class Child1(Parent, Mixin1, Mixin2): pass
+        class Child2(Mixin1, Parent, Mixin2): pass
+        class Child3(Parent, Mixin3): pass
+
+        ok_(set(Child1._meta.settings_dict.keys()) == set(['set1', 'set2', 'set3', 'set4']))
+        ok_(Child1._meta.settings_dict['set1'].default == 1)
+        ok_(Child1._meta.settings_dict['set2'].default == 1)
+        ok_(set(Child2._meta.settings_dict.keys()) == set(['set1', 'set2', 'set3', 'set4']))
+        ok_(Child2._meta.settings_dict['set1'].default == 1)
+        ok_(Child2._meta.settings_dict['set2'].default == 2)
+        ok_(set(Child3._meta.settings_dict.keys()) == set(['set1', 'set2', 'set3']))
+        ok_(Child3._meta.settings_dict['set1'].default == 1)
+        ok_(Child3._meta.settings_dict['set2'].default == 1)
 
     def settings_inherit_test(self):
         """

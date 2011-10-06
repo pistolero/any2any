@@ -4,10 +4,8 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, Setting, CopiedSetting
+from base import Cast, Setting, CopiedSetting, CastMixin
 from utils import closest_parent, Wrap, Mm, memoize
-
-#TODO: make REAL mixins, so no need for this clumsy WrapSetting
 
 # Abstract DivideAndConquerCast
 #======================================
@@ -165,7 +163,7 @@ class ContainerWrap(Wrap):
 # Mixins
 #========================================
 
-class CastItems(DivideAndConquerCast):
+class CastItems(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_output`.
     """
@@ -226,14 +224,13 @@ class CastItems(DivideAndConquerCast):
         """
         return False
 
-class FromMapping(DivideAndConquerCast):
+class FromMapping(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     :class:`FromMapping` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
     """
 
-    class Meta:
-        defaults = {'from_wrap': ContainerWrap}
+    from_wrap = Setting(default=ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -241,14 +238,13 @@ class FromMapping(DivideAndConquerCast):
     def iter_input(self, inpt):
         return inpt.iteritems()
 
-class ToMapping(DivideAndConquerCast):
+class ToMapping(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     :class:`ToMapping` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
     """
 
-    class Meta:
-        defaults = {'to_wrap': ContainerWrap}
+    to_wrap = Setting(default=ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -256,14 +252,13 @@ class ToMapping(DivideAndConquerCast):
     def build_output(self, items_iter):
         return self.to(items_iter)
 
-class FromIterable(DivideAndConquerCast):
+class FromIterable(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     :class:`FromIterable` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
     """
 
-    class Meta:
-        defaults = {'from_wrap': ContainerWrap}
+    from_wrap = Setting(default=ContainerWrap)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -271,14 +266,13 @@ class FromIterable(DivideAndConquerCast):
     def iter_input(self, inpt):
         return enumerate(inpt)
 
-class ToIterable(DivideAndConquerCast):
+class ToIterable(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     :class:`ToIterable` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
     """
 
-    class Meta:
-        defaults = {'to_wrap': ContainerWrap}
+    to_wrap = Setting(default=ContainerWrap)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -286,14 +280,13 @@ class ToIterable(DivideAndConquerCast):
     def build_output(self, items_iter):
         return self.to((value for key, value in items_iter))
 
-class FromObject(DivideAndConquerCast):
+class FromObject(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     :class:`FromObject` is more comfortable when the setting `from_` is an :class:`ObjectWrap`.
     """
 
-    class Meta:
-        defaults = {'from_wrap': ObjectWrap}
+    from_wrap = Setting(default=ObjectWrap)
 
     def get_item_from(self, key):
         return self.from_.get_class(key)
@@ -302,14 +295,13 @@ class FromObject(DivideAndConquerCast):
         for name in self.from_.get_schema().keys():
             yield name, self.from_.getattr(inpt, name)
 
-class ToObject(DivideAndConquerCast):
+class ToObject(CastMixin):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     :class:`ToObject` is more comfortable when the setting `to` is an :class:`ObjectWrap`.
     """
 
-    class Meta:
-        defaults = {'to_wrap': ObjectWrap}
+    to_wrap = Setting(default=ObjectWrap)
 
     def get_item_to(self, key):
         return self.to.get_class(key)

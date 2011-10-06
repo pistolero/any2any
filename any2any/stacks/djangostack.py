@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
-FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting)
+FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast)
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
 # Model instrospector
@@ -177,13 +177,11 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
 #======================================
 class FromModel(FromObject):
 
-    class Meta:
-        defaults = {'from_wrap': DjModelWrap}
+    from_wrap = Setting(default=DjModelWrap)
 
 class ToModel(ToObject):
 
-    class Meta:
-        defaults = {'to_wrap': DjModelWrap}
+    to_wrap = Setting(default=DjModelWrap)
 
     def call(self, inpt):
         obj = super(ToModel, self).call(inpt)
@@ -255,7 +253,7 @@ class QueryDictWrap(Wrap, DjModelIntrospector):
                     return True
         return False
 
-class QueryDictFlatener(FromQueryDict, CastItems, ToMapping):
+class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCast):
     """
     Cast for flatening a querydict.
 
@@ -268,24 +266,22 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping):
         True
     """
 
+    to_wrap = Setting(default=QueryDictWrap)
     mm_to_cast = Setting(default={
         Mm(from_=list): ListToFirstElem(),
         Mm(to=list): OneElemToList(),
         Mm(list, list): Identity(),
     })
 
-    class Meta:
-        defaults = {'to_wrap': QueryDictWrap}
-
     def get_item_to(self, key):
         return self.to.get_class(key)
 
 # Building stack for Django
 #======================================
-class ModelToMapping(FromModel, ToMapping, CastItems): pass
-class MappingToModel(ToModel, FromMapping, CastItems): pass
-class QuerySetToIterable(FromQuerySet, CastItems, ToIterable): pass
-class IterableToQueryset(FromIterable, CastItems, ToIterable): pass
+class ModelToMapping(FromModel, ToMapping, CastItems, DivideAndConquerCast): pass
+class MappingToModel(ToModel, FromMapping, CastItems, DivideAndConquerCast): pass
+class QuerySetToIterable(FromQuerySet, CastItems, ToIterable, DivideAndConquerCast): pass
+class IterableToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast): pass
 
 class DjangoStack(BasicStack):
 
