@@ -216,7 +216,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         james = self.cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
-        james = Author.objects.get(pk = james.pk)
+        james = Author.objects.get(pk=james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
         ok_(james.lastname == 'Ballard')

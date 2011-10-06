@@ -38,6 +38,9 @@ class ClassSet_Test(object):
         ok_(not ClassSet(object, False) == ClassSet(int, False))
         ok_(not ClassSet(object, True) == ClassSet(int, True))
 
+        ok_(ClassSet(object, True) == object)
+        ok_(not ClassSet(object, False) == object)
+
     def lt_test(self):
         """
         Test ClassSet.__lt__
@@ -50,6 +53,10 @@ class ClassSet_Test(object):
         ok_(not ClassSet(int, True) < ClassSet(object, True)) # because other is singleton
         ok_(not ClassSet(int, False) < ClassSet(object, True)) # ''
         ok_(not ClassSet(int, False) < ClassSet(str, False)) # because no one is other's parent
+
+        ok_(not ClassSet(str, True) < object)
+        ok_(not ClassSet(object, True) < object)
+        ok_(not ClassSet(object, False) < object)
 
     def comp_test(self):
         """
@@ -65,6 +72,10 @@ class ClassSet_Test(object):
         ok_(not ClassSet(int, False) > ClassSet(object, True)) # ''
         ok_(not ClassSet(int, False) > ClassSet(str, False)) # because no one is other's parent
         
+        ok_(ClassSet(object, False) > object)
+        ok_(ClassSet(object, False) > str)
+        ok_(not ClassSet(object, True) > str)
+
         # Other comparison operators
         ok_(ClassSet(object, False) >= ClassSet(object, True))
         ok_(ClassSet(object, False) >= ClassSet(int, True))
@@ -79,14 +90,14 @@ class Metamorphosis_Test(object):
     # A) m1 = m2                                        -> None
     #
     # B) m1 C m2
-    #   m1.from < m2.from, m1.to < m2.to        -> m1
-    #   m1.from = m2.from, m1.to < m2.to        -> m1
-    #   m1.from < m2.from, m1.to = m2.to        -> m1
+    #   m1.from < m2.from, m1.to < m2.to        -> m1 < m2
+    #   m1.from = m2.from, m1.to < m2.to        -> m1 < m2
+    #   m1.from < m2.from, m1.to = m2.to        -> m1 < m2
     #
     # C) m1 ? m2
-    #   a) m1.from > m2.from, m1.to < m2.to        -> m1
-    #   b) m1.from ? m2.from, m1.to < m2.to        -> m1
-    #   c) m1.from < m2.from, m1.to ? m2.to        -> m1
+    #   a) m1.from > m2.from, m1.to < m2.to        -> None
+    #   b) m1.from ? m2.from, m1.to < m2.to        -> None
+    #   c) m1.from < m2.from, m1.to ? m2.to        -> None
     #   d) m1.from ? m2.from, m1.to ? m2.to        -> None
     #   e) m1.from ? m2.from, m1.to = m2.to        -> None
     #   f) m1.from = m2.from, m1.to ? m2.to        -> None
@@ -106,39 +117,21 @@ class Metamorphosis_Test(object):
         ok_(not animal_to_salesman.included_in(animal_to_human))
         ok_(not animal_to_human.included_in(shark_to_human))
 
-    def most_precise_test(self):
+    def test_super_mms(self):
         """
-        Test Metamorphosis.most_precise
+        Test Metamorphosis.super_mms
         """
-        # A)
-        ok_(Mm.most_precise(animal_to_salesman, animal_to_salesman) == None)
-        # B)
-        ok_(Mm.most_precise(shark_to_human, any_animal_to_any_human) == shark_to_human)
-        ok_(Mm.most_precise(animal_to_human, animal_to_any_human) == animal_to_human)
-        ok_(Mm.most_precise(shark_to_salesman, any_animal_to_salesman) == shark_to_salesman)
-        # C) a), b), c)
-        ok_(Mm.most_precise(any_animal_to_human, shark_to_any_human) == any_animal_to_human)
-        ok_(Mm.most_precise(shark_to_salesman, salesman_to_any_human) == shark_to_salesman)
-        ok_(Mm.most_precise(shark_to_salesman, any_animal_to_shark) == shark_to_salesman)
-        #d), e), f)
-        ok_(Mm.most_precise(any_animal_to_shark, human_to_salesman) == None)
-        ok_(Mm.most_precise(shark_to_salesman, any_human_to_salesman) == None)
-        ok_(Mm.most_precise(any_human_to_salesman, any_human_to_shark) == None)
-
-    def test_pick_closest_in(self):
-        """
-        Test Metamorphosis.pick_closest_in
-        """
-        ok_(shark_to_salesman.pick_closest_in(
-            [any_animal_to_salesman, shark_to_salesman, salesman_to_human]
-        ) == shark_to_salesman)
-        ok_(shark_to_salesman.pick_closest_in(
+        # Both `any_animal_to_salesman` and `shark_to_any_human` are supersets of `shark_to_salesman`
+        ok_(set(shark_to_salesman.super_mms(
             [any_animal_to_salesman, salesman_to_human, shark_to_any_human]
-        ) == any_animal_to_salesman)
-        ok_(shark_to_salesman.pick_closest_in(
-            [shark_to_salesman]
-        ) == shark_to_salesman)
-        assert_raises(ValueError, animal_to_salesman.pick_closest_in, [human_to_salesman])
+        )) == set([any_animal_to_salesman, shark_to_any_human]))
+        # Both `any_animal_to_salesman` and `shark_to_salesman` are supersets of `shark_to_salesman`,
+        # but `any_animal_to_salesman` is superset of `shark_to_salesman`, therefore not needed.
+        ok_(shark_to_salesman.super_mms(
+            [any_animal_to_salesman, shark_to_salesman, salesman_to_human]
+        ) == [shark_to_salesman])
+        # No match
+        ok_(animal_to_salesman.super_mms([human_to_salesman]) == [])
         
 class Specialization_Test(object):
     """

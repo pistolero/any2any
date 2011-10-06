@@ -176,28 +176,43 @@ class Cast_test(object):
         class Identity(Cast):
             def call(self, inpt):
                 return inpt
-        class ToStr(Cast):
+        class ToFloat(Cast):
             def call(self, inpt):
-                return str(inpt)
+                return float(inpt)
+        class ToInt(Cast):
+            def call(self, inpt):
+                return int(inpt)
         self.Identity = Identity
-        self.ToStr = ToStr
+        self.ToFloat = ToFloat
+        self.ToInt = ToInt
 
     def cast_for_test(self):
         """
         Test Cast.cast_for
         """
         cast = self.Identity(mm_to_cast={
-            Mm(int): self.ToStr()
+            Mm(int): self.ToFloat()
         })
-        ok_(isinstance(cast.cast_for(Mm(int)), self.ToStr))
-        ok_(isinstance(cast.cast_for(Mm(int, str)), self.ToStr))
+        ok_(isinstance(cast.cast_for(Mm(int)), self.ToFloat))
+        ok_(isinstance(cast.cast_for(Mm(int, str)), self.ToFloat))
         assert_raises(ValueError, cast.cast_for, Mm(str))
         cast = self.Identity(mm_to_cast={
-            Mm(int): self.ToStr(),
-            Mm(): self.Identity()
+            Mm(from_any=int): self.ToFloat(),
+            Mm(): self.Identity(),
+            Mm(from_any=float): self.ToInt(),
+            Mm(from_any=str): self.ToInt(),
+            Mm(to_any=str): self.ToFloat(),
         })
-        ok_(isinstance(cast.cast_for(Mm(int)), self.ToStr))
-        ok_(isinstance(cast.cast_for(Mm(int, str)), self.ToStr))
-        ok_(isinstance(cast.cast_for(Mm(str)), self.Identity))
-        ok_(isinstance(cast.cast_for(Mm(str, int)), self.Identity))
+        ok_(isinstance(cast.cast_for(Mm(int)), self.ToFloat))
+        ok_(isinstance(cast.cast_for(Mm(int, unicode)), self.ToFloat))
+        ok_(isinstance(cast.cast_for(Mm(unicode)), self.Identity))
+        ok_(isinstance(cast.cast_for(Mm(unicode, int)), self.Identity))
         ok_(isinstance(cast.cast_for(Mm()), self.Identity))
+        # With Wrap : give preference to the superclasses respectively to their order
+        ok_(isinstance(cast.cast_for(Mm(Wrap(int, float))), self.ToFloat))
+        ok_(isinstance(cast.cast_for(Mm(Wrap(float, int))), self.ToInt))
+        # Give priority to a matching `to`
+        ok_(isinstance(cast.cast_for(Mm(str)), self.ToInt))
+        ok_(isinstance(cast.cast_for(Mm(to=str)), self.ToFloat))
+        ok_(isinstance(cast.cast_for(Mm(str, str)), self.ToFloat))
+        

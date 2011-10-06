@@ -19,7 +19,7 @@ except ImportError:
     from compat import abc
 import collections
 from functools import wraps
-from utils import memoize, Mm
+from utils import memoize, Mm, Wrap
 
 class Setting(property):
 
@@ -248,8 +248,8 @@ class Cast(BaseCast):
             Cast. A cast suitable for metamorphosis `mm`, and customized with calling cast's settings.
         """
         # gets best choice
-        closest_mm = mm.pick_closest_in(self.mm_to_cast.keys())
-        cast = self.mm_to_cast[closest_mm]
+        best_match = self._pick_best_match(mm, self.mm_to_cast.keys())
+        cast = self.mm_to_cast[best_match]
         # copies and builds a customized version
         cast = copy.copy(cast)
         cast._depth = cast._depth + 1
@@ -264,6 +264,36 @@ class Cast(BaseCast):
             self.from_ = mm.from_
         if mm.to and not self.to:
             self.to = mm.to
+
+    def _pick_best_match(self, mm, mm_list):
+        # Picks best match of `mm` in `mm_list`
+        filtered = mm.super_mms(mm_list)
+        if not filtered:
+            raise ValueError("No suitable metamorphosis found for '%s'" % mm)
+        # We prefer if `to_set` is more precise and then `from_set`.
+        for v1 in list(filtered):
+            for v2 in list(filtered):
+                if v1._to_set < v2._to_set:
+                    filtered.remove(v2)
+        for v1 in list(filtered):
+            for v2 in list(filtered):
+                if v1._from_set < v2._from_set:
+                    filtered.remove(v2)
+        # If wraps, we prefer mms that match a wrap's superclass in better position
+        from_class, to_class = mm._from_set.klass, mm._to_set.klass
+        if isinstance(to_class, Wrap):
+            for k in to_class.superclasses:
+                temp = filter(lambda v: k <= v._to_set, filtered)
+                if temp:
+                    filtered = temp
+                    break
+        if isinstance(from_class, Wrap):
+            for k in from_class.superclasses:
+                temp = filter(lambda v: k <= v._from_set, filtered)
+                if temp:
+                    filtered = temp
+                    break
+        return filtered[0]
 
     def log(self, message):
         if self.logs:
