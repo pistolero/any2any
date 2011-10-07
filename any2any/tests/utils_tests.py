@@ -133,20 +133,20 @@ class Metamorphosis_Test(object):
         # No match
         ok_(animal_to_salesman.super_mms([human_to_salesman]) == [])
         
-class Specialization_Test(object):
+class Wrap_Test(object):
     """
-    Tests for the Specialization class
+    Tests for the Wrap class
     """
 
     def issubclass_test(self):
         """
-        Test Specialization.issubclass
+        Test Wrap.issubclass
         """
         # built-in types
         ok_(Wrap.issubclass(int, object))
         ok_(not Wrap.issubclass(object, int))
         ok_(Wrap.issubclass(object, object))
-        # specialization + built-in type
+        # Wrap + built-in type
         ok_(Wrap.issubclass(Wrap(str), str))
         ok_(not Wrap.issubclass(str, Wrap(str)))
         ok_(Wrap.issubclass(Wrap(str), Wrap(str)))
@@ -161,7 +161,7 @@ class Specialization_Test(object):
 
     def instantiate_test(self):
         """
-        Test instantiate a Specialization
+        Test instantiate a Wrap
         """
         WrappedStr = Wrap(str)
         a_str = WrappedStr("blabla")
@@ -177,6 +177,37 @@ class Specialization_Test(object):
         an_int = WrappedInt(198)
         ok_(an_int == 198)
         ok_(type(an_int) == int)
+
+    def declarative_instantiate_test(self):
+        """
+        Test instantiate a wrap with the declarative syntax
+        """
+        class WrappedInt(Wrapped):
+            class Meta:
+                superclasses = (int,)
+        # Test features and other basics
+        ok_(isinstance(WrappedInt, Wrap))
+        ok_(WrappedInt.superclasses == (int,))
+        ok_(WrappedInt.factory == int)
+        an_int = WrappedInt(198)
+        ok_(an_int == 198)
+        ok_(type(an_int) == int)
+        # Test declaring instance methods
+        try:
+            class UnvalidWrapped(Wrapped):
+                def non_sense(self): pass
+        except TypeError:
+            pass
+        else:
+            raise Exception("test failed, because cannot declare instance methods there")
+        # Test declaring class methods
+        class UnvalidWrapped(Wrapped):
+            @classmethod
+            def makes_sense(self): return 11
+            class Meta:
+                superclasses = (int,)
+        ok_(UnvalidWrapped.makes_sense() == 11)
+        
 
 class Memoization_Test(object):
     """

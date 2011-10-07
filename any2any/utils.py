@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import collections
+import types
 try:
     import abc
 except ImportError:
@@ -223,6 +224,69 @@ class Wrap(object):
                 elif issubclass(c1, c2):
                     return True
         return False
+
+
+class DeclarativeWrapType(type):
+    # slightly modifies a wrap type, so that it can be reused easily
+    # with a declarative syntax.
+
+    def __new__(cls, wrap_type):
+        attrs = {}
+        name = 'Declarative%s' % wrap_type.__name__
+        bases = (wrap_type,)
+
+        class Empty(object): pass
+        classmethod_type = type(classmethod(None))
+
+        def __new__(kls, name, bases, attrs):
+            new_wrapped = super(kls, kls).__new__(kls, name, bases, attrs)
+            for name, value in attrs.items():
+                print value
+                if isinstance(value, types.FunctionType):
+                    raise TypeError('You cannot declare instance methods here')
+                elif isinstance(value, classmethod_type):
+                    # this is a ugly hack allowing to declare classmethods on the Wrapped. 
+                    def closure(class_meth):
+                        def sim_class_method(*args, **kwargs):
+                            return class_meth.__func__(new_wrapped, *args, **kwargs)
+                        return sim_class_method
+                    setattr(new_wrapped, name, closure(value))
+            return new_wrapped
+
+        def __init__(self, name, bases, attrs):
+            # collecting features and superclasses
+            meta = attrs.get('Meta', Empty())
+            features = dict(filter(lambda(k, v): not k.startswith('_'), meta.__dict__.items()))
+            try:
+                superclasses = features.pop('superclasses')
+            except KeyError:
+                raise TypeError("Meta must contain a 'superclasses' attribute")
+            wrap_type.__init__(self, *superclasses, **features)
+
+        attrs['__init__'] = __init__
+        attrs['__new__'] = __new__
+        return super(DeclarativeWrapType, cls).__new__(cls, name, bases, attrs)
+
+
+class Wrapped(object):
+    """
+    Subclass this to create a wrapped type using a declarative syntax, e.g. :
+
+        >>> class WrappedInt(Wrapped):
+        ...
+        ... class Meta:
+        ...     superclasses = (int,)
+        ... 
+
+    Which is equivalent to :
+
+        >>> Wrap(int)
+    """
+
+    __metaclass__ = DeclarativeWrapType(Wrap)
+
+    class Meta:
+        superclasses = (object,)
 
 
 def closest_parent(klass, other_classes):

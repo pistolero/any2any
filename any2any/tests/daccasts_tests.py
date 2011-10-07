@@ -131,7 +131,7 @@ class ObjectWrap_Test(object):
         ok_(obj_type.getattr(obj, 'a') == 'blabla')
         ok_(obj_type.getattr(obj, 'b') == 'bloblo')
                 
-    def getattr_test(self):
+    def setattr_test(self):
         """
         Test ObjectWrap.setattr
         """
@@ -144,6 +144,34 @@ class ObjectWrap_Test(object):
         obj_type.setattr(obj, 'b', 'blabla')
         ok_(obj.a == 'bloblo')
         ok_(obj.b == 'blabla')
+
+    def declarative_test(self):
+        """
+        Test creating wrapped object with declarative syntax
+        """
+
+        class MyWrappedObject(WrappedObject):
+
+            @classmethod
+            def default_schema(self):
+                return {'attr1': int, 'attr2': str, 'attr3': object}
+
+            @classmethod
+            def get_attr1(cls, instance):
+                return instance['attr1']
+        
+            class Meta:
+                superclasses = (float, int)
+                include = ['attr1', 'attr2']
+
+        obj = {'attr1': 888}
+
+        ok_(MyWrappedObject.get_attr1(obj) == 888)
+        ok_(MyWrappedObject.superclasses == (float, int))
+        ok_(MyWrappedObject.include == ['attr1', 'attr2'])
+        ok_(MyWrappedObject.get_schema() == {'attr1': int, 'attr2': str})
+        
+            
 
 ListOfObjects = ContainerWrap(list, value_type=object)
 ListOfStr = ContainerWrap(list, value_type=str)

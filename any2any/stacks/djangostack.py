@@ -9,8 +9,10 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
-FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast)
+FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast, WrappedObject)
+from any2any.utils import DeclarativeWrapType
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
+
 
 # Model instrospector
 #======================================
@@ -70,6 +72,7 @@ class DjModelIntrospector(object):
             ptr_fields += self.collect_ptrs(parent_model)
         return ptr_fields
 
+
 # Model Wrap
 #======================================
 class DjModelWrap(DjModelIntrospector, ObjectWrap):
@@ -105,7 +108,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
             elif isinstance(field, djmodels.ManyToManyField):
                 wrapped_type = ContainerWrap(
                     field_type, djmodels.Manager, factory=list,
-                    value_type=DjModelWrap(field.rel.to)
+                    value_type=field.rel.to
                 )
             # "Complex" Python types to the right type 
             elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
@@ -178,11 +181,21 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
     def model(self):
         return self.base
 
+
+class WrappedDjModel(WrappedObject):
+
+    __metaclass__ = DeclarativeWrapType(DjModelWrap)
+
+    class Meta:
+        superclasses = (object,)
+
+
 # Mixins
 #======================================
 class FromModel(FromObject):
 
     from_wrap = Setting(default=DjModelWrap)
+
 
 class ToModel(ToObject):
 
@@ -193,10 +206,12 @@ class ToModel(ToObject):
         obj.save() # TODO: why save ?
         return obj
 
+
 class FromQuerySet(FromIterable):
 
     def iter_input(self, inpt):
         return enumerate(inpt.all())
+
 
 # Casts for QueryDict
 #======================================
@@ -211,10 +226,12 @@ class ListToFirstElem(Cast):
     def no_elem_error(self):
         pass
 
+
 class OneElemToList(Cast):
 
     def call(self, inpt):
         return [inpt]
+
 
 class StripEmptyValues(IterableToIterable):
 
@@ -227,10 +244,12 @@ class StripEmptyValues(IterableToIterable):
         if value == self.empty_value:
             return True
 
+
 class FromQueryDict(FromMapping):
     
     def iter_input(self, qd):
         return qd.iterlists()
+
 
 class QueryDictWrap(Wrap, DjModelIntrospector):
 
@@ -258,6 +277,7 @@ class QueryDictWrap(Wrap, DjModelIntrospector):
                     return True
         return False
 
+
 class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCast):
     """
     Cast for flatening a querydict.
@@ -281,12 +301,14 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCas
     def get_item_to(self, key):
         return self.to.get_class(key)
 
+
 # Building stack for Django
 #======================================
 class ModelToMapping(FromModel, ToMapping, CastItems, DivideAndConquerCast): pass
 class MappingToModel(ToModel, FromMapping, CastItems, DivideAndConquerCast): pass
 class QuerySetToIterable(FromQuerySet, CastItems, ToIterable, DivideAndConquerCast): pass
 class IterableToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast): pass
+
 
 class DjangoStack(BasicStack):
 

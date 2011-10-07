@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast, Setting, CopiedSetting, CastMixin
-from utils import closest_parent, Wrap, Mm, memoize
+from utils import closest_parent, Wrap, DeclarativeWrapType, Mm, memoize
 
 
 # Abstract DivideAndConquerCast
@@ -164,6 +164,37 @@ class ObjectWrap(Wrap):
         return self.new(**kwargs)
 
 
+class WrappedObject(object):
+    """
+    Subclass this to create a wrapped type using a declarative syntax, e.g. 
+
+        >>> class MyWrappedObject(WrappedObject):
+        ...     
+        ...     @classmethod
+        ...     def get_attr1(cls, instance):
+        ...         return instance['attr1']
+        ... 
+        ...     class Meta:
+        ...         superclasses = (MyInt, int)
+        ...         include = ['attr1', 'attr2']
+        ...         
+
+    Which is equivalent to :
+
+        >>> class MyObjectWrap(ObjectWrap):
+        ...
+        ...     def get_attr1(self, instance):
+        ...         return instance['attr1']
+        ...
+        >>> MyWrappedObject = MyObjectWrap(MyInt, int, include=['attr1', 'attr2']
+    """
+
+    __metaclass__ = DeclarativeWrapType(ObjectWrap)
+
+    class Meta:
+        superclasses = (object,)
+
+
 class ContainerWrap(Wrap):
     """
     Wrapper for any type of container.
@@ -189,6 +220,28 @@ class ContainerWrap(Wrap):
     def __repr__(self):
         return 'Wrapped%s%s' % (self.base.__name__.capitalize(),
         '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
+
+
+class WrappedContainer(object):
+    """
+    Subclass this to create a wrapped container type using a declarative syntax, e.g. 
+
+        >>> class MyWrappedContainer(WrappedContainer):
+        ... 
+        ...     class Meta:
+        ...         superclasses = (set, list)
+        ...         value_type = int
+        ...         
+
+    Which is equivalent to :
+
+        >>> MyWrappedContainer = ContainerWrap(set, list, value_type=int)
+    """
+
+    __metaclass__ = DeclarativeWrapType(ObjectWrap)
+
+    class Meta:
+        superclasses = (object,)
 
 
 # Mixins for DivideAndConquerCast
