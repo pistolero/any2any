@@ -239,15 +239,18 @@ def declarative_wrap_type(wrap_type):
     bases = (wrap_type,)
 
     class Empty(object): pass
-    classmethod_type = type(classmethod(None))
+
 
     def __new__(kls, name, bases, attrs):
+        for b in bases:
+            if hasattr(b, 'makes_sense'):
+                import pdb; pdb.set_trace()
+                attrs['blobloblo'] = 1234
         new_wrapped = super(kls, kls).__new__(kls, name, bases, attrs)
         for name, value in attrs.items():
-            print value
             if isinstance(value, types.FunctionType):
                 raise TypeError('You cannot declare instance methods here')
-            elif isinstance(value, classmethod_type):
+            elif isinstance(value, classmethod):
                 # this is a ugly hack allowing to declare classmethods on the Wrapped. 
                 def closure(class_meth):
                     def fake_class_method(*args, **kwargs):

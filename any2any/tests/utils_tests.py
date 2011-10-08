@@ -213,13 +213,17 @@ class Wrap_Test(object):
         else:
             raise Exception("test failed, because cannot declare instance methods there")
         # Test declaring class methods
-        class UnvalidWrapped(Wrapped):
+        class MyWrapped(Wrapped):
             @classmethod
             def makes_sense(self): return 11
             class Meta:
                 klass = int
-        ok_(UnvalidWrapped.makes_sense() == 11)
-        
+        ok_(MyWrapped.makes_sense() == 11)
+        # Check that inheritance works as well
+        class MyOhMyWrapped(MyWrapped):
+            class Meta:
+                klass = int
+        ok_(MyOhMyWrapped.makes_sense() == 11)
 
 class Memoization_Test(object):
     """
