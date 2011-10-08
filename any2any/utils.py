@@ -79,7 +79,7 @@ class Metamorphosis(object):
         from_any(type). Metamorphosis from type `from_any` and subclasses.
         to_any(type). Metamorphosis from type `to_any` and subclasses.
     """
-    #TODO: refactor for having sets, and single mm
+
     def __init__(self, from_=None, to=None, from_any=None, to_any=None):
         if not from_any and not from_:
             from_any = object
@@ -107,6 +107,7 @@ class Metamorphosis(object):
         Given a list of metamorphoses `mms`, returns the super-metamorphoses (i.e. "superset")
         of the calling instance, and filters out the possible duplicates and supersets of supersets. 
         """
+
         super_mms = set(filter(self.included_in, mms))
         for m1 in super_mms.copy():
             for m2 in super_mms.copy():
@@ -136,71 +137,74 @@ class Metamorphosis(object):
 Mm = Metamorphosis
 
 
+class WrapMeta(type):
+    # Just a metaclass for allowing inheritance of defaults
+
+    def __new__(cls, name, bases, attrs):
+        new_defaults = attrs.pop('defaults', None)
+        new_wrap = super(WrapMeta, cls).__new__(cls, name, bases, attrs)
+        if new_defaults:
+            new_wrap.defaults = dict(getattr(new_wrap, 'defaults', {}), **new_defaults)
+        return new_wrap
+
+
 class Wrap(object):
     """
-    Wrapper mocking a class declaration :
-
-        >>> Wrapped = Wrap(str, int)
-        >>> a_str = Wrapped("blabla")
-        >>> isinstance(a_str, str)
-        True
-
-    while allowing customization of `issubclass` behaviour :
-
-        >>> Wrap.issubclass(Wrapped, int)
-        True
-        >>> Wrap.issubclass(Wrapped, str)
-        True
+    Wrapper allowing to provide extra-information on a type.
 
     Kwargs:
 
-        factory(type). The type the wrap will use for instance creation
+        superclasses(tuple). Allows to customize :meth:`Wrap.issubclass` behaviour :
+
+            >>> Wrapped = Wrap(str, superclasses=(MyStr, AllStrings))
+            >>> Wrap.issubclass(Wrapped, str), Wrap.issubclass(Wrapped, MyStr), # ...
+            (True, True)
+
+        factory(type). The type used for instance creation :
+
+            >>> Wrapped = Wrap(basestring, factory=str)
+            >>> a_str = Wrapped("blabla")
+            >>> type(a_str) == str
+            True
     """
     #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrap.__eq__
 
-    defaults = {'factory': None}
+    __metaclass__ = WrapMeta
 
-    def __init__(self, *superclasses, **features):
-        # handling superclasses
-        if len(superclasses) == 0:
-            raise TypeError("You must provide at least one superclass.")
-        self.superclasses = superclasses
-        if not 'factory' in features:
-            features['factory'] = superclasses[0]
-        # handling features
+    defaults = {'factory': None, 'superclasses': ()}
+
+    def __init__(self, klass, **features):
+        features.setdefault('factory', klass)
+        features['superclasses'] = (klass,) + tuple(features.get('superclasses', ())) 
         self.features = features
-        attrs = copy.copy(self.defaults)
-        attrs.update(features)
-        for name, value in attrs.items():
+        self.klass = klass
+        features = dict(copy.copy(self.defaults), **features)
+        for name, value in features.items():
             if not name in self.defaults:
                 raise TypeError("Unvalid feature '%s'" % name)
             setattr(self, name, value)
-
-    @property
-    def base(self):
-        return self.superclasses[0]
 
     def __call__(self, *args, **kwargs):
         return self.factory(*args, **kwargs)
 
     def __repr__(self):
-        return 'Wrapped%s' % self.base.__name__.capitalize()
+        return 'Wrapped%s' % self.klass.__name__.capitalize()
 
     def __getattr__(self, name):
         try:
-            return getattr(self.base, name)
+            return getattr(self.klass, name)
         except AttributeError:
             return self.__getattribute__(name)
 
     def __eq__(self, other):
         if isinstance(other, Wrap):
-            return (self.superclasses == other.superclasses 
+            return (self.klass == other.klass 
             and self.features == other.features)
         else:
             return False
 
     def __superclasshook__(self, C):
-        if isinstance(C, Wrap): C = C.base
+        if isinstance(C, Wrap): C = C.klass
         # `C` is superclass of `self`,
         # if `C` is superclass of one of `self.superclasses` 
         for parent in self.superclasses:
@@ -226,46 +230,45 @@ class Wrap(object):
         return False
 
 
-class DeclarativeWrapType(type):
+def declarative_wrap_type(wrap_type):
     # slightly modifies a wrap type, so that it can be reused easily
     # with a declarative syntax.
 
-    def __new__(cls, wrap_type):
-        attrs = {}
-        name = 'Declarative%s' % wrap_type.__name__
-        bases = (wrap_type,)
+    attrs = {}
+    name = 'Declarative%s' % wrap_type.__name__
+    bases = (wrap_type,)
 
-        class Empty(object): pass
-        classmethod_type = type(classmethod(None))
+    class Empty(object): pass
+    classmethod_type = type(classmethod(None))
 
-        def __new__(kls, name, bases, attrs):
-            new_wrapped = super(kls, kls).__new__(kls, name, bases, attrs)
-            for name, value in attrs.items():
-                print value
-                if isinstance(value, types.FunctionType):
-                    raise TypeError('You cannot declare instance methods here')
-                elif isinstance(value, classmethod_type):
-                    # this is a ugly hack allowing to declare classmethods on the Wrapped. 
-                    def closure(class_meth):
-                        def sim_class_method(*args, **kwargs):
-                            return class_meth.__func__(new_wrapped, *args, **kwargs)
-                        return sim_class_method
-                    setattr(new_wrapped, name, closure(value))
-            return new_wrapped
+    def __new__(kls, name, bases, attrs):
+        new_wrapped = super(kls, kls).__new__(kls, name, bases, attrs)
+        for name, value in attrs.items():
+            print value
+            if isinstance(value, types.FunctionType):
+                raise TypeError('You cannot declare instance methods here')
+            elif isinstance(value, classmethod_type):
+                # this is a ugly hack allowing to declare classmethods on the Wrapped. 
+                def closure(class_meth):
+                    def fake_class_method(*args, **kwargs):
+                        return class_meth.__func__(new_wrapped, *args, **kwargs)
+                    return fake_class_method
+                setattr(new_wrapped, name, closure(value))
+        return new_wrapped
 
-        def __init__(self, name, bases, attrs):
-            # collecting features and superclasses
-            meta = attrs.get('Meta', Empty())
-            features = dict(filter(lambda(k, v): not k.startswith('_'), meta.__dict__.items()))
-            try:
-                superclasses = features.pop('superclasses')
-            except KeyError:
-                raise TypeError("Meta must contain a 'superclasses' attribute")
-            wrap_type.__init__(self, *superclasses, **features)
+    def __init__(self, name, bases, attrs):
+        # collecting features and klass
+        meta = attrs.get('Meta', Empty())
+        features = dict(filter(lambda(k, v): not k.startswith('_'), meta.__dict__.items()))
+        try:
+            klass = features.pop('klass')
+        except KeyError:
+            raise TypeError("Meta must contain a 'klass' attribute")
+        wrap_type.__init__(self, klass, **features)
 
-        attrs['__init__'] = __init__
-        attrs['__new__'] = __new__
-        return super(DeclarativeWrapType, cls).__new__(cls, name, bases, attrs)
+    attrs['__init__'] = __init__
+    attrs['__new__'] = __new__
+    return type(name, bases, attrs)
 
 
 class Wrapped(object):
@@ -275,7 +278,7 @@ class Wrapped(object):
         >>> class WrappedInt(Wrapped):
         ...
         ... class Meta:
-        ...     superclasses = (int,)
+        ...     klass = int
         ... 
 
     Which is equivalent to :
@@ -283,10 +286,10 @@ class Wrapped(object):
         >>> Wrap(int)
     """
 
-    __metaclass__ = DeclarativeWrapType(Wrap)
+    __metaclass__ = declarative_wrap_type(Wrap)
 
     class Meta:
-        superclasses = (object,)
+        klass = object
 
 
 def closest_parent(klass, other_classes):

@@ -138,6 +138,15 @@ class Wrap_Test(object):
     Tests for the Wrap class
     """
 
+    def wrapmeta_test(self):
+        """
+        Test subclassing a wrap and defaults inheritance
+        """
+        class MyWrap(Wrap):
+            defaults = {'feat1': 123}
+
+        ok_(MyWrap.defaults == {'factory': None, 'feat1': 123, 'superclasses': ()})
+
     def issubclass_test(self):
         """
         Test Wrap.issubclass
@@ -152,11 +161,12 @@ class Wrap_Test(object):
         ok_(Wrap.issubclass(Wrap(str), Wrap(str)))
         ok_(Wrap.issubclass(Wrap(Wrap(str)), Wrap(str)))
         # test with different superclass.
-        WrappedTypes = Wrap(int, str)
+        WrappedTypes = Wrap(int, superclasses=(str,))
         ok_(Wrap.issubclass(WrappedTypes, str))
         class Dumb(object): pass
-        WrappedTypes = Wrap(int, Dumb, str)
+        WrappedTypes = Wrap(int, superclasses=(Dumb, str,))
         ok_(Wrap.issubclass(WrappedTypes, str))
+        ok_(Wrap.issubclass(WrappedTypes, int))
         ok_(Wrap.issubclass(WrappedTypes, Dumb))
 
     def instantiate_test(self):
@@ -173,7 +183,7 @@ class Wrap_Test(object):
         ok_(type(a_str) == str)
         ok_(a_str == "bloblo")
 
-        WrappedInt = Wrap(int, str)
+        WrappedInt = Wrap(int, superclasses=(str,))
         an_int = WrappedInt(198)
         ok_(an_int == 198)
         ok_(type(an_int) == int)
@@ -184,7 +194,7 @@ class Wrap_Test(object):
         """
         class WrappedInt(Wrapped):
             class Meta:
-                superclasses = (int,)
+                klass = int
         # Test features and other basics
         ok_(isinstance(WrappedInt, Wrap))
         ok_(WrappedInt.superclasses == (int,))
@@ -196,6 +206,8 @@ class Wrap_Test(object):
         try:
             class UnvalidWrapped(Wrapped):
                 def non_sense(self): pass
+                class Meta:
+                    klass = int
         except TypeError:
             pass
         else:
@@ -205,7 +217,7 @@ class Wrap_Test(object):
             @classmethod
             def makes_sense(self): return 11
             class Meta:
-                superclasses = (int,)
+                klass = int
         ok_(UnvalidWrapped.makes_sense() == 11)
         
 

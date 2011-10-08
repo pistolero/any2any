@@ -10,7 +10,7 @@ from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
 FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast, WrappedObject)
-from any2any.utils import DeclarativeWrapType
+from any2any.utils import declarative_wrap_type
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
 
@@ -102,12 +102,15 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
             # If fk, we return the right model
             if isinstance(field, djmodels.ForeignKey):
                 wrapped_type = DjModelWrap(
-                    field.rel.to, field_type
+                    field.rel.to,
+                    superclasses=(field_type,)
                 )
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):
                 wrapped_type = ContainerWrap(
-                    field_type, djmodels.Manager, factory=list,
+                    field_type,
+                    superclasses=(djmodels.Manager,),
+                    factory=list,
                     value_type=field.rel.to
                 )
             # "Complex" Python types to the right type 
@@ -116,8 +119,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
                     djmodels.DateTimeField: datetime.datetime,
                     djmodels.DateField: datetime.date,
                 }[field_type]
-                wrapped_type = Wrap(field_type, actual_type)
-            # NotImplemented on the rest
+                wrapped_type = Wrap(field_type, superclasses=(actual_type,))
             else:
                 wrapped_type = Wrap(field_type)
             fields_dict[field.name] = wrapped_type
@@ -125,7 +127,9 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         # including related managers
         for name, related in self.related_dict.items():
             fields_dict[name] = ContainerWrap(
-                type(related), djmodels.Manager, factory=list,
+                type(related),
+                superclasses=(djmodels.Manager,),
+                factory=list,
                 value_type=related.related.model
             )
         return fields_dict
@@ -179,15 +183,15 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
 
     @property
     def model(self):
-        return self.base
+        return self.klass
 
 
 class WrappedDjModel(WrappedObject):
 
-    __metaclass__ = DeclarativeWrapType(DjModelWrap)
+    __metaclass__ = declarative_wrap_type(DjModelWrap)
 
     class Meta:
-        superclasses = (object,)
+        klass = djmodels.Model
 
 
 # Mixins

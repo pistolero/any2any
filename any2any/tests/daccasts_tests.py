@@ -161,13 +161,15 @@ class ObjectWrap_Test(object):
                 return instance['attr1']
         
             class Meta:
-                superclasses = (float, int)
+                klass = int
+                superclasses = (float, str)
                 include = ['attr1', 'attr2']
 
         obj = {'attr1': 888}
 
+        ok_(MyWrappedObject.klass == int)
         ok_(MyWrappedObject.get_attr1(obj) == 888)
-        ok_(MyWrappedObject.superclasses == (float, int))
+        ok_(MyWrappedObject.superclasses == (int, float, str))
         ok_(MyWrappedObject.include == ['attr1', 'attr2'])
         ok_(MyWrappedObject.get_schema() == {'attr1': int, 'attr2': str})
         

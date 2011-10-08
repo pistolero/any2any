@@ -82,19 +82,19 @@ class MappingToObject(FromMapping, CastItems, ToObject, DivideAndConquerCast):
     pass
 
 WrappedDateTime = ObjectWrap(datetime.datetime, extra_schema={
-    'year': Wrap(int, float),
-    'month': Wrap(int, float),
-    'day': Wrap(int, float),
-    'hour': Wrap(int, float),
-    'minute': Wrap(int, float),
-    'second': Wrap(int, float),
-    'microsecond': Wrap(int, float),
+    'year': int,
+    'month': int,
+    'day': int,
+    'hour': int,
+    'minute': int,
+    'second': int,
+    'microsecond': int,
 })
 
 WrappedDate = ObjectWrap(datetime.date, extra_schema={
-    'year': Wrap(int, float),
-    'month': Wrap(int, float),
-    'day': Wrap(int, float),
+    'year': int,
+    'month': int,
+    'day': int,
 })
 
 class BasicStack(CastStack):

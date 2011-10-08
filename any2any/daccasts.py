@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast, Setting, CopiedSetting, CastMixin
-from utils import closest_parent, Wrap, DeclarativeWrapType, Mm, memoize
+from utils import closest_parent, Wrap, declarative_wrap_type, Mm, memoize
 
 
 # Abstract DivideAndConquerCast
@@ -84,7 +84,7 @@ class DivideAndConquerCast(Cast):
 #======================================
 class ObjectWrap(Wrap):
     """
-    Wrapper for any subclass of object. `ObjectWrap` allows to fully customize the wrapped class' behaviour :
+    Wrapper for any type, provide extra-informations such as attribute schema, accessors, constructor :
 
         - attribute schema - :meth:`ObjectWrap.default_schema`
         - attribute access - :meth:`ObjectWrap.setattr` and :meth:`ObjectWrap.getattr`
@@ -92,22 +92,20 @@ class ObjectWrap(Wrap):
 
     Kwargs:
 
-        factory(type). The type the wrap will use for instance creation.
         include(list). The list of attributes to include in the schema see, :meth:`ObjectWrap.get_schema`.
         exclude(list). The list of attributes to exclude from the schema see, :meth:`ObjectWrap.get_schema`.
         extra_schema(dict). ``{<attribute_name>: <attribute_type>}``. Adds extra attributes to the default schema, see :meth:`ObjectWrap.get_schema`.
     """
 
-    defaults = dict(
-        extra_schema = {},
-        include = [],
-        exclude = [],
-        factory = None,
-    )
+    defaults = {
+        'extra_schema': {},
+        'include': [],
+        'exclude': [],
+    }
 
     def get_class(self, attr_name):
         """
-        Returns the class of attribute `attr_name`.
+        Returns the class of attribute `attr_name`, as found from the schema, see :meth:`ObjectWrap.get_schema`.
         """
         schema = self.get_schema()
         if attr_name in schema:
@@ -117,7 +115,7 @@ class ObjectWrap(Wrap):
     
     def get_schema(self):
         """
-        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of the object, taking into account : `default_schema`, `extra_schema`, `include` and `exclude`.
+        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of the type, taking into account : `default_schema`, `extra_schema`, `include` and `exclude`.
         """
         schema = self.default_schema()
         schema.update(self.extra_schema)
@@ -132,7 +130,7 @@ class ObjectWrap(Wrap):
 
     def default_schema(self):
         """
-        Subclass in order to provide the schema - known a priori - of the wrapped object. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
+        Returns the schema - known a priori - of the wrapped type. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
         """
         return {}
 
@@ -156,7 +154,7 @@ class ObjectWrap(Wrap):
 
     def new(self, **kwargs):
         """
-        Subclass to create and return a new instance of the wrapped type. 
+        Creates and returns a new instance of the wrapped type.
         """
         return self.factory(**kwargs)
 
@@ -175,7 +173,8 @@ class WrappedObject(object):
         ...         return instance['attr1']
         ... 
         ...     class Meta:
-        ...         superclasses = (MyInt, int)
+        ...         klass = int
+        ...         superclasses = (MyInt,)
         ...         include = ['attr1', 'attr2']
         ...         
 
@@ -186,24 +185,25 @@ class WrappedObject(object):
         ...     def get_attr1(self, instance):
         ...         return instance['attr1']
         ...
-        >>> MyWrappedObject = MyObjectWrap(MyInt, int, include=['attr1', 'attr2']
+        >>> MyWrappedObject = MyObjectWrap(int, superclasses=(MyInt,) include=['attr1', 'attr2']
     """
 
-    __metaclass__ = DeclarativeWrapType(ObjectWrap)
+    __metaclass__ = declarative_wrap_type(ObjectWrap)
 
     class Meta:
-        superclasses = (object,)
+        klass = object
 
 
 class ContainerWrap(Wrap):
     """
     Wrapper for any type of container.
+
+    Kwargs:
+        
+        value_type(type or NotImplemented). The type of values in that container.
     """
 
-    defaults = dict(
-        value_type = NotImplemented,
-        factory = None,
-    )
+    defaults = {'value_type': NotImplemented}
 
     def __superclasshook__(self, C):
         # this allows to implement the following behaviour :
@@ -218,7 +218,7 @@ class ContainerWrap(Wrap):
             return False
 
     def __repr__(self):
-        return 'Wrapped%s%s' % (self.base.__name__.capitalize(),
+        return 'Wrapped%s%s' % (self.klass.__name__.capitalize(),
         '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
 
 
@@ -229,19 +229,20 @@ class WrappedContainer(object):
         >>> class MyWrappedContainer(WrappedContainer):
         ... 
         ...     class Meta:
-        ...         superclasses = (set, list)
+        ...         klass = set
+        ...         superclasses = (list,)
         ...         value_type = int
         ...         
 
     Which is equivalent to :
 
-        >>> MyWrappedContainer = ContainerWrap(set, list, value_type=int)
+        >>> MyWrappedContainer = ContainerWrap(set, superclasses=(list,), value_type=int)
     """
 
-    __metaclass__ = DeclarativeWrapType(ObjectWrap)
+    __metaclass__ = declarative_wrap_type(ObjectWrap)
 
     class Meta:
-        superclasses = (object,)
+        klass = object
 
 
 # Mixins for DivideAndConquerCast
