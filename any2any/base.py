@@ -252,7 +252,7 @@ class ToSetting(Setting):
     def get(self, instance):
         to = super(ToSetting, self).get(instance)
         if instance.to_wrap and to != None and not isinstance(to, instance.to_wrap):
-            to = instance.to_wrap(to)
+            to = instance.to_wrap(klass=to)
         return to
 
 
@@ -265,7 +265,7 @@ class FromSetting(Setting):
         if from_ == None and 'input' in instance._context:
             from_ = type(instance._context['input'])
         if instance.from_wrap and from_ != None and not isinstance(from_, instance.from_wrap):
-            from_= instance.from_wrap(from_)
+            from_= instance.from_wrap(klass=from_)
         return from_
 
 

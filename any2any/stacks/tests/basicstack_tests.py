@@ -35,6 +35,7 @@ class Base_test(object):
                     setattr(self, k, v)
         self.Object = Object
         class OType(ObjectWrap):
+            defaults = {'klass': self.Object}
             def new_object(self, *args, **kwargs):
                 obj = self.factory()
                 for name, value in kwargs.items():
@@ -106,7 +107,7 @@ class ObjectToMapping_Test(Base_test):
         """
         Test call
         """
-        obj_type = self.ObjectWrap(self.Object, extra_schema={'a1': int, 'blabla': str})
+        obj_type = self.ObjectWrap(extra_schema={'a1': int, 'blabla': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
         cast = ObjectToMapping(from_=obj_type, mm_to_cast={Mm(): Identity()}, to=dict)
         ok_(cast.call(obj) == {'a1': 90, 'blabla': 'coucou'})
@@ -115,7 +116,7 @@ class ObjectToMapping_Test(Base_test):
         """
         Test call, with a custom cast for attributes
         """
-        obj_type = self.ObjectWrap(self.Object, extra_schema={'a1': int, 'blabla': str, 'bb': str})
+        obj_type = self.ObjectWrap(extra_schema={'a1': int, 'blabla': str, 'bb': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
         cast = ObjectToMapping(
             from_=obj_type,
@@ -132,7 +133,7 @@ class MappingToObject_Test(Base_test):
 
     def setUp(self):
         super(MappingToObject_Test, self).setUp()
-        self.ObjectSchema = self.ObjectWrap(self.Object, extra_schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
+        self.ObjectSchema = self.ObjectWrap(extra_schema={'a1': int, 'blabla': str, 'bb': str, 'a': object})
 
     def call_test(self):
         """

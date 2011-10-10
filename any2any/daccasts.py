@@ -186,7 +186,7 @@ class WrappedObject(object):
         ...     def get_attr1(self, instance):
         ...         return instance['attr1']
         ...
-        >>> MyWrappedObject = MyObjectWrap(int, superclasses=(MyInt,) include=['attr1', 'attr2']
+        >>> MyWrappedObject = MyObjectWrap(klass=int, superclasses=(MyInt,) include=['attr1', 'attr2']
     """
 
     __metaclass__ = DeclarativeObjectWrap
@@ -238,7 +238,7 @@ class WrappedContainer(object):
 
     Which is equivalent to :
 
-        >>> MyWrappedContainer = ContainerWrap(set, superclasses=(list,), value_type=int)
+        >>> MyWrappedContainer = ContainerWrap(klass=set, superclasses=(list,), value_type=int)
     """
 
     __metaclass__ = DeclarativeContainerWrap

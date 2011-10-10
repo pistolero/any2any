@@ -209,8 +209,8 @@ class Cast_test(object):
         ok_(isinstance(cast.cast_for(Mm(unicode, int)), self.Identity))
         ok_(isinstance(cast.cast_for(Mm()), self.Identity))
         # With Wrap : give preference to the superclasses respectively to their order
-        ok_(isinstance(cast.cast_for(Mm(Wrap(int, superclasses=(float,)))), self.ToFloat))
-        ok_(isinstance(cast.cast_for(Mm(Wrap(float, superclasses=(int,)))), self.ToInt))
+        ok_(isinstance(cast.cast_for(Mm(Wrap(klass=int, superclasses=(float,)))), self.ToFloat))
+        ok_(isinstance(cast.cast_for(Mm(Wrap(klass=float, superclasses=(int,)))), self.ToInt))
         # Give priority to a matching `to`
         ok_(isinstance(cast.cast_for(Mm(str)), self.ToInt))
         ok_(isinstance(cast.cast_for(Mm(to=str)), self.ToFloat))

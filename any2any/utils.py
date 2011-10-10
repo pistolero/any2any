@@ -154,15 +154,17 @@ class Wrap(type):
 
     Kwargs:
 
+        klass(type). The wrapped type.
+
         superclasses(tuple). Allows to customize :meth:`Wrap.issubclass` behaviour :
 
-            >>> Wrapped = Wrap(str, superclasses=(MyStr, AllStrings))
+            >>> Wrapped = Wrap(klass=str, superclasses=(MyStr, AllStrings))
             >>> Wrap.issubclass(Wrapped, str), Wrap.issubclass(Wrapped, MyStr), # ...
             (True, True)
 
         factory(type). The type used for instance creation :
 
-            >>> Wrapped = Wrap(basestring, factory=str)
+            >>> Wrapped = Wrap(klass=basestring, factory=str)
             >>> a_str = Wrapped("blabla")
             >>> type(a_str) == str
             True
@@ -171,7 +173,7 @@ class Wrap(type):
 
     __metaclass__ = WrapMeta
 
-    defaults = {'factory': None, 'superclasses': ()}
+    defaults = {'factory': None, 'superclasses': (), 'klass': None}
 
     def __new__(cls, *args, **kwargs):
         # This is necessary to allow inheritance of wraps instantiated 
@@ -182,11 +184,13 @@ class Wrap(type):
             name, bases, attrs = 'bla', (object,), {}
         return super(Wrap, cls).__new__(cls, name, bases, attrs)
 
-    def __init__(self, klass, **features):
+    def __init__(self, **features):
+        klass = features.get('klass', self.defaults['klass'])
+        if klass is None:
+            raise ValueError("'klass' feature cannot be '%s'" % klass)
         features.setdefault('factory', klass)
         features['superclasses'] = (klass,) + tuple(features.get('superclasses', ())) 
         self.features = features
-        self.klass = klass
         features = dict(copy.copy(self.defaults), **features)
         for name, value in features.items():
             if not name in self.defaults:
@@ -262,11 +266,7 @@ class DeclarativeWrap(Wrap):
     def __init__(self, name, bases, attrs):
         meta = attrs.get('Meta', self.Empty())
         features = dict(filter(lambda(k, v): not k.startswith('_'), meta.__dict__.items()))
-        try:
-            klass = features.pop('klass')
-        except KeyError:
-            raise TypeError("Meta must contain a 'klass' attribute")
-        self.get_wrap().__init__(self, klass, **features)
+        self.get_wrap().__init__(self, **features)
 
     @classmethod
     def get_wrap(cls):
@@ -285,7 +285,7 @@ class Wrapped(object):
 
     Which is equivalent to :
 
-        >>> Wrap(int)
+        >>> Wrap(klass=int)
     """
 
     __metaclass__ = DeclarativeWrap

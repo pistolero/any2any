@@ -81,7 +81,7 @@ class MappingToObject(FromMapping, CastItems, ToObject, DivideAndConquerCast):
     """
     pass
 
-WrappedDateTime = ObjectWrap(datetime.datetime, extra_schema={
+WrappedDateTime = ObjectWrap(klass=datetime.datetime, extra_schema={
     'year': int,
     'month': int,
     'day': int,
@@ -91,7 +91,7 @@ WrappedDateTime = ObjectWrap(datetime.datetime, extra_schema={
     'microsecond': int,
 })
 
-WrappedDate = ObjectWrap(datetime.date, extra_schema={
+WrappedDate = ObjectWrap(klass=datetime.date, extra_schema={
     'year': int,
     'month': int,
     'day': int,

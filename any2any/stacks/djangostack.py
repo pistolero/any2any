@@ -87,12 +87,8 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
 
     defaults = dict(
         key_schema = ('id',),
-        extra_schema = {},
-        exclude = [],
-        include = [],
         include_related = False,
         create = True,
-        factory = None,
     )
 
     def default_schema(self):
@@ -102,13 +98,13 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
             # If fk, we return the right model
             if isinstance(field, djmodels.ForeignKey):
                 wrapped_type = DjModelWrap(
-                    field.rel.to,
+                    klass=field.rel.to,
                     superclasses=(field_type,)
                 )
             # If m2m, we want a list of the right model
             elif isinstance(field, djmodels.ManyToManyField):
                 wrapped_type = ContainerWrap(
-                    field_type,
+                    klass=field_type,
                     superclasses=(djmodels.Manager,),
                     factory=list,
                     value_type=field.rel.to
@@ -119,15 +115,15 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
                     djmodels.DateTimeField: datetime.datetime,
                     djmodels.DateField: datetime.date,
                 }[field_type]
-                wrapped_type = Wrap(field_type, superclasses=(actual_type,))
+                wrapped_type = Wrap(klass=field_type, superclasses=(actual_type,))
             else:
-                wrapped_type = Wrap(field_type)
+                wrapped_type = Wrap(klass=field_type)
             fields_dict[field.name] = wrapped_type
         
         # including related managers
         for name, related in self.related_dict.items():
             fields_dict[name] = ContainerWrap(
-                type(related),
+                klass=type(related),
                 superclasses=(djmodels.Manager,),
                 factory=list,
                 value_type=related.related.model
@@ -258,11 +254,11 @@ class FromQueryDict(FromMapping):
 
 class QueryDictWrap(Wrap, DjModelIntrospector):
 
-    defaults = dict(
-        list_keys = [],
-        model = None,
-        factory = None,
-    )
+    defaults = {
+        'list_keys': [],
+        'klass': dict,
+        'model': None,
+    }
 
     def get_class(self, key):
         if (key in self.list_keys) or self.is_list(key):

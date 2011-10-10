@@ -142,10 +142,14 @@ class Wrap_Test(object):
         """
         Test subclassing a wrap and defaults inheritance
         """
+        # declare new setting
         class MyWrap(Wrap):
             defaults = {'feat1': 123}
-
-        ok_(MyWrap.defaults == {'factory': None, 'feat1': 123, 'superclasses': ()})
+        ok_(MyWrap.defaults == {'factory': None, 'feat1': 123, 'superclasses': (), 'klass': None})
+        # override setting
+        class MyWrap(Wrap):
+            defaults = {'klass': int}
+        ok_(MyWrap.defaults['klass'] == int)
 
     def issubclass_test(self):
         """
@@ -156,15 +160,15 @@ class Wrap_Test(object):
         ok_(not Wrap.issubclass(object, int))
         ok_(Wrap.issubclass(object, object))
         # Wrap + built-in type
-        ok_(Wrap.issubclass(Wrap(str), str))
-        ok_(not Wrap.issubclass(str, Wrap(str)))
-        ok_(Wrap.issubclass(Wrap(str), Wrap(str)))
-        ok_(Wrap.issubclass(Wrap(Wrap(str)), Wrap(str)))
+        ok_(Wrap.issubclass(Wrap(klass=str), str))
+        ok_(not Wrap.issubclass(str, Wrap(klass=str)))
+        ok_(Wrap.issubclass(Wrap(klass=str), Wrap(klass=str)))
+        ok_(Wrap.issubclass(Wrap(klass=Wrap(klass=str)), Wrap(klass=str)))
         # test with different superclass.
-        WrappedTypes = Wrap(int, superclasses=(str,))
+        WrappedTypes = Wrap(klass=int, superclasses=(str,))
         ok_(Wrap.issubclass(WrappedTypes, str))
         class Dumb(object): pass
-        WrappedTypes = Wrap(int, superclasses=(Dumb, str,))
+        WrappedTypes = Wrap(klass=int, superclasses=(Dumb, str,))
         ok_(Wrap.issubclass(WrappedTypes, str))
         ok_(Wrap.issubclass(WrappedTypes, int))
         ok_(Wrap.issubclass(WrappedTypes, Dumb))
@@ -173,17 +177,17 @@ class Wrap_Test(object):
         """
         Test instantiate a Wrap
         """
-        WrappedStr = Wrap(str)
+        WrappedStr = Wrap(klass=str)
         a_str = WrappedStr("blabla")
         ok_(type(a_str) == str)
         ok_(a_str == "blabla")
 
-        WrappedWrappedStr = Wrap(WrappedStr)
+        WrappedWrappedStr = Wrap(klass=WrappedStr)
         a_str = WrappedWrappedStr("bloblo")
         ok_(type(a_str) == str)
         ok_(a_str == "bloblo")
 
-        WrappedInt = Wrap(int, superclasses=(str,))
+        WrappedInt = Wrap(klass=int, superclasses=(str,))
         an_int = WrappedInt(198)
         ok_(an_int == 198)
         ok_(type(an_int) == int)
