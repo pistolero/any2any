@@ -195,8 +195,10 @@ class Wrap_Test(object):
         class WrappedInt(Wrapped):
             class Meta:
                 klass = int
-        # Test features and other basics
+        # Test right instance type is created
         ok_(isinstance(WrappedInt, Wrap))
+        ok_(issubclass(WrappedInt, Wrapped))
+        # Test features are set right
         ok_(WrappedInt.superclasses == (int,))
         ok_(WrappedInt.factory == int)
         an_int = WrappedInt(198)

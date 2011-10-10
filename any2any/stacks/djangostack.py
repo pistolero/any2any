@@ -10,7 +10,7 @@ from django.contrib.contenttypes.generic import GenericForeignKey
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
 FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast, WrappedObject)
-from any2any.utils import declarative_wrap_type
+from any2any.daccasts import DeclarativeObjectWrap
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
 
@@ -186,9 +186,10 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         return self.klass
 
 
+class DeclarativeDjModelWrap(DjModelWrap, DeclarativeObjectWrap): pass
 class WrappedDjModel(WrappedObject):
 
-    __metaclass__ = declarative_wrap_type(DjModelWrap)
+    __metaclass__ = DeclarativeDjModelWrap
 
     class Meta:
         klass = djmodels.Model

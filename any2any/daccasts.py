@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast, Setting, CopiedSetting, CastMixin
-from utils import closest_parent, Wrap, declarative_wrap_type, Mm, memoize
+from utils import closest_parent, Wrap, DeclarativeWrap, Mm, memoize
 
 
 # Abstract DivideAndConquerCast
@@ -162,6 +162,7 @@ class ObjectWrap(Wrap):
         return self.new(**kwargs)
 
 
+class DeclarativeObjectWrap(ObjectWrap, DeclarativeWrap): pass
 class WrappedObject(object):
     """
     Subclass this to create a wrapped type using a declarative syntax, e.g. 
@@ -188,7 +189,7 @@ class WrappedObject(object):
         >>> MyWrappedObject = MyObjectWrap(int, superclasses=(MyInt,) include=['attr1', 'attr2']
     """
 
-    __metaclass__ = declarative_wrap_type(ObjectWrap)
+    __metaclass__ = DeclarativeObjectWrap
 
     class Meta:
         klass = object
@@ -222,6 +223,7 @@ class ContainerWrap(Wrap):
         '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
 
 
+class DeclarativeContainerWrap(ContainerWrap, DeclarativeWrap): pass
 class WrappedContainer(object):
     """
     Subclass this to create a wrapped container type using a declarative syntax, e.g. 
@@ -239,7 +241,7 @@ class WrappedContainer(object):
         >>> MyWrappedContainer = ContainerWrap(set, superclasses=(list,), value_type=int)
     """
 
-    __metaclass__ = declarative_wrap_type(ObjectWrap)
+    __metaclass__ = DeclarativeContainerWrap
 
     class Meta:
         klass = object

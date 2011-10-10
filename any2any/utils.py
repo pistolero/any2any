@@ -148,7 +148,7 @@ class WrapMeta(type):
         return new_wrap
 
 
-class Wrap(object):
+class Wrap(type):
     """
     Wrapper allowing to provide extra-information on a type.
 
@@ -173,6 +173,15 @@ class Wrap(object):
 
     defaults = {'factory': None, 'superclasses': ()}
 
+    def __new__(cls, *args, **kwargs):
+        # This is necessary to allow inheritance of wraps instantiated 
+        # with declarative syntax.
+        if '_declarative' in kwargs:
+            name, bases, attrs = kwargs.pop('_declarative')
+        else:
+            name, bases, attrs = 'bla', (object,), {}
+        return super(Wrap, cls).__new__(cls, name, bases, attrs)
+
     def __init__(self, klass, **features):
         features.setdefault('factory', klass)
         features['superclasses'] = (klass,) + tuple(features.get('superclasses', ())) 
@@ -191,10 +200,12 @@ class Wrap(object):
         return 'Wrapped%s' % self.klass.__name__.capitalize()
 
     def __getattr__(self, name):
-        try:
-            return getattr(self.klass, name)
-        except AttributeError:
-            return self.__getattribute__(name)
+        if hasattr(self, 'klass'):
+            try:
+                return getattr(self.klass, name)
+            except AttributeError:
+                pass
+        raise AttributeError("no attribute '%s'" % name)
 
     def __eq__(self, other):
         if isinstance(other, Wrap):
@@ -230,48 +241,36 @@ class Wrap(object):
         return False
 
 
-def declarative_wrap_type(wrap_type):
-    # slightly modifies a wrap type, so that it can be reused easily
+class DeclarativeWrap(Wrap):
+    # slightly modifies a wrap, so that it can be reused easily
     # with a declarative syntax.
 
-    attrs = {}
-    name = 'Declarative%s' % wrap_type.__name__
-    bases = (wrap_type,)
+    # we actually declare a subclass of the wrap, with slightly pimped
+    #__new__ and __init__, so that it behaves like a metaclass
 
     class Empty(object): pass
 
-
-    def __new__(kls, name, bases, attrs):
-        for b in bases:
-            if hasattr(b, 'makes_sense'):
-                import pdb; pdb.set_trace()
-                attrs['blobloblo'] = 1234
-        new_wrapped = super(kls, kls).__new__(kls, name, bases, attrs)
+    def __new__(cls, class_name, bases, attrs):
+        new_wrapped = cls.get_wrap().__new__(cls, _declarative=(class_name, bases, attrs))
         for name, value in attrs.items():
             if isinstance(value, types.FunctionType):
                 raise TypeError('You cannot declare instance methods here')
             elif isinstance(value, classmethod):
-                # this is a ugly hack allowing to declare classmethods on the Wrapped. 
-                def closure(class_meth):
-                    def fake_class_method(*args, **kwargs):
-                        return class_meth.__func__(new_wrapped, *args, **kwargs)
-                    return fake_class_method
-                setattr(new_wrapped, name, closure(value))
+                setattr(new_wrapped, name, value)
         return new_wrapped
 
     def __init__(self, name, bases, attrs):
-        # collecting features and klass
-        meta = attrs.get('Meta', Empty())
+        meta = attrs.get('Meta', self.Empty())
         features = dict(filter(lambda(k, v): not k.startswith('_'), meta.__dict__.items()))
         try:
             klass = features.pop('klass')
         except KeyError:
             raise TypeError("Meta must contain a 'klass' attribute")
-        wrap_type.__init__(self, klass, **features)
+        self.get_wrap().__init__(self, klass, **features)
 
-    attrs['__init__'] = __init__
-    attrs['__new__'] = __new__
-    return type(name, bases, attrs)
+    @classmethod
+    def get_wrap(cls):
+        return filter(lambda b: issubclass(b, Wrap), cls.__bases__)[0]
 
 
 class Wrapped(object):
@@ -289,7 +288,7 @@ class Wrapped(object):
         >>> Wrap(int)
     """
 
-    __metaclass__ = declarative_wrap_type(Wrap)
+    __metaclass__ = DeclarativeWrap
 
     class Meta:
         klass = object
