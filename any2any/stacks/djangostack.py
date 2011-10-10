@@ -239,7 +239,9 @@ class StripEmptyValues(IterableToIterable):
     empty_value = Setting(default='_empty')
     
     class Meta:
-        defaults = {'to': list}
+        defaults = {
+            'to': list,
+        }
     
     def strip_item(self, key, value):
         if value == self.empty_value:
@@ -297,6 +299,7 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCas
         Mm(from_=list): ListToFirstElem(),
         Mm(to=list): OneElemToList(),
         Mm(list, list): Identity(),
+        Mm(): Identity(),
     })
 
     def get_item_to(self, key):
@@ -317,7 +320,7 @@ class DjangoStack(BasicStack):
         defaults = {
             'mm_to_cast': {
                 Mm(from_any=djmodels.Manager): QuerySetToIterable(to=list),
-                Mm(from_any=list, to_any=djmodels.Manager): IterableToQueryset(),
+                Mm(to_any=djmodels.Manager): IterableToQueryset(),
                 Mm(from_any=djmodels.Model): ModelToMapping(to=dict),
                 Mm(to_any=djmodels.Model): MappingToModel(),
                 Mm(from_any=QueryDict): QueryDictFlatener(),
