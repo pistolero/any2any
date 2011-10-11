@@ -161,7 +161,7 @@ class ModelToMapping_Test(BaseModel):
         )
         journalist_cast = ModelToMapping(from_=journalist_type, to=dict)
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
-        cast = DjangoStack(mm_to_cast={
+        cast = DjangoStack(extra_mm_to_cast={
             Mm(from_any=Journalist): journalist_cast,
             Mm(from_any=Journal): journal_cast,
         })
@@ -179,7 +179,7 @@ class ModelToMapping_Test(BaseModel):
         dish_type = DjModelWrap(klass=Dish, exclude=['id'], include_related=True)
         gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
         dish_cast = ModelToMapping(from_=dish_type, to=dict)
-        cast = DjangoStack(mm_to_cast={
+        cast = DjangoStack(extra_mm_to_cast={
             Mm(from_any=Gourmand): gourmand_cast,
             Mm(from_any=Dish): dish_cast,
         })
@@ -198,7 +198,7 @@ class ModelToMapping_Test(BaseModel):
         journal_type = DjModelWrap(klass=Journal, include=['name'])
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
         issue_cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
-        cast = DjangoStack(mm_to_cast={Mm(from_any=Issue): issue_cast})
+        cast = DjangoStack(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
         ok_(cast.call(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},

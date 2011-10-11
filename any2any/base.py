@@ -92,18 +92,6 @@ class ViralSetting(Setting):
         self.set(cast, value)
 
 
-class ViralDictSetting(ViralSetting):
-    """
-    Viral setting which updates the inherited value instead of replacing it.
-    """
-
-    def __init__(self, default={}):
-        super(ViralDictSetting, self).__init__(default)
-
-    def inherits(self, setting):
-        self.default = dict(setting.default, **self.default)
-
-
 # Metaclasses and bases for casts
 #====================================
 class Options(object):
@@ -116,27 +104,27 @@ class Options(object):
         self.settings_dict = settings_dict
 
 
-class BaseCastType(abc.ABCMeta):
-    # Metaclass implementing the basic behaviour of collecting
-    # all the settings, and creating an `Option` object for the new class.
-    # This is the metaclass for `CastMixin`.
+class CastType(abc.ABCMeta):
+    # Metaclass for `BaseCast`
 
     def __new__(cls, class_name, bases, attrs):
         Meta = attrs.pop('Meta', object())
         # collecting new settings
-        new_settings_dict = dict(filter(lambda (k, v): isinstance(v, Setting), attrs.items()))
+        new_settings_dict = cls.filter_settings(attrs)
         # handling multiple inheritance of settings
         all_settings_dict = {}
         #     1. collecting inherited settings
-        parents = [b for b in bases if isinstance(b, BaseCastType)]
-        for parent in reversed(parents):
-            all_settings_dict.update(parent._meta.settings_dict)
+        for base in reversed(bases):
+            if isinstance(base, CastType):
+                all_settings_dict.update(base._meta.settings_dict)
+            else:
+                all_settings_dict.update(cls.collect_settings(base))
         #     2. handling overridings
         for name, setting in new_settings_dict.items():
             if name in all_settings_dict:
                 setting.inherits(all_settings_dict[name])
         all_settings_dict.update(new_settings_dict)
-        #     3. handling overridings of the default value through Meta
+        #     3. handling overridings of default values through Meta
         for name, new_default in getattr(Meta, 'defaults', {}).items():
             if name in all_settings_dict:
                 setting = all_settings_dict[name]
@@ -146,17 +134,29 @@ class BaseCastType(abc.ABCMeta):
                 all_settings_dict[name] = new_setting
         # creating the new class
         attrs['_meta'] = Options(all_settings_dict)
-        new_cast_class = super(BaseCastType, cls).__new__(cls, class_name, bases, attrs)
-        return new_cast_class
-
-
-class CastType(BaseCastType):
-    # Metaclass for `BaseCast`.
-
-    def __new__(cls, class_name, bases, attrs):
         new_cast_class = super(CastType, cls).__new__(cls, class_name, bases, attrs)
         new_cast_class.call = cls.wrap_call(new_cast_class)
         return new_cast_class
+
+    @classmethod
+    def filter_settings(cls, attrs):
+        return dict(filter(lambda (k, v): isinstance(v, Setting), attrs.items()))
+
+    @classmethod
+    def collect_settings(cls, klass):
+        # uses `collect_settings_names` to collect settings, without
+        # caring about mro
+        settings_names = cls.collect_settings_names(klass)
+        return dict(((name, getattr(klass, name)) for name in settings_names))
+
+    @classmethod
+    def collect_settings_names(cls, klass):
+        # recursively collects settings names for a non-cast class,
+        # following the inheritance hierarchy
+        settings_names = set(cls.filter_settings(klass.__dict__))
+        for base in klass.__bases__:
+            settings_names.update(cls.collect_settings_names(base))
+        return settings_names 
 
     @classmethod
     def wrap_call(cls, cast_class):
@@ -244,7 +244,7 @@ class BaseCast(object):
         return self.__class__(**settings)
 
 
-# Cast, CastMixin, CastStack 
+# Cast, CastStack 
 #====================================
 class ToSetting(Setting):
     # Automatically wraps `to` with the setting `to_wrap`, if provided.
@@ -269,13 +269,27 @@ class FromSetting(Setting):
         return from_
 
 
+class MmToCastSetting(ViralSetting):
+    # Automatically updates `mm_to_cast` value with `extra_mm_to_cast`
+
+    def inherits(self, setting):
+        self.default = dict(setting.default, **self.default)
+
+    def get(self, instance):
+        mm_to_cast = super(MmToCastSetting, self).get(instance)
+        return dict(mm_to_cast, **instance.extra_mm_to_cast)
+
+
 class Cast(BaseCast):
     """
     Base class for all casts. This class is virtual, and all subclasses must implement :meth:`Cast.call`.
     """
 
-    mm_to_cast = ViralDictSetting(default={})
-    """dict. ``{<mm>: <cast>}``. Allows to configure which cast :meth:`Cast.cast_for` should pick for a given metamorphosis."""
+    mm_to_cast = MmToCastSetting(default={})
+    """dict. ``{<mm>: <cast>}``. Allows to configure what :meth:`Cast.cast_for` should pick for a given metamorphosis."""
+
+    extra_mm_to_cast = Setting(default={})
+    """dict. ``{<mm>: <cast>}``. Updates :attr:`Cast.mm_to_cast`."""
 
     from_ = FromSetting()
     """type. The type to cast from. If not given, the type of the input is used."""
@@ -370,31 +384,10 @@ class Cast(BaseCast):
         logger.addHandler(logging.StreamHandler())
 
 
-class CastMixin(object):
-    """
-    Base class for declaring mixins for cast classes. This allows to declare mixins with settings,
-    and even a `Meta` container.
-    """
-
-    __metaclass__ = BaseCastType
-
-
-class MmToCastSetting(ViralDictSetting):
-    # Setting for mm_to_cast for CastStack.
-    # When initializing the instance, default `mm_to_cast` will be updated
-    # instead of being overriden (like it is with normal settings).
-
-    def init(self, instance, value):
-        value = dict(self.default, **value)
-        self.set(instance, value)
-
-
 class CastStack(Cast):
     """
     A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with `cast_for` and calling it. 
     """
-
-    mm_to_cast = MmToCastSetting()
 
     def __call__(self, inpt, *args, **kwargs):
         return self.call(inpt, *args, **kwargs)

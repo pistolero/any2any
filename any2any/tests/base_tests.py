@@ -33,10 +33,10 @@ class BaseCast_subclassing_test(object):
         class Parent(BaseCast):
             set1 = Setting(default=1)
             set2 = Setting(default=1)
-        class Mixin1(CastMixin):
+        class Mixin1(object):
             set2 = Setting(default=2)
             set3 = Setting(default=2)
-        class Mixin2(CastMixin):
+        class Mixin2(object):
             set4 = Setting(default=2)
         class Mixin3(Mixin1): pass
         class Child1(Parent, Mixin1, Mixin2): pass
@@ -188,7 +188,7 @@ class Cast_test(object):
 
     def cast_for_test(self):
         """
-        Test Cast.cast_for
+        Test Cast.cast_for and mm_to_cast
         """
         cast = self.Identity(mm_to_cast={
             Mm(int): self.ToFloat()
@@ -216,3 +216,19 @@ class Cast_test(object):
         ok_(isinstance(cast.cast_for(Mm(to=str)), self.ToFloat))
         ok_(isinstance(cast.cast_for(Mm(str, str)), self.ToFloat))
         
+    def mm_to_cast_test(self):
+        """
+        Testing mm_to_cast and extra_mm_to_cast
+        """
+        cast = self.Identity(mm_to_cast={
+            Mm(from_any=int): self.ToFloat(),
+            Mm(from_any=str): self.ToInt(),
+        }, extra_mm_to_cast={
+            Mm(from_any=float): self.ToInt(),
+            Mm(from_any=str): self.ToFloat(),
+        })
+        ok_(set(cast.mm_to_cast.keys()) == set([Mm(from_any=int), Mm(from_any=float), Mm(from_any=str)]))
+        ok_(isinstance(cast.mm_to_cast[Mm(from_any=int)], self.ToFloat))
+        ok_(isinstance(cast.mm_to_cast[Mm(from_any=float)], self.ToInt))
+        ok_(isinstance(cast.mm_to_cast[Mm(from_any=str)], self.ToFloat))
+

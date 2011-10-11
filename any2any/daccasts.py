@@ -4,7 +4,7 @@ try:
     import abc
 except ImportError:
     from compat import abc
-from base import Cast, Setting, CopiedSetting, CastMixin
+from base import Cast, Setting, CopiedSetting
 from utils import closest_parent, Wrap, DeclarativeWrap, Mm, memoize
 
 
@@ -249,7 +249,7 @@ class WrappedContainer(object):
 
 # Mixins for DivideAndConquerCast
 #========================================
-class CastItems(CastMixin):
+class CastItems(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_output`.
     """
@@ -313,7 +313,7 @@ class CastItems(CastMixin):
         return False
 
 
-class FromMapping(CastMixin):
+class FromMapping(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     :class:`FromMapping` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
@@ -328,7 +328,7 @@ class FromMapping(CastMixin):
         return inpt.iteritems()
 
 
-class ToMapping(CastMixin):
+class ToMapping(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     :class:`ToMapping` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
@@ -343,7 +343,7 @@ class ToMapping(CastMixin):
         return self.to(items_iter)
 
 
-class FromIterable(CastMixin):
+class FromIterable(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     :class:`FromIterable` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
@@ -358,7 +358,7 @@ class FromIterable(CastMixin):
         return enumerate(inpt)
 
 
-class ToIterable(CastMixin):
+class ToIterable(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     :class:`ToIterable` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
@@ -373,7 +373,7 @@ class ToIterable(CastMixin):
         return self.to((value for key, value in items_iter))
 
 
-class FromObject(CastMixin):
+class FromObject(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     :class:`FromObject` is more comfortable when the setting `from_` is an :class:`ObjectWrap`.
@@ -389,7 +389,7 @@ class FromObject(CastMixin):
             yield name, self.from_.getattr(inpt, name)
 
 
-class ToObject(CastMixin):
+class ToObject(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     :class:`ToObject` is more comfortable when the setting `to` is an :class:`ObjectWrap`.
