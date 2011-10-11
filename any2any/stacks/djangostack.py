@@ -315,17 +315,32 @@ class QuerySetToIterable(FromQuerySet, CastItems, ToIterable, DivideAndConquerCa
 class IterableToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast): pass
 
 
-class DjangoStack(BasicStack):
+class DjangoSerializeStack(BasicStack):
+    """
+    Subclass of :class:`base.CastStack`, for serializing Django objects
+    """
 
     class Meta:
         defaults = {
             'mm_to_cast': {
                 Mm(from_any=models.Manager): QuerySetToIterable(to=list),
                 Mm(from_any=QuerySet): QuerySetToIterable(to=list),
+                Mm(from_any=models.Model): ModelToMapping(to=dict),
+                Mm(from_any=QueryDict): QueryDictFlatener(),
+            }
+        }
+
+
+class DjangoDeserializeStack(BasicStack):
+    """
+    Subclass of :class:`base.CastStack`, for deserializing Django objects
+    """
+
+    class Meta:
+        defaults = {
+            'mm_to_cast': {
                 Mm(to_any=models.Manager): IterableToQueryset(),
                 Mm(to_any=QuerySet): IterableToQueryset(),
-                Mm(from_any=models.Model): ModelToMapping(to=dict),
-                Mm(to_any=models.Model): MappingToModel(),
-                Mm(from_any=QueryDict): QueryDictFlatener(),
+                Mm(from_any=dict, to_any=models.Model): MappingToModel(),
             }
         }

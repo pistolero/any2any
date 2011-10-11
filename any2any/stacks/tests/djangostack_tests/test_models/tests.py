@@ -77,7 +77,8 @@ class BaseModel(object):
         self.journalist.save()
         self.columnist.save()
 
-        self.cast = DjangoStack()
+        self.serializer = DjangoSerializeStack()
+        self.deserializer = DjangoDeserializeStack()
 
     def tearDown(self):
         self.author.delete()
@@ -99,13 +100,13 @@ class ModelToMapping_Test(BaseModel):
         """
         Simple test ModelToMapping.call
         """
-        ok_(self.cast.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
+        ok_(self.serializer.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
 
     def mti_test(self):
         """
         Test ModelToMapping.call with a model with long inheritance chain.
         """
-        ok_(self.cast.call(self.columnist) == {
+        ok_(self.serializer.call(self.columnist) == {
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': self.journal.pk, 'name': "C'est pas sorcier"},
@@ -118,7 +119,7 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with foreignkeys
         """
-        ok_(self.cast.call(self.book) == {
+        ok_(self.serializer.call(self.book) == {
             'id': self.book.pk,
             'title': 'Grapes of Wrath',
             'author': {
@@ -134,14 +135,14 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with many2many field.
         """
-        ok_(self.cast.call(self.gourmand) == {
+        ok_(self.serializer.call(self.gourmand) == {
             'id': self.gourmand.pk, 'pseudo': 'Taz', 'favourite_dishes': [],
             'firstname': 'T', 'lastname': 'Aznicniev'
         })
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.favourite_dishes.add(self.foiegras)
         self.gourmand.save()
-        ok_(self.cast.call(self.gourmand) == {
+        ok_(self.serializer.call(self.gourmand) == {
             'id': self.gourmand.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
             'favourite_dishes': [
                 {'id': self.foiegras.pk, 'name': 'Foie gras'},
@@ -161,7 +162,7 @@ class ModelToMapping_Test(BaseModel):
         )
         journalist_cast = ModelToMapping(from_=journalist_type, to=dict)
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
-        cast = DjangoStack(extra_mm_to_cast={
+        cast = DjangoSerializeStack(extra_mm_to_cast={
             Mm(from_any=Journalist): journalist_cast,
             Mm(from_any=Journal): journal_cast,
         })
@@ -179,7 +180,7 @@ class ModelToMapping_Test(BaseModel):
         dish_type = ModelWrap(klass=Dish, exclude=['id'], include_related=True)
         gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
         dish_cast = ModelToMapping(from_=dish_type, to=dict)
-        cast = DjangoStack(extra_mm_to_cast={
+        cast = DjangoSerializeStack(extra_mm_to_cast={
             Mm(from_any=Gourmand): gourmand_cast,
             Mm(from_any=Dish): dish_cast,
         })
@@ -198,7 +199,7 @@ class ModelToMapping_Test(BaseModel):
         journal_type = ModelWrap(klass=Journal, include=['name'])
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
         issue_cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
-        cast = DjangoStack(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
+        cast = DjangoSerializeStack(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
         ok_(cast.call(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
@@ -215,7 +216,7 @@ class MappingToModel_Test(BaseModel):
         Simple test MappingToModel.call
         """
         authors_before = Author.objects.count()
-        james = self.cast.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
+        james = self.deserializer.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
         james = Author.objects.get(pk=james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
@@ -231,7 +232,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.cast.call({
+        book = self.deserializer.call({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
             'author': {'id': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
         }, to=Book)
@@ -251,7 +252,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.cast.call({
+        book = self.deserializer.call({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
         }, to=Book)
@@ -274,7 +275,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.cast.call({
+        book = self.deserializer.call({
             'id': 989, 'title': '1984', 'comments': 'great great great',
             'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
         }, to=Book)
@@ -299,7 +300,7 @@ class MappingToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand = self.cast.call({
+        gourmand = self.deserializer.call({
             'id': self.gourmand.pk,
             'pseudo': 'Taaaaz',
             'favourite_dishes': [
@@ -325,7 +326,7 @@ class MappingToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand = self.cast.call({
+        gourmand = self.deserializer.call({
             'pseudo': 'Touz',
             'favourite_dishes': [
                 {'id': 888, 'name': 'Vitamine O'},
@@ -349,12 +350,12 @@ class MappingToModel_Test(BaseModel):
         """
         # reverse ForeignKey - only works if fk can be null
         journal_type = ModelWrap(klass=Journal, include_related=True)
-        journal = self.cast.call({
+        journal = self.deserializer.call({
             'id': self.journal.id,
             'journalist_set': [],
         }, to=journal_type)
         ok_(set(journal.journalist_set.all()) == set())
-        journal = self.cast.call({
+        journal = self.deserializer.call({
             'id': self.journal.id,
             'journalist_set': [
                 {'id': self.journalist.id},
@@ -363,7 +364,7 @@ class MappingToModel_Test(BaseModel):
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
         dish_type = ModelWrap(klass=Dish, include_related=True)
-        salmon = self.cast.call({
+        salmon = self.deserializer.call({
             'id': self.salmon.id,
             'gourmand_set': [
                 {'id': self.gourmand.id},
@@ -377,7 +378,7 @@ class MappingToModel_Test(BaseModel):
         """
         columnist_before = Columnist.objects.count()
         columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
-        jamy = self.cast.call({
+        jamy = self.deserializer.call({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'column': 'truck'
@@ -394,7 +395,7 @@ class MappingToModel_Test(BaseModel):
         """
         columnist_before = Columnist.objects.count()
         columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
-        fred = self.cast.call({
+        fred = self.deserializer.call({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
             'journal': {'id': self.journal.pk},
@@ -411,7 +412,7 @@ class MappingToModel_Test(BaseModel):
         """
         Test ModelToMapping.call serializing date and datetime
         """
-        issue = self.cast.call({
+        issue = self.deserializer.call({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
             'last_char_datetime': {'year': 1864, 'month': 12, 'day': 31, 'hour': 1},
@@ -425,14 +426,15 @@ class QueryDictFlatener_Test(object):
     """
 
     def setUp(self):
-        self.cast = DjangoStack()
+        self.serializer = DjangoSerializeStack()
+        self.deserializer = DjangoDeserializeStack()
 
     def call_test(self):
         """
         Test QueryDictFlatener.call
         """
         WrappedQueryDict = QueryDictWrap(list_keys=['a_list'])
-        ok_(self.cast(QueryDict('a_list=1&a_list=2&a_normal_key=1&a_normal_key=2&a_normal_key=3'), to=WrappedQueryDict) == {
+        ok_(self.serializer(QueryDict('a_list=1&a_list=2&a_normal_key=1&a_normal_key=2&a_normal_key=3'), to=WrappedQueryDict) == {
             'a_list': ['1', '2'],
             'a_normal_key': '1',
         })
@@ -442,7 +444,7 @@ class QueryDictFlatener_Test(object):
         Test QueryDictFlatener.call configured for a model
         """
         WrappedQueryDict = QueryDictWrap(model=Gourmand)
-        ok_(self.cast(QueryDict('favourite_dishes=1&favourite_dishes=2&pseudo=Taz&pseudo=Touz'), to=WrappedQueryDict) == {
+        ok_(self.serializer(QueryDict('favourite_dishes=1&favourite_dishes=2&pseudo=Taz&pseudo=Touz'), to=WrappedQueryDict) == {
             'favourite_dishes': ['1', '2'],
             'pseudo': 'Taz',
         })
@@ -453,14 +455,14 @@ class QueryDictFlatener_Test(object):
         """
         WrappedQueryDict = QueryDictWrap(model=Gourmand)
         # Test that life is sad
-        ok_(self.cast(QueryDict('favourite_dishes='), to=WrappedQueryDict) == {
+        ok_(self.serializer(QueryDict('favourite_dishes='), to=WrappedQueryDict) == {
             'favourite_dishes': [''],
         })
         # Test that with our cast it is much brighter
         qd_cast = QueryDictFlatener(mm_to_cast={
             Mm(list, list): StripEmptyValues(empty_value='EMPTY')
         })
-        cast = DjangoStack(mm_to_cast={
+        cast = DjangoSerializeStack(mm_to_cast={
             Mm(QueryDict): qd_cast
         })
         ok_(cast(QueryDict('favourite_dishes=EMPTY'), to=WrappedQueryDict) == {
