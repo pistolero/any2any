@@ -2,11 +2,12 @@
 import copy
 import datetime
 
-from django.db import models as djmodels
+from django.db import models
 from django.http import QueryDict
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey
+from django.db.models.query import QuerySet
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
 FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast, WrappedObject)
@@ -16,7 +17,7 @@ from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
 
 # Model instrospector
 #======================================
-class DjModelIntrospector(object):
+class ModelIntrospector(object):
     """
     Mixin for adding introspection capabilities to Wraps.
     """
@@ -44,7 +45,7 @@ class DjModelIntrospector(object):
         # This allows to handle MTI nicely (and transparently).
         mod_opts = self.model._meta
         if mod_opts.parents:
-            super_parent = filter(lambda p: issubclass(p, djmodels.Model), mod_opts.get_parent_list())[0]
+            super_parent = filter(lambda p: issubclass(p, models.Model), mod_opts.get_parent_list())[0]
             return super_parent._meta.pk.name
         else:
             return mod_opts.pk.name
@@ -75,7 +76,7 @@ class DjModelIntrospector(object):
 
 # Model Wrap
 #======================================
-class DjModelWrap(DjModelIntrospector, ObjectWrap):
+class ModelWrap(ModelIntrospector, ObjectWrap):
     """
     Wrap for django models.
 
@@ -96,24 +97,24 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         for field in self.fields:
             field_type = type(field)
             # If fk, we return the right model
-            if isinstance(field, djmodels.ForeignKey):
-                wrapped_type = DjModelWrap(
+            if isinstance(field, models.ForeignKey):
+                wrapped_type = ModelWrap(
                     klass=field.rel.to,
                     superclasses=(field_type,)
                 )
             # If m2m, we want a list of the right model
-            elif isinstance(field, djmodels.ManyToManyField):
+            elif isinstance(field, models.ManyToManyField):
                 wrapped_type = ContainerWrap(
                     klass=field_type,
-                    superclasses=(djmodels.Manager,),
+                    superclasses=(models.Manager,),
                     factory=list,
                     value_type=field.rel.to
                 )
             # "Complex" Python types to the right type 
-            elif isinstance(field, (djmodels.DateTimeField, djmodels.DateField)):
+            elif isinstance(field, (models.DateTimeField, models.DateField)):
                 actual_type = {
-                    djmodels.DateTimeField: datetime.datetime,
-                    djmodels.DateField: datetime.date,
+                    models.DateTimeField: datetime.datetime,
+                    models.DateField: datetime.date,
                 }[field_type]
                 wrapped_type = Wrap(klass=field_type, superclasses=(actual_type,))
             else:
@@ -124,14 +125,14 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         for name, related in self.related_dict.items():
             fields_dict[name] = ContainerWrap(
                 klass=type(related),
-                superclasses=(djmodels.Manager,),
+                superclasses=(models.Manager,),
                 factory=list,
                 value_type=related.related.model
             )
         return fields_dict
 
     def get_schema(self):
-        schema = super(DjModelWrap, self).get_schema()
+        schema = super(ModelWrap, self).get_schema()
         related_keys = self.related_dict.keys()
         if not self.include_related:
             for k in related_keys:
@@ -163,7 +164,7 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         # setting attributes
         for name, value in kwargs.iteritems():
             klass = self.get_class(name)
-            if Wrap.issubclass(klass, djmodels.Manager):
+            if Wrap.issubclass(klass, models.Manager):
                 obj.save()# Because otherwise we cannot handle manytomany
                 manager = getattr(obj, name)
                 # clear() only provided if the ForeignKey can have a value of null:
@@ -182,25 +183,25 @@ class DjModelWrap(DjModelIntrospector, ObjectWrap):
         return self.klass
 
 
-class DeclarativeDjModelWrap(DjModelWrap, DeclarativeObjectWrap): pass
-class WrappedDjModel(WrappedObject):
+class DeclarativeModelWrap(ModelWrap, DeclarativeObjectWrap): pass
+class WrappedModel(WrappedObject):
 
-    __metaclass__ = DeclarativeDjModelWrap
+    __metaclass__ = DeclarativeModelWrap
 
     class Meta:
-        klass = djmodels.Model
+        klass = models.Model
 
 
 # Mixins
 #======================================
 class FromModel(FromObject):
 
-    from_wrap = Setting(default=DjModelWrap)
+    from_wrap = Setting(default=ModelWrap)
 
 
 class ToModel(ToObject):
 
-    to_wrap = Setting(default=DjModelWrap)
+    to_wrap = Setting(default=ModelWrap)
 
     def call(self, inpt):
         obj = super(ToModel, self).call(inpt)
@@ -254,7 +255,7 @@ class FromQueryDict(FromMapping):
         return qd.iterlists()
 
 
-class QueryDictWrap(Wrap, DjModelIntrospector):
+class QueryDictWrap(Wrap, ModelIntrospector):
 
     defaults = {
         'list_keys': [],
@@ -276,7 +277,7 @@ class QueryDictWrap(Wrap, DjModelIntrospector):
                 pass
             else:
                 field_type = type(field)
-                if isinstance(field, djmodels.ManyToManyField):
+                if isinstance(field, models.ManyToManyField):
                     return True
         return False
 
@@ -319,10 +320,12 @@ class DjangoStack(BasicStack):
     class Meta:
         defaults = {
             'mm_to_cast': {
-                Mm(from_any=djmodels.Manager): QuerySetToIterable(to=list),
-                Mm(to_any=djmodels.Manager): IterableToQueryset(),
-                Mm(from_any=djmodels.Model): ModelToMapping(to=dict),
-                Mm(to_any=djmodels.Model): MappingToModel(),
+                Mm(from_any=models.Manager): QuerySetToIterable(to=list),
+                Mm(from_any=QuerySet): QuerySetToIterable(to=list),
+                Mm(to_any=models.Manager): IterableToQueryset(),
+                Mm(to_any=QuerySet): IterableToQueryset(),
+                Mm(from_any=models.Model): ModelToMapping(to=dict),
+                Mm(to_any=models.Model): MappingToModel(),
                 Mm(from_any=QueryDict): QueryDictFlatener(),
             }
         }

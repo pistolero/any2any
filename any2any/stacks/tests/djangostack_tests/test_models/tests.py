@@ -11,17 +11,17 @@ from models import *
 
 from nose.tools import assert_raises, ok_
 
-class DjModelWrap_Test(object):
+class ModelWrap_Test(object):
 
     def fields_test(self):
         """
-        Test DjModelWrap.default_schema
+        Test ModelWrap.default_schema
         """
-        columnist_fields = DjModelWrap(klass=Columnist).default_schema()
-        gourmand_fields = DjModelWrap(klass=Gourmand).default_schema()
-        wsausage_fields = DjModelWrap(klass=WritingSausage).default_schema()
-        journal_fields = DjModelWrap(klass=Journal).default_schema()
-        dish_fields = DjModelWrap(klass=Dish).default_schema()
+        columnist_fields = ModelWrap(klass=Columnist).default_schema()
+        gourmand_fields = ModelWrap(klass=Gourmand).default_schema()
+        wsausage_fields = ModelWrap(klass=WritingSausage).default_schema()
+        journal_fields = ModelWrap(klass=Journal).default_schema()
+        dish_fields = ModelWrap(klass=Dish).default_schema()
         ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
         ok_(Wrap.issubclass(columnist_fields['id'], AutoField))
         ok_(Wrap.issubclass(columnist_fields['lastname'], CharField))
@@ -42,9 +42,9 @@ class DjModelWrap_Test(object):
 
     def nk_test(self):
         """
-        Test DjModelWrap.extract_pk
+        Test ModelWrap.extract_pk
         """
-        columnist_type = DjModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
+        columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
         ok_(columnist_type.extract_pk({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
@@ -154,8 +154,8 @@ class ModelToMapping_Test(BaseModel):
         Test ModelToMapping.call serializing a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey
-        journalist_type = DjModelWrap(klass=Journalist, include=['firstname', 'lastname'])
-        journal_type = DjModelWrap(klass=Journal,
+        journalist_type = ModelWrap(klass=Journalist, include=['firstname', 'lastname'])
+        journal_type = ModelWrap(klass=Journal,
             include=['name', 'journalist_set'],
             key_schema=('firstname', 'lastname')
         )
@@ -175,8 +175,8 @@ class ModelToMapping_Test(BaseModel):
         # reverse m2m
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
-        gourmand_type = DjModelWrap(klass=Gourmand, include=['pseudo'])
-        dish_type = DjModelWrap(klass=Dish, exclude=['id'], include_related=True)
+        gourmand_type = ModelWrap(klass=Gourmand, include=['pseudo'])
+        dish_type = ModelWrap(klass=Dish, exclude=['id'], include_related=True)
         gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
         dish_cast = ModelToMapping(from_=dish_type, to=dict)
         cast = DjangoStack(extra_mm_to_cast={
@@ -194,8 +194,8 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call serializing date and datetime
         """
-        issue_type = DjModelWrap(klass=Issue, include=['journal', 'issue_date', 'last_char_datetime'])
-        journal_type = DjModelWrap(klass=Journal, include=['name'])
+        issue_type = ModelWrap(klass=Issue, include=['journal', 'issue_date', 'last_char_datetime'])
+        journal_type = ModelWrap(klass=Journal, include=['name'])
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
         issue_cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
         cast = DjangoStack(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
@@ -348,7 +348,7 @@ class MappingToModel_Test(BaseModel):
         Test MappingToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey - only works if fk can be null
-        journal_type = DjModelWrap(klass=Journal, include_related=True)
+        journal_type = ModelWrap(klass=Journal, include_related=True)
         journal = self.cast.call({
             'id': self.journal.id,
             'journalist_set': [],
@@ -362,7 +362,7 @@ class MappingToModel_Test(BaseModel):
         }, to=journal_type)
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
-        dish_type = DjModelWrap(klass=Dish, include_related=True)
+        dish_type = ModelWrap(klass=Dish, include_related=True)
         salmon = self.cast.call({
             'id': self.salmon.id,
             'gourmand_set': [
@@ -376,7 +376,7 @@ class MappingToModel_Test(BaseModel):
         Test update an object with its natural key, natural key already existing.
         """
         columnist_before = Columnist.objects.count()
-        columnist_type = DjModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
+        columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
         jamy = self.cast.call({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
@@ -393,7 +393,7 @@ class MappingToModel_Test(BaseModel):
         Test deserialize and create an object with its natural key.
         """
         columnist_before = Columnist.objects.count()
-        columnist_type = DjModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
+        columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
         fred = self.cast.call({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
