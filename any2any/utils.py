@@ -2,6 +2,7 @@
 import copy
 import collections
 import types
+import functools
 try:
     import abc
 except ImportError:
@@ -69,15 +70,20 @@ class Singleton(ClassSet):
         return u"'%s'" % self.klass.__name__
 
 
-class Metamorphosis(object):
+class Mm(object):
     """
-    A metamorphosis between two types :
+    A metamorphosis between two types. For example :
+
+        >>> mm1 = Mm(LoisClark, Superman)
+        >>> mm2 = Mm(from_any=Human, to_any=SuperHero)
+        >>> mm1 < mm2 # i.e. <mm1> is included in <mm2>
+        True
 
     Kwargs:
-        from_(type). Metamorphosis only from type `from_` (and no subclass).
-        to(type). Metamorphosis only to type `to` (and no subclass).
-        from_any(type). Metamorphosis from type `from_any` and subclasses.
-        to_any(type). Metamorphosis from type `to_any` and subclasses.
+        - from_(type). Metamorphosis only from type `from_` (and no subclass).
+        - to(type). Metamorphosis only to type `to` (and no subclass).
+        - from_any(type). Metamorphosis from type `from_any` and subclasses.
+        - to_any(type). Metamorphosis from type `to_any` and subclasses.
     """
 
     def __init__(self, from_=None, to=None, from_any=None, to_any=None):
@@ -107,21 +113,27 @@ class Metamorphosis(object):
         Given a list of metamorphoses `mms`, returns the super-metamorphoses (i.e. "superset")
         of the calling instance, and filters out the possible duplicates and supersets of supersets. 
         """
-
-        super_mms = set(filter(self.included_in, mms))
+        super_mms = set(filter(self.__le__, mms))
         for m1 in super_mms.copy():
             for m2 in super_mms.copy():
-                if m1.included_in(m2) and not m1 is m2:
+                if m1 <= m2 and not m1 is m2:
                     super_mms.discard(m2)
         return list(super_mms)
 
-    def included_in(self, other, strict=False):
-        if strict and self != other:
-            return False
-        return self._from_set <= other._from_set and self._to_set <= other._to_set
+    def __lt__ (self, other):
+        return self != other and self._from_set <= other._from_set and self._to_set <= other._to_set
+
+    def __gt__ (self, other):
+        return self != other and self._from_set >= other._from_set and self._to_set >= other._to_set
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __ge__(self, other):
+        return self > other or self == other
 
     def __eq__(self, other):
-        if isinstance(other, Metamorphosis):
+        if isinstance(other, Mm):
             return self._from_set == other._from_set and self._to_set == other._to_set
         else:
             return NotImplemented
@@ -134,7 +146,6 @@ class Metamorphosis(object):
 
     def __hash__(self):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
-Mm = Metamorphosis
 
 
 class WrapMeta(type):
@@ -152,17 +163,16 @@ class Wrap(type):
     """
     Wrapper allowing to provide extra-information on a type.
 
-    Kwargs:
+    Features:
 
-        klass(type). The wrapped type.
-
-        superclasses(tuple). Allows to customize :meth:`Wrap.issubclass` behaviour :
+        - klass(type). The wrapped type.
+        - superclasses(tuple). Allows to customize :meth:`Wrap.issubclass` behaviour :
 
             >>> Wrapped = Wrap(klass=str, superclasses=(MyStr, AllStrings))
             >>> Wrap.issubclass(Wrapped, str), Wrap.issubclass(Wrapped, MyStr), # ...
             (True, True)
 
-        factory(type). The type used for instance creation :
+        - factory(type). The type used for instance creation :
 
             >>> Wrapped = Wrap(klass=basestring, factory=str)
             >>> a_str = Wrapped("blabla")
@@ -333,7 +343,8 @@ class memoize(object):
         self.key = key
 
     def __call__(self, method):
-        # Creates a decorator that memoizes result of the decorated function   
+        # Creates a decorator that memoizes result of the decorated function
+        @functools.wraps(method)
         def _decorated_method(cast, *args, **kwargs):
             cache = self.get_cache(cast, method)
             key = self.generate_key(args, kwargs)

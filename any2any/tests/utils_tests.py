@@ -82,9 +82,9 @@ class ClassSet_Test(object):
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
-class Metamorphosis_Test(object):
+class Mm_Test(object):
     """
-    Tests for the Metamorphosis class
+    Tests for the Mm class
     """    
     # There are 10 cases (excluding symetric cases):
     # A) m1 = m2                                        -> None
@@ -102,24 +102,25 @@ class Metamorphosis_Test(object):
     #   e) m1.from ? m2.from, m1.to = m2.to        -> None
     #   f) m1.from = m2.from, m1.to ? m2.to        -> None
 
-    def is_included_test(self):
+    def compare_test(self):
         """
-        Test Metamorphosis.is_included
+        Test set comparison of metamorphoses. 
         """
         # A)
-        ok_(animal_to_salesman.included_in(animal_to_salesman))
+        ok_(animal_to_salesman <= animal_to_salesman)
         # B)
-        ok_(shark_to_salesman.included_in(any_animal_to_any_human))
-        ok_(animal_to_salesman.included_in(animal_to_any_human))
-        ok_(shark_to_salesman.included_in(any_animal_to_salesman))
+        ok_(shark_to_salesman < any_animal_to_any_human)
+        ok_(shark_to_salesman <= any_animal_to_any_human)
+        ok_(animal_to_salesman < animal_to_any_human)
+        ok_(shark_to_salesman < any_animal_to_salesman)
         # C)
-        ok_(not any_animal_to_any_human.included_in(shark_to_salesman))
-        ok_(not animal_to_salesman.included_in(animal_to_human))
-        ok_(not animal_to_human.included_in(shark_to_human))
+        ok_(not any_animal_to_any_human < shark_to_salesman)
+        ok_(not animal_to_salesman < animal_to_human)
+        ok_(not animal_to_human < shark_to_human)
 
     def test_super_mms(self):
         """
-        Test Metamorphosis.super_mms
+        Test Mm.super_mms
         """
         # Both `any_animal_to_salesman` and `shark_to_any_human` are supersets of `shark_to_salesman`
         ok_(set(shark_to_salesman.super_mms(

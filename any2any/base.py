@@ -55,13 +55,13 @@ class Setting(property):
 
     def init(self, cast, value):
         """
-        When instantiating a cast, this is called to initialize the setting's value. 
+        This method handles initialization of the setting's value. 
         """
         self.set(cast, value)
 
     def customize(self, cast, value):
         """
-        When customizing a cast, this is called to customize the setting's value. 
+        This method handles customization of the setting's value. 
         """
         pass
 
@@ -207,7 +207,7 @@ class BaseCast(object):
     @abc.abstractmethod
     def call(self, inpt):
         """
-        Casts `inpt`.
+        Virtual method. Casts `inpt`.
         """
         return
 
@@ -233,9 +233,6 @@ class BaseCast(object):
     def log(self, message):
         """
         Logs a message to `any2any`'s logger.
-
-        Args:
-            state(str). 'start', 'during' or 'end' depending on the state of the operation when the logging takes place.
         """
         pass
 
@@ -286,10 +283,10 @@ class Cast(BaseCast):
     """
 
     mm_to_cast = MmToCastSetting(default={})
-    """dict. ``{<mm>: <cast>}``. Allows to configure what :meth:`Cast.cast_for` should pick for a given metamorphosis."""
+    """dict. ``{<mm>: <cast>}``. A dictionary mapping a metamorphosis to a cast instance."""
 
     extra_mm_to_cast = Setting(default={})
-    """dict. ``{<mm>: <cast>}``. Updates :attr:`Cast.mm_to_cast`."""
+    """dict. ``{<mm>: <cast>}``. Overrides :attr:`mm_to_cast` as a dictionary update."""
 
     from_ = FromSetting()
     """type. The type to cast from. If not given, the type of the input is used."""
@@ -298,13 +295,13 @@ class Cast(BaseCast):
     """type. The type to cast to."""
 
     from_wrap = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause `from_` to be automatically wrapped."""
+    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause :attr:`from_` to be automatically wrapped."""
 
     to_wrap = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause `to` to be automatically wrapped."""
+    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause :attr:`to` to be automatically wrapped."""
 
     logs = ViralSetting(default=False)
-    """bool. If True, the cast writes debug to :var:`logger`."""
+    """bool. If True, the cast writes debug informations to the logger."""
 
     def __repr__(self):
         if self.from_ or self.to:
@@ -315,15 +312,14 @@ class Cast(BaseCast):
     @memoize()
     def cast_for(self, mm):
         """
-        Returns:
-            Cast. A cast suitable for metamorphosis `mm`, and customized with calling cast's settings.
+        Picks in :attr:`mm_to_cast` a cast suitable for `mm`, customizes it with calling cast's settings, and finally returns it.
         """
         # gets best choice
         best_match = self._pick_best_match(mm, self.mm_to_cast.keys())
         cast = self.mm_to_cast[best_match]
         # copies and builds a customized version
         cast = copy.copy(cast)
-        cast._depth = cast._depth + 1
+        cast._depth = self._depth + 1
         cast.customize(self)
         cast.set_mm(mm)
         return cast
@@ -386,7 +382,16 @@ class Cast(BaseCast):
 
 class CastStack(Cast):
     """
-    A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with `cast_for` and calling it. 
+    A cast provided for convenience. `CastStack` doesn't do anything else than looking for a suitable cast with :meth:`Cast.cast_for` and calling it. It is therefore very useful for just stacking a bunch of casts, and then casting different types of input. For example :
+
+        >>> cast = CastStack(mm_to_cast={
+        ...     Mm(from_any=int): my_int_cast,
+        ...     Mm(from_any=str): my_str_cast,
+        ... })
+        >>> cast('a string')
+        'other string'
+        >>> cast(1234)
+        12345
     """
 
     def __call__(self, inpt, *args, **kwargs):

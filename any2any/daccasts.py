@@ -14,11 +14,11 @@ class DivideAndConquerCast(Cast):
     """
     Abstract base cast for metamorphosing `from` and `to` any complex object or container.
 
-    In order to achieve casting, this class uses a "divide and conquer" strategy :
+    In order to achieve casting, this class implements a "divide and conquer" strategy :
 
-        1. `Divide into sub-problems` - :meth:`DivideAndConquerCast.iter_input`
-        2. `Solve sub-problems` - :meth:`DivideAndConquerCast.iter_output`
-        3. `Combine solutions` - :meth:`DivideAndConquerCast.build_output`
+        1. `Divide into sub-problems` - :meth:`iter_input`
+        2. `Solve sub-problems` - :meth:`iter_output`
+        3. `Combine solutions` - :meth:`build_output`
     """
 
     @abc.abstractmethod
@@ -62,15 +62,13 @@ class DivideAndConquerCast(Cast):
 
     def get_item_from(self, key):
         """
-        Returns:
-            type or NotImplemented. The type of the value associated with `key` if it is known "a priori" (without knowing the input), or `NotImplemented` to let the cast guess.
+        Returns the type of the value associated with `key` if it is known "a priori" (without knowing the input), or `NotImplemented` to let the cast guess.
         """
         return NotImplemented
 
     def get_item_to(self, key):
         """
-        Returns:
-            type or NotImplemented. Type the value associated with `key` must be casted to, if it is known `a priori` (without knowing the input), or `NotImplemented` to let the cast guess.
+        Returns the type the value associated with `key` must be casted to, if it is known `a priori` (without knowing the input), or `NotImplemented` to let the cast guess.
         """
         return NotImplemented
 
@@ -84,17 +82,17 @@ class DivideAndConquerCast(Cast):
 #======================================
 class ObjectWrap(Wrap):
     """
-    Wrapper for any type, provide extra-informations such as attribute schema, accessors, constructor :
+    Wrapper for any type, providing extra-informations such as attribute schema, accessors, constructor :
 
-        - attribute schema - :meth:`ObjectWrap.default_schema`
-        - attribute access - :meth:`ObjectWrap.setattr` and :meth:`ObjectWrap.getattr`
-        - creation of new instances - :meth:`ObjectWrap.new`
+        - attribute schema - :meth:`default_schema`
+        - attribute access - :meth:`setattr` and :meth:`getattr`
+        - creation of new instances - :meth:`new`
 
-    Kwargs:
+    Features:
 
-        include(list). The list of attributes to include in the schema see, :meth:`ObjectWrap.get_schema`.
-        exclude(list). The list of attributes to exclude from the schema see, :meth:`ObjectWrap.get_schema`.
-        extra_schema(dict). ``{<attribute_name>: <attribute_type>}``. Adds extra attributes to the default schema, see :meth:`ObjectWrap.get_schema`.
+        - include(list). The list of attributes to include in the schema see, :meth:`get_schema`.
+        - exclude(list). The list of attributes to exclude from the schema see, :meth:`get_schema`.
+        - extra_schema(dict). ``{<attribute_name>: <attribute_type>}``. Adds extra attributes to the default schema, see :meth:`get_schema`.
     """
 
     defaults = {
@@ -105,7 +103,7 @@ class ObjectWrap(Wrap):
 
     def get_class(self, attr_name):
         """
-        Returns the class of attribute `attr_name`, as found from the schema, see :meth:`ObjectWrap.get_schema`.
+        Returns the class of attribute `attr_name`, as found from the schema, see :meth:`get_schema`.
         """
         schema = self.get_schema()
         if attr_name in schema:
@@ -165,7 +163,7 @@ class ObjectWrap(Wrap):
 class DeclarativeObjectWrap(ObjectWrap, DeclarativeWrap): pass
 class WrappedObject(object):
     """
-    Subclass this to create a wrapped type using a declarative syntax, e.g. 
+    Subclass this to create an :class:`ObjectWrap` instance using a declarative syntax, e.g. 
 
         >>> class MyWrappedObject(WrappedObject):
         ...     
@@ -199,7 +197,7 @@ class ContainerWrap(Wrap):
     """
     Wrapper for any type of container.
 
-    Kwargs:
+    Features:
         
         value_type(type or NotImplemented). The type of values in that container.
     """
@@ -226,7 +224,7 @@ class ContainerWrap(Wrap):
 class DeclarativeContainerWrap(ContainerWrap, DeclarativeWrap): pass
 class WrappedContainer(object):
     """
-    Subclass this to create a wrapped container type using a declarative syntax, e.g. 
+    Subclass this to create a :class:`ContainerWrap` instance using a declarative syntax, e.g. 
 
         >>> class MyWrappedContainer(WrappedContainer):
         ... 
@@ -264,6 +262,13 @@ class CastItems(object):
     """Cast. The cast to use on all keys."""
 
     def iter_output(self, items_iter):
+        """
+        Casts each item. The cast is looked-up for in the following order :
+
+            #. setting :attr:`key_to_cast`
+            #. setting :attr:`value_cast`
+            #. finally, using :meth:`any2any.base.Cast.cast_for`
+        """
         for key, value in items_iter:
             if self.strip_item(key, value): continue
             cast = self.cast_for_item(key, value)
@@ -316,7 +321,8 @@ class CastItems(object):
 class FromMapping(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-    :class:`FromMapping` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
+    
+    Note that `FromMapping` is more clever when `from_` is a :class:`ContainerWrap`.
     """
 
     from_wrap = Setting(default=ContainerWrap)
@@ -331,7 +337,8 @@ class FromMapping(object):
 class ToMapping(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-    :class:`ToMapping` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
+    
+    Note that `ToMapping` is more clever when `to` is a :class:`ContainerWrap`.
     """
 
     to_wrap = Setting(default=ContainerWrap)
@@ -346,7 +353,8 @@ class ToMapping(object):
 class FromIterable(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-    :class:`FromIterable` is more comfortable when the setting `from_` is a :class:`ContainerWrap`.
+    
+    Note that `FromIterable` is more clever when `from_` is a :class:`ContainerWrap`.
     """
 
     from_wrap = Setting(default=ContainerWrap)
@@ -361,7 +369,8 @@ class FromIterable(object):
 class ToIterable(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-    :class:`ToIterable` is more comfortable when the setting `to` is a :class:`ContainerWrap`.
+    
+    Note that `ToIterable` is more clever when `to` is a :class:`ContainerWrap`.
     """
 
     to_wrap = Setting(default=ContainerWrap)
@@ -376,7 +385,8 @@ class ToIterable(object):
 class FromObject(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
-    :class:`FromObject` is more comfortable when the setting `from_` is an :class:`ObjectWrap`.
+    
+    Note that `FromObject` is more clever when `from_` is an :class:`ObjectWrap`.
     """
 
     from_wrap = Setting(default=ObjectWrap)
@@ -392,7 +402,8 @@ class FromObject(object):
 class ToObject(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
-    :class:`ToObject` is more comfortable when the setting `to` is an :class:`ObjectWrap`.
+    
+    Note that `ToObject` is more clever when `to` is an :class:`ObjectWrap`.
     """
 
     to_wrap = Setting(default=ObjectWrap)

@@ -144,7 +144,7 @@ Customizing the casts
 #######################
 
 ModelToMapping
-=============
+===============
 
 Selecting the attributes to include
 ------------------------------------
@@ -185,7 +185,7 @@ Let's add something to the output, for example the model name. As the model name
     True
 
 MappingToModel
-============
+===============
 
 Deserializing with a natural key
 ----------------------------------
