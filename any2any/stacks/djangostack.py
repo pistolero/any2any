@@ -13,6 +13,7 @@ from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromOb
 FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast, WrappedObject)
 from any2any.daccasts import DeclarativeObjectWrap
 from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
+from any2any.base import MmToCastSetting
 
 
 # Model instrospector
@@ -295,7 +296,7 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCas
     """
 
     to_wrap = Setting(default=QueryDictWrap)
-    mm_to_cast = Setting(default={
+    mm_to_cast = MmToCastSetting(default={
         Mm(from_=list): ListToFirstElem(),
         Mm(to=list): OneElemToList(),
         Mm(list, list): Identity(),
