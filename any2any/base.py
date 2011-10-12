@@ -348,18 +348,18 @@ class Cast(BaseCast):
             for v2 in list(filtered):
                 if v1._from_set < v2._from_set:
                     filtered.remove(v2)
-        # If wraps, we give preference to wrap's superclasses in the order
+        # If wraps, we give preference to wrap's `all_superclasses` in the order
         # they are declared.
         # e.g. if mm is `Wrap(int, str) -> object`, we prefer `int -> object` than `str -> object`.
         from_class, to_class = mm._from_set.klass, mm._to_set.klass
         if isinstance(to_class, Wrap):
-            for k in to_class.superclasses:
+            for k in to_class.all_superclasses:
                 temp = filter(lambda v: k <= v._to_set, filtered)
                 if temp:
                     filtered = temp
                     break
         if isinstance(from_class, Wrap):
-            for k in from_class.superclasses:
+            for k in from_class.all_superclasses:
                 temp = filter(lambda v: k <= v._from_set, filtered)
                 if temp:
                     filtered = temp

@@ -203,8 +203,9 @@ class Wrap_Test(object):
         ok_(isinstance(WrappedInt, Wrap))
         ok_(issubclass(WrappedInt, Wrapped))
         # Test features are set right
-        ok_(WrappedInt.superclasses == (int,))
-        ok_(WrappedInt.factory == int)
+        ok_(WrappedInt.superclasses == ())
+        ok_(WrappedInt.all_superclasses == (int,))
+        ok_(WrappedInt.factory == None)
         an_int = WrappedInt(198)
         ok_(an_int == 198)
         ok_(type(an_int) == int)
@@ -222,6 +223,7 @@ class Wrap_Test(object):
             @classmethod
             def makes_sense(self): return 11
             klass = int
+            superclasses = (float,)
             factory = int
         ok_(MyWrapped.makes_sense() == 11)
         # Check that inheritance works as well
@@ -230,6 +232,7 @@ class Wrap_Test(object):
         ok_(MyOhMyWrapped.makes_sense() == 11)
         ok_(MyOhMyWrapped.factory == float)
         ok_(MyOhMyWrapped.klass == int)
+        ok_(MyOhMyWrapped.superclasses == (float,))
 
 class Memoization_Test(object):
     """

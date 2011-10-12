@@ -154,7 +154,7 @@ class ObjectWrap(Wrap):
         """
         Creates and returns a new instance of the wrapped type.
         """
-        return self.factory(**kwargs)
+        return (self.factory or self.klass)(**kwargs)
 
     def __call__(self, *args, **kwargs):
         return self.new(**kwargs)

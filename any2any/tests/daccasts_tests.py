@@ -172,7 +172,8 @@ class ObjectWrap_Test(object):
 
         ok_(MyWrappedObject.klass == int)
         ok_(MyWrappedObject.get_attr1(obj) == 888)
-        ok_(MyWrappedObject.superclasses == (int, float, str))
+        ok_(MyWrappedObject.superclasses == (float, str))
+        ok_(MyWrappedObject.all_superclasses == (int, float, str))
         ok_(MyWrappedObject.include == ['attr1', 'attr2'])
         ok_(MyWrappedObject.get_schema() == {'attr1': int, 'attr2': str})
         

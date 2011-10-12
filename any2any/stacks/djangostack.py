@@ -141,7 +141,7 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
         return schema
 
     def new(self, *args, **kwargs):
-        model = self.factory
+        model = self.factory or self.klass
         # Extracting primary key from kwargs
         key_tuple = self.extract_pk(kwargs) or ()
         key_dict = dict(zip(self.key_schema, key_tuple))

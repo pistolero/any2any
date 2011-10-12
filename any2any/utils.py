@@ -195,11 +195,11 @@ class Wrap(type):
         return super(Wrap, cls).__new__(cls, name, bases, attrs)
 
     def __init__(self, **features):
+        # !!! Features shouldn't be forced to any default value here, because
+        # it messes up the inheritance between declarative wraps
         klass = features.get('klass', self.defaults['klass'])
         if klass is None:
             raise ValueError("'klass' feature cannot be '%s'" % klass)
-        features.setdefault('factory', klass)
-        features['superclasses'] = (klass,) + tuple(features.get('superclasses', ())) 
         self.features = features
         features = dict(copy.copy(self.defaults), **features)
         for name, value in features.items():
@@ -207,8 +207,12 @@ class Wrap(type):
                 raise TypeError("Unvalid feature '%s'" % name)
             setattr(self, name, value)
 
+    @property
+    def all_superclasses(self):
+        return (self.klass,) + tuple(self.superclasses)
+
     def __call__(self, *args, **kwargs):
-        return self.factory(*args, **kwargs)
+        return (self.factory or self.klass)(*args, **kwargs)
 
     def __repr__(self):
         return 'Wrapped%s' % self.klass.__name__.capitalize()
@@ -231,8 +235,8 @@ class Wrap(type):
     def __superclasshook__(self, C):
         if isinstance(C, Wrap): C = C.klass
         # `C` is superclass of `self`,
-        # if `C` is superclass of one of `self.superclasses` 
-        for parent in self.superclasses:
+        # if `C` is superclass of one of `self.all_superclasses` 
+        for parent in self.all_superclasses:
             if Wrap.issubclass(parent, C):
                 return True
         return False
