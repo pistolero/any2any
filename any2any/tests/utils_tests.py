@@ -222,11 +222,14 @@ class Wrap_Test(object):
             @classmethod
             def makes_sense(self): return 11
             klass = int
+            factory = int
         ok_(MyWrapped.makes_sense() == 11)
         # Check that inheritance works as well
         class MyOhMyWrapped(MyWrapped):
-            klass = int
+            factory = float
         ok_(MyOhMyWrapped.makes_sense() == 11)
+        ok_(MyOhMyWrapped.factory == float)
+        ok_(MyOhMyWrapped.klass == int)
 
 class Memoization_Test(object):
     """

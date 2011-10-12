@@ -274,8 +274,12 @@ class DeclarativeWrap(Wrap):
                 setattr(new_wrapped, name, value)
         return new_wrapped
 
-    def __init__(self, name, bases, attrs):
+    def __init__(self, class_name, bases, attrs):
         features = dict(filter(lambda(k, v): not k.startswith('_'), attrs.items()))
+        # Handling inhertiance of features
+        for name in self.defaults:
+            if not name in features and hasattr(self, name):
+                features[name] = getattr(self, name)
         self.get_wrap().__init__(self, **features)
 
     @classmethod
