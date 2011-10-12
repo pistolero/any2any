@@ -266,16 +266,16 @@ class DeclarativeWrap(Wrap):
 
     def __new__(cls, class_name, bases, attrs):
         new_wrapped = cls.get_wrap().__new__(cls, _declarative=(class_name, bases, attrs))
-        for name, value in attrs.items():
+        for name, value in attrs.copy().items():
             if isinstance(value, types.FunctionType):
                 raise TypeError('You cannot declare instance methods here')
             elif isinstance(value, classmethod):
+                attrs.pop(name)
                 setattr(new_wrapped, name, value)
         return new_wrapped
 
     def __init__(self, name, bases, attrs):
-        meta = attrs.get('Meta', self.Empty())
-        features = dict(filter(lambda(k, v): not k.startswith('_'), meta.__dict__.items()))
+        features = dict(filter(lambda(k, v): not k.startswith('_'), attrs.items()))
         self.get_wrap().__init__(self, **features)
 
     @classmethod
@@ -289,7 +289,6 @@ class Wrapped(object):
 
         >>> class WrappedInt(Wrapped):
         ...
-        ... class Meta:
         ...     klass = int
         ... 
 
@@ -300,8 +299,7 @@ class Wrapped(object):
 
     __metaclass__ = DeclarativeWrap
 
-    class Meta:
-        klass = object
+    klass = object
 
 
 def closest_parent(klass, other_classes):

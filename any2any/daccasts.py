@@ -166,15 +166,15 @@ class WrappedObject(object):
     Subclass this to create an :class:`ObjectWrap` instance using a declarative syntax, e.g. 
 
         >>> class MyWrappedObject(WrappedObject):
-        ...     
+        ... 
+        ...     klass = int
+        ...     superclasses = (MyInt,)
+        ...     include = ['attr1', 'attr2']
+        ...    
         ...     @classmethod
         ...     def get_attr1(cls, instance):
         ...         return instance['attr1']
         ... 
-        ...     class Meta:
-        ...         klass = int
-        ...         superclasses = (MyInt,)
-        ...         include = ['attr1', 'attr2']
         ...         
 
     Which is equivalent to :
@@ -189,8 +189,7 @@ class WrappedObject(object):
 
     __metaclass__ = DeclarativeObjectWrap
 
-    class Meta:
-        klass = object
+    klass = object
 
 
 class ContainerWrap(Wrap):
@@ -228,10 +227,9 @@ class WrappedContainer(object):
 
         >>> class MyWrappedContainer(WrappedContainer):
         ... 
-        ...     class Meta:
-        ...         klass = set
-        ...         superclasses = (list,)
-        ...         value_type = int
+        ...     klass = set
+        ...     superclasses = (list,)
+        ...     value_type = int
         ...         
 
     Which is equivalent to :
@@ -241,8 +239,7 @@ class WrappedContainer(object):
 
     __metaclass__ = DeclarativeContainerWrap
 
-    class Meta:
-        klass = object
+    klass = object
 
 
 # Mixins for DivideAndConquerCast

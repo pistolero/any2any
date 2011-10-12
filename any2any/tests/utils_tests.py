@@ -198,8 +198,7 @@ class Wrap_Test(object):
         Test instantiate a wrap with the declarative syntax
         """
         class WrappedInt(Wrapped):
-            class Meta:
-                klass = int
+            klass = int
         # Test right instance type is created
         ok_(isinstance(WrappedInt, Wrap))
         ok_(issubclass(WrappedInt, Wrapped))
@@ -213,8 +212,7 @@ class Wrap_Test(object):
         try:
             class UnvalidWrapped(Wrapped):
                 def non_sense(self): pass
-                class Meta:
-                    klass = int
+                klass = int
         except TypeError:
             pass
         else:
@@ -223,13 +221,11 @@ class Wrap_Test(object):
         class MyWrapped(Wrapped):
             @classmethod
             def makes_sense(self): return 11
-            class Meta:
-                klass = int
+            klass = int
         ok_(MyWrapped.makes_sense() == 11)
         # Check that inheritance works as well
         class MyOhMyWrapped(MyWrapped):
-            class Meta:
-                klass = int
+            klass = int
         ok_(MyOhMyWrapped.makes_sense() == 11)
 
 class Memoization_Test(object):

@@ -188,8 +188,7 @@ class WrappedModel(WrappedObject):
 
     __metaclass__ = DeclarativeModelWrap
 
-    class Meta:
-        klass = models.Model
+    klass = models.Model
 
 
 # Mixins

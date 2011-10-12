@@ -156,6 +156,10 @@ class ObjectWrap_Test(object):
 
         class MyWrappedObject(WrappedObject):
 
+            klass = int
+            superclasses = (float, str)
+            include = ['attr1', 'attr2']
+
             @classmethod
             def default_schema(self):
                 return {'attr1': int, 'attr2': str, 'attr3': object}
@@ -163,11 +167,6 @@ class ObjectWrap_Test(object):
             @classmethod
             def get_attr1(cls, instance):
                 return instance['attr1']
-        
-            class Meta:
-                klass = int
-                superclasses = (float, str)
-                include = ['attr1', 'attr2']
 
         obj = {'attr1': 888}
 
