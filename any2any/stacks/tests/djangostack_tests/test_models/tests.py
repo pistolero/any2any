@@ -43,16 +43,16 @@ class ModelWrap_Test(object):
 
     def nk_test(self):
         """
-        Test ModelWrap.extract_pk
+        Test ModelWrap.extract_key
         """
         columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
-        ok_(columnist_type.extract_pk({
+        ok_(columnist_type.extract_key({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': 806, 'name': "C'est pas sorcier"},
             'id': 7763,
             'column': 'truck',
-        }) == ('Jamy', 'Gourmaud'))
+        }) == {'firstname': 'Jamy', 'lastname': 'Gourmaud'})
 
 class BaseModel(object):
     

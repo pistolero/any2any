@@ -57,21 +57,6 @@ class ModelIntrospector(object):
     @property
     def pk_field(self):
         return self.fields_dict[self.pk_field_name]
-        
-    def extract_pk(self, data):
-        # Extracts and returns the primary key from the dictionary `data`, or None
-        key_tuple = []
-        for field_name in self.key_schema:
-            try:
-                if field_name == 'pk':
-                    value = data.get('pk') or data[self.pk_field_name]
-                else:
-                    value = data[field_name]
-            except KeyError:
-                return None
-            else:
-                key_tuple.append(value)
-        return tuple(key_tuple)
 
     def collect_ptrs(self, model):
         # Recursively collects all the fields pointing to parents of `model`
@@ -90,14 +75,14 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
 
     Kwargs:
         
-        create(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
+        create_allowed(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
         key_schema(tuple). ``(<field_name>)``. Tuple of field names used to fetch the object from the database.
     """
 
     defaults = {
         'key_schema': ('pk',),
         'include_related': False,
-        'create': True,
+        'create_allowed': True,
     }
 
     def default_schema(self):
@@ -158,33 +143,33 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
         return schema
 
     def new(self, *args, **kwargs):
-        model = self.factory or self.klass
-        # Extracting primary key from kwargs
-        key_tuple = self.extract_pk(kwargs) or ()
-        key_dict = dict(zip(self.key_schema, key_tuple))
-        if not key_dict:
-            if self.create:
-                key_dict = {'pk': None}
-            else:
-                raise ValueError("couldn't extract key from the data " +
-                "nor create a new object ('create' currently set to False)")
-        # Creating new object
         try:
-            obj = model.objects.get(**key_dict)
-        except model.DoesNotExist:
-            if self.create:
-                obj = model(**key_dict)
-            else:
-                raise
-        except model.MultipleObjectsReturned:
+            instance = self.retrieve(*args, **kwargs)
+        except self.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
-            (self.key_schema, model))
-        # setting attributes
+            (self.key_schema, self.model))
+        except self.model.DoesNotExist:
+            if not self.create_allowed:
+                raise
+            instance = self.create(*args, **kwargs)
+        return self.update(instance, *args, **kwargs)
+
+    def retrieve(self, *args, **kwargs):
+        key_dict = self.extract_key(kwargs)
+        if not key_dict:
+            raise self.model.DoesNotExist("no key could be extracted from the data")
+        return self.model.objects.get(**key_dict)
+
+    def create(self, *args, **kwargs):
+        key_dict = self.extract_key(kwargs)
+        return self.model(**(key_dict or {'pk': None}))
+
+    def update(self, instance, *args, **kwargs):
         for name, value in kwargs.iteritems():
             klass = self.get_class(name)
             if Wrap.issubclass(klass, models.Manager):
-                obj.save()# Because otherwise we cannot handle manytomany
-                manager = getattr(obj, name)
+                instance.save()# Because otherwise we cannot handle manytomany
+                manager = getattr(instance, name)
                 # clear() only provided if the ForeignKey can have a value of null:
                 if hasattr(manager, 'clear'):
                     manager.clear()
@@ -193,12 +178,27 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
                 else:
                     raise TypeError("cannot update if the related ForeignKey cannot be null")
             else:
-                setattr(obj, name, value)
-        return obj
+                setattr(instance, name, value)
+        return instance
 
     @property
     def model(self):
-        return self.klass
+        return self.factory or self.klass
+
+    def extract_key(self, data):
+        # Extracts and returns the object key from the dictionary `data`, or None
+        key_dict = {}
+        for field_name in self.key_schema:
+            try:
+                if field_name == 'pk':
+                    value = data.get('pk') or data[self.pk_field_name]
+                else:
+                    value = data[field_name]
+            except KeyError:
+                return None
+            else:
+                key_dict[field_name] = value
+        return key_dict
 
 
 class DeclarativeModelWrap(ModelWrap, DeclarativeObjectWrap): pass
@@ -221,9 +221,9 @@ class ToModel(ToObject):
     to_wrap = Setting(default=ModelWrap)
 
     def call(self, inpt):
-        obj = super(ToModel, self).call(inpt)
-        obj.save() # TODO: why save ?
-        return obj
+        instance = super(ToModel, self).call(inpt)
+        instance.save() # TODO: why save ?
+        return instance
 
 
 class FromQuerySet(FromIterable):
