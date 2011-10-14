@@ -252,10 +252,10 @@ class CastItems(object):
     key_to_cast = Setting(default={})
     """dict. ``{<key>: <cast>}``. Maps a key with the cast to use."""
 
-    value_cast = CopiedSetting()
+    value_cast = Setting()
     """Cast. The cast to use on all values."""
 
-    key_cast = CopiedSetting()
+    key_cast = Setting()
     """Cast. The cast to use on all keys."""
 
     def iter_output(self, items_iter):
@@ -295,17 +295,13 @@ class CastItems(object):
         # try to get cast with the per-key map
         if key in self.key_to_cast:
             cast = self.key_to_cast.get(key)
-            cast = copy.copy(cast)
-            cast.customize(self)
-            cast.set_mm(mm)
+            cast = self.build_customized(cast, mm)
         elif self.value_cast:
             cast = self.value_cast
-            cast.customize(self)
-            cast.set_mm(mm)
+            cast = self.build_customized(cast, mm)
         # otherwise try to get it by getting item's `mm` and calling `cast_for`.
         else:
             cast = self.cast_for(mm)
-        cast._depth = self._depth + 1
         return cast
 
     def strip_item(self, key, value):

@@ -190,12 +190,17 @@ class Cast_test(object):
         """
         Test Cast.cast_for and mm_to_cast
         """
+        # simple test
         cast = self.Identity(mm_to_cast={
             Mm(int): self.ToFloat()
         })
         ok_(isinstance(cast.cast_for(Mm(int)), self.ToFloat))
         ok_(isinstance(cast.cast_for(Mm(int, str)), self.ToFloat))
+        
+        # no matching mm
         assert_raises(ValueError, cast.cast_for, Mm(str))
+    
+        # complex test, mm, sub-mms, ...
         cast = self.Identity(mm_to_cast={
             Mm(from_any=int): self.ToFloat(),
             Mm(): self.Identity(),
@@ -208,13 +213,25 @@ class Cast_test(object):
         ok_(isinstance(cast.cast_for(Mm(unicode)), self.Identity))
         ok_(isinstance(cast.cast_for(Mm(unicode, int)), self.Identity))
         ok_(isinstance(cast.cast_for(Mm()), self.Identity))
+        
         # With Wrap : give preference to the superclasses respectively to their order
         ok_(isinstance(cast.cast_for(Mm(Wrap(klass=int, superclasses=(float,)))), self.ToFloat))
         ok_(isinstance(cast.cast_for(Mm(Wrap(klass=float, superclasses=(int,)))), self.ToInt))
+
         # Give priority to a matching `to`
         ok_(isinstance(cast.cast_for(Mm(str)), self.ToInt))
         ok_(isinstance(cast.cast_for(Mm(to=str)), self.ToFloat))
         ok_(isinstance(cast.cast_for(Mm(str, str)), self.ToFloat))
+
+        # function as cast
+        func = lambda i: i
+        cast = self.Identity(mm_to_cast={
+            Mm(from_any=int): self.ToFloat(),
+            Mm(from_any=float): func,
+        })
+        ok_(isinstance(cast.cast_for(Mm(int)), self.ToFloat))
+        ok_(not cast.cast_for(Mm(int)) is cast.mm_to_cast[Mm(from_any=int)])
+        ok_(cast.cast_for(Mm(float)) is func)
         
     def mm_to_cast_test(self):
         """

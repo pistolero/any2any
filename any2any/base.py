@@ -8,6 +8,7 @@ except ImportError:
 import collections
 from functools import wraps
 import logging
+import types
 
 from utils import memoize, Mm, Wrap
 
@@ -301,20 +302,23 @@ class Cast(BaseCast):
         # gets best choice
         best_match = self._pick_best_match(mm, self.mm_to_cast.keys())
         cast = self.mm_to_cast[best_match]
-        # copies and builds a customized version
-        cast = copy.copy(cast)
-        cast._depth = self._depth + 1
-        cast.customize(self)
-        cast.set_mm(mm)
-        return cast
+        # returns a customized version
+        return self.build_customized(cast, mm)
 
-    def set_mm(self, mm):
+    def build_customized(self, cast, mm):
+        if isinstance(cast, types.FunctionType):
+            return cast
+        # builds a customized version of <cast>.
+        cast = copy.copy(cast)
+        cast._depth = cast._depth + 1
+        cast.customize(self)
         # Sets `from_` and `to` for the calling cast with mm's, only if mm's 
         # are singletons (not `from_any` or `to_any`).
-        if mm.from_ and not self.from_:
-            self.from_ = mm.from_
-        if mm.to and not self.to:
-            self.to = mm.to
+        if mm.from_ and not cast.from_:
+            cast.from_ = mm.from_
+        if mm.to and not cast.to:
+            cast.to = mm.to
+        return cast
 
     def _pick_best_match(self, mm, mm_list):
         # Picks in `mm_list` the best match for `mm`.
