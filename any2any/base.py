@@ -363,9 +363,23 @@ class Cast(BaseCast):
         """
         Set debug mode: all debug logs will be printed on stderr.
         """
-        self.logs = True
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(logging.StreamHandler())
+        if not getattr(self, '_debug_on', False):
+            self._debug_on = True
+            self.logs = True
+            self._log_handler = logging.StreamHandler()
+            logger.setLevel(logging.DEBUG)
+            logger.addHandler(self._log_handler)
+
+    def set_debug_off(self):
+        """
+        Toggle debug mode off.
+        """
+        if getattr(self, '_debug_on', False):
+            self._debug_on = False
+            self.logs = False
+            self._log_handler = None
+            logger.setLevel(logging.NOTSET)
+            logger.removeHandler(self._log_handler)
 
 
 class CastStack(Cast):
