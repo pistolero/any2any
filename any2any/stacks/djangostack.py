@@ -6,7 +6,7 @@ from django.db import models
 from django.http import QueryDict
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.generic import GenericForeignKey
+from django.contrib.contenttypes.generic import GenericForeignKey, GenericRelation
 from django.db.models.query import QuerySet
 
 from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
@@ -33,6 +33,11 @@ class ModelIntrospector(object):
         return set(all_fields) - set(ptr_fields)
 
     @property
+    def fields_dict(self):
+        # Returns a dictionary `{<field_name>, <field>}`
+        return dict(((f.name, f) for f in self.fields))
+
+    @property
     def related_dict(self):
         # Returns a dictionary {<attr_name>: <descriptor>} with all the related descriptors,
         def retrieve_desc((k, v)):
@@ -44,15 +49,17 @@ class ModelIntrospector(object):
     def pk_field_name(self):
         # We get pk's field name from the "super" parent (i.e. the "eldest").
         # This allows to handle MTI nicely (and transparently).
-        mod_opts = self.model._meta
-        if mod_opts.parents:
-            super_parent = filter(lambda p: issubclass(p, models.Model), mod_opts.get_parent_list())[0]
-            return super_parent._meta.pk.name
-        else:
-            return mod_opts.pk.name
+        all_pks = set([p._meta.pk for p in self.model._meta.get_parent_list()])
+        all_pks.add(self.model._meta.pk)
+        all_ptrs = set(self.collect_ptrs(self.model))
+        return list(all_pks - all_ptrs)[0].name
 
+    @property
+    def pk_field(self):
+        return self.fields_dict[self.pk_field_name]
+        
     def extract_pk(self, data):
-        # Extracts and returns the primary key from the dictionary *data*, or None
+        # Extracts and returns the primary key from the dictionary `data`, or None
         key_tuple = []
         for field_name in self.key_schema:
             try:
@@ -67,7 +74,7 @@ class ModelIntrospector(object):
         return tuple(key_tuple)
 
     def collect_ptrs(self, model):
-        # Recursively collects all the fields pointing to parents of *model*
+        # Recursively collects all the fields pointing to parents of `model`
         ptr_fields = []
         for parent_model, ptr_field in model._meta.parents.iteritems():
             ptr_fields.append(ptr_field)
@@ -87,15 +94,24 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
         key_schema(tuple). ``(<field_name>)``. Tuple of field names used to fetch the object from the database.
     """
 
-    defaults = dict(
-        key_schema = ('id',),
-        include_related = False,
-        create = True,
-    )
+    defaults = {
+        'key_schema': ('pk',),
+        'include_related': False,
+        'create': True,
+    }
 
     def default_schema(self):
-        fields_dict = {}
-        for field in self.fields:
+        schema = {}
+        schema.update(self._wrap_fields({'pk': self.pk_field}))
+        schema.update(self._wrap_fields(self.fields_dict))
+        schema.update(self._wrap_fields(self.related_dict))
+        return schema
+
+    def _wrap_fields(self, fields_dict):
+        # Takes a dict ``{<field_name>: <fields>}``, and returns a dict
+        # ``{<field_name>: <wrapped_field>}``.
+        wrapped_fields = {}
+        for name, field in fields_dict.items():
             field_type = type(field)
             # If fk, we return the right model
             if isinstance(field, models.ForeignKey):
@@ -104,12 +120,21 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
                     superclasses=(field_type,)
                 )
             # If m2m, we want a list of the right model
-            elif isinstance(field, models.ManyToManyField):
+            elif isinstance(field, (models.ManyToManyField, GenericRelation)):
                 wrapped_type = ContainerWrap(
                     klass=field_type,
                     superclasses=(models.Manager,),
                     factory=list,
                     value_type=field.rel.to
+                )
+            # related FK or related m2m, same as m2m 
+            elif isinstance(field, (ManyRelatedObjectsDescriptor,
+            ForeignRelatedObjectsDescriptor)):
+                wrapped_type = ContainerWrap(
+                    klass=field_type,
+                    superclasses=(models.Manager,),
+                    factory=list,
+                    value_type=field.related.model
                 )
             # "Complex" Python types to the right type 
             elif isinstance(field, (models.DateTimeField, models.DateField)):
@@ -119,18 +144,9 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
                 }[field_type]
                 wrapped_type = Wrap(klass=field_type, superclasses=(actual_type,))
             else:
-                wrapped_type = Wrap(klass=field_type)
-            fields_dict[field.name] = wrapped_type
-        
-        # including related managers
-        for name, related in self.related_dict.items():
-            fields_dict[name] = ContainerWrap(
-                klass=type(related),
-                superclasses=(models.Manager,),
-                factory=list,
-                value_type=related.related.model
-            )
-        return fields_dict
+                wrapped_type = field_type
+            wrapped_fields[name] = wrapped_type
+        return wrapped_fields
 
     def get_schema(self):
         schema = super(ModelWrap, self).get_schema()
@@ -150,7 +166,8 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
             if self.create:
                 key_dict = {'pk': None}
             else:
-                raise ValueError("Input doesn't contain key for getting object")
+                raise ValueError("couldn't extract key from the data " +
+                "nor create a new object ('create' currently set to False)")
         # Creating new object
         try:
             obj = model.objects.get(**key_dict)
@@ -277,9 +294,15 @@ class QueryDictWrap(Wrap, ModelIntrospector):
                 pass
             else:
                 field_type = type(field)
-                if isinstance(field, models.ManyToManyField):
+                if isinstance(field, models.ManyToManyField): # TODO: not only m2m
                     return True
         return False
+
+
+class LockedMmToCastSetting(MmToCastSetting):
+
+    def customize(self, instance, value):
+        pass
 
 
 class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCast):
@@ -296,7 +319,7 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCas
     """
 
     to_wrap = Setting(default=QueryDictWrap)
-    mm_to_cast = MmToCastSetting(default={
+    mm_to_cast = LockedMmToCastSetting(default={
         Mm(from_=list): ListToFirstElem(),
         Mm(to=list): OneElemToList(),
         Mm(list, list): Identity(),

@@ -22,23 +22,24 @@ class ModelWrap_Test(object):
         wsausage_fields = ModelWrap(klass=WritingSausage).default_schema()
         journal_fields = ModelWrap(klass=Journal).default_schema()
         dish_fields = ModelWrap(klass=Dish).default_schema()
-        ok_(set(columnist_fields) == set(['id', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
+        ok_(set(columnist_fields) == set(['id', 'pk', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
+        ok_(Wrap.issubclass(columnist_fields['pk'], AutoField))
         ok_(Wrap.issubclass(columnist_fields['id'], AutoField))
         ok_(Wrap.issubclass(columnist_fields['lastname'], CharField))
         ok_(Wrap.issubclass(columnist_fields['nickname'], CharField))
         ok_(Wrap.issubclass(columnist_fields['journal'], ForeignKey))
-        ok_(set(gourmand_fields) == set(['id', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
+        ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
         ok_(Wrap.issubclass(gourmand_fields['firstname'], CharField))
         ok_(Wrap.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
         ok_(Wrap.issubclass(gourmand_fields['pseudo'], CharField))
-        ok_(set(wsausage_fields) == set(['id', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
+        ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
         ok_(Wrap.issubclass(journal_fields['name'], CharField))
         ok_(Wrap.issubclass(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor))
         ok_(Wrap.issubclass(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor))
-        ok_(set(journal_fields) == set(['id', 'name', 'journalist_set', 'issue_set']))
+        ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
         ok_(Wrap.issubclass(dish_fields['name'], CharField))
         ok_(Wrap.issubclass(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor))
-        ok_(set(dish_fields) == set(['id', 'name', 'gourmand_set']))
+        ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 
     def nk_test(self):
         """
@@ -100,17 +101,24 @@ class ModelToMapping_Test(BaseModel):
         """
         Simple test ModelToMapping.call
         """
-        ok_(self.serializer.call(self.author) == {'firstname': 'John', 'lastname': 'Steinbeck', 'id': self.author.pk, 'nickname': 'JS'})
+        ok_(self.serializer.call(self.author) == {
+            'id': self.author.pk,
+            'pk': self.author.pk,
+            'firstname': 'John',
+            'lastname': 'Steinbeck',
+            'nickname': 'JS'
+        })
 
     def mti_test(self):
         """
         Test ModelToMapping.call with a model with long inheritance chain.
         """
         ok_(self.serializer.call(self.columnist) == {
+            'id': self.columnist.pk,
+            'pk': self.columnist.pk,
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
-            'journal': {'id': self.journal.pk, 'name': "C'est pas sorcier"},
-            'id': self.columnist.pk,
+            'journal': {'id': self.journal.pk, 'pk': self.journal.pk, 'name': "C'est pas sorcier"},
             'column': 'truck',
             'nickname': ''
         })
@@ -121,9 +129,11 @@ class ModelToMapping_Test(BaseModel):
         """
         ok_(self.serializer.call(self.book) == {
             'id': self.book.pk,
+            'pk': self.book.pk,
             'title': 'Grapes of Wrath',
             'author': {
                 'id': self.author.pk,
+                'pk': self.author.pk,
                 'firstname': 'John',
                 'lastname': 'Steinbeck',
                 'nickname': 'JS'
@@ -136,17 +146,19 @@ class ModelToMapping_Test(BaseModel):
         Test ModelToMapping.call with many2many field.
         """
         ok_(self.serializer.call(self.gourmand) == {
-            'id': self.gourmand.pk, 'pseudo': 'Taz', 'favourite_dishes': [],
+            'id': self.gourmand.pk, 'pk': self.gourmand.pk, 
+            'pseudo': 'Taz', 'favourite_dishes': [],
             'firstname': 'T', 'lastname': 'Aznicniev'
         })
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.favourite_dishes.add(self.foiegras)
         self.gourmand.save()
         ok_(self.serializer.call(self.gourmand) == {
-            'id': self.gourmand.pk, 'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
+            'id': self.gourmand.pk, 'pk': self.gourmand.pk,
+            'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
             'favourite_dishes': [
-                {'id': self.foiegras.pk, 'name': 'Foie gras'},
-                {'id': self.salmon.pk, 'name': 'salmon'},
+                {'id': self.foiegras.pk, 'pk': self.foiegras.pk, 'name': 'Foie gras'},
+                {'id': self.salmon.pk, 'pk': self.salmon.pk, 'name': 'salmon'},
             ]
         })
 
@@ -177,7 +189,7 @@ class ModelToMapping_Test(BaseModel):
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
         gourmand_type = ModelWrap(klass=Gourmand, include=['pseudo'])
-        dish_type = ModelWrap(klass=Dish, exclude=['id'], include_related=True)
+        dish_type = ModelWrap(klass=Dish, exclude=['id', 'pk'], include_related=True)
         gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
         dish_cast = ModelToMapping(from_=dish_type, to=dict)
         cast = DjangoSerializeStack(extra_mm_to_cast={
@@ -234,7 +246,7 @@ class MappingToModel_Test(BaseModel):
         books_before = Book.objects.count()
         book = self.deserializer.call({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
-            'author': {'id': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
+            'author': {'id': self.author.pk, 'pk': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
         }, to=Book)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(pk=book.author.pk)
