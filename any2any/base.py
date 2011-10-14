@@ -134,9 +134,7 @@ class CastType(abc.ABCMeta):
                 all_settings_dict[name] = new_setting
         # creating the new class
         attrs['_meta'] = Options(all_settings_dict)
-        new_cast_class = super(CastType, cls).__new__(cls, class_name, bases, attrs)
-        new_cast_class.call = cls.wrap_call(new_cast_class)
-        return new_cast_class
+        return super(CastType, cls).__new__(cls, class_name, bases, attrs)
 
     @classmethod
     def filter_settings(cls, attrs):
@@ -157,28 +155,6 @@ class CastType(abc.ABCMeta):
         for base in klass.__bases__:
             settings_names.update(cls.collect_settings_names(base))
         return settings_names 
-
-    @classmethod
-    def wrap_call(cls, cast_class):
-        # this method wraps `call` in order to automate logging and context management
-        call = cast_class.call
-        @wraps(call)
-        def _wrapped_call(self, *args, **kwargs):
-            # The if/else block is a hack to avoid executing the wrapping code when doing :
-            #     super(MyCast, self).call(*args, **kwargs)
-            if (type(self) == cast_class):
-                # context management should be first, because logging might use it.
-                self._context = {'input': args[0] if args else None}
-                self.log('%s.%s' % (self, call.__name__) + ' <= ' + repr(args[0] if args else None))
-                returned = call(self, *args, **kwargs)
-                self.log('%s.%s' % (self, call.__name__) + ' => ' + repr(returned))
-                if self._depth == 0:
-                    self.log('')
-                self._context = {}
-                return returned
-            else:
-                return call(self, *args, **kwargs)
-        return _wrapped_call
 
 
 class BaseCast(object):
@@ -211,8 +187,16 @@ class BaseCast(object):
         """
         return
 
-    def __call__(self, inpt):
-        return self.call(inpt)
+    def __call__(self, *args, **kwargs):
+        # wraps `Cast.call` to automate context management and logging
+        self._context = {'input': args[0] if args else None}
+        self.log('%s' % self + ' <= ' + repr(args[0] if args else None))
+        returned = self.call(*args, **kwargs)
+        self.log('%s' % self + ' => ' + repr(returned))
+        if self._depth == 0:
+            self.log('')
+        self._context = {}
+        return returned
 
     def iter_settings(self):
         """
@@ -393,9 +377,6 @@ class CastStack(Cast):
         >>> cast(1234)
         12345
     """
-
-    def __call__(self, inpt, *args, **kwargs):
-        return self.call(inpt, *args, **kwargs)
 
     def call(self, inpt, from_=None, to=None):
         if not to:

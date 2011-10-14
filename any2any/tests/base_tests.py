@@ -23,7 +23,7 @@ class BaseCast_subclassing_test(object):
                 #    and not be reset after the parent operation was called
                 memory.append('Child %s' % self._context['bla'])
         
-        Child().call(1)
+        Child()(1)
         ok_(memory == ['Parent woohoo', 'Child woohoo'])
 
     def mixin_test(self):

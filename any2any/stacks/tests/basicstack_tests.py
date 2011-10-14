@@ -14,10 +14,10 @@ class Identity_Test(object):
         Test call
         """
         identity = Identity()
-        ok_(identity.call(56) == 56)
-        ok_(identity.call('aa') == 'aa')
+        ok_(identity(56) == 56)
+        ok_(identity('aa') == 'aa')
         a_list = [1, 2]
-        other_list = identity.call(a_list)
+        other_list = identity(a_list)
         ok_(other_list is a_list)
 
 class Base_test(object):
@@ -54,7 +54,7 @@ class IterableToIterable_Test(Base_test):
         """
         cast = IterableToIterable(to=list, mm_to_cast={Mm(): Identity()})
         a_list = [1, 'a']
-        other_list = cast.call(a_list)
+        other_list = cast(a_list)
         ok_(other_list == a_list)
         ok_(not other_list is a_list)
 
@@ -70,7 +70,7 @@ class IterableToIterable_Test(Base_test):
             },
             key_to_cast={2: self.MyCast(msg='index 2')}
         )
-        ok_(cast.call([1, '3by', 78]) == ['an int 1', 'a str 3by', 'index 2 78'])
+        ok_(cast([1, '3by', 78]) == ['an int 1', 'a str 3by', 'index 2 78'])
 
 class MappingToMapping_Test(Base_test):
     """
@@ -83,7 +83,7 @@ class MappingToMapping_Test(Base_test):
         """
         a_dict = {1: 78, 'a': 'testi', 'b': 1.89}
         cast = MappingToMapping(to=dict, mm_to_cast={Mm(): Identity()})
-        other_dict = cast.call(a_dict)
+        other_dict = cast(a_dict)
         ok_(other_dict == a_dict)
         ok_(not other_dict is a_dict)
 
@@ -96,7 +96,7 @@ class MappingToMapping_Test(Base_test):
             mm_to_cast={Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'a': self.MyCast(msg='index a'),},
         )
-        ok_(cast.call({1: 78, 'a': 'testi', 'b': 1}) == {1: 'an int 78', 'a': 'index a testi', 'b': 'an int 1'})
+        ok_(cast({1: 78, 'a': 'testi', 'b': 1}) == {1: 'an int 78', 'a': 'index a testi', 'b': 'an int 1'})
 
 class ObjectToMapping_Test(Base_test):
     """
@@ -110,7 +110,7 @@ class ObjectToMapping_Test(Base_test):
         obj_type = self.ObjectWrap(extra_schema={'a1': int, 'blabla': str})
         obj = self.Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
         cast = ObjectToMapping(from_=obj_type, mm_to_cast={Mm(): Identity()}, to=dict)
-        ok_(cast.call(obj) == {'a1': 90, 'blabla': 'coucou'})
+        ok_(cast(obj) == {'a1': 90, 'blabla': 'coucou'})
 
     def custom_cast_for_elems_test(self):
         """
@@ -124,7 +124,7 @@ class ObjectToMapping_Test(Base_test):
             mm_to_cast={Mm(): Identity(), Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
-        ok_(cast.call(obj) == {'a1': 'an int 90', 'blabla': 'coucou', 'bb': 'index bb bibi'})
+        ok_(cast(obj) == {'a1': 'an int 90', 'blabla': 'coucou', 'bb': 'index bb bibi'})
 
 class MappingToObject_Test(Base_test):
     """
@@ -140,7 +140,7 @@ class MappingToObject_Test(Base_test):
         Test call
         """
         cast = MappingToObject(to=self.ObjectSchema, mm_to_cast={Mm(): Identity()})
-        obj = cast.call({'a1': 90, 'blabla': 'coucou'})
+        obj = cast({'a1': 90, 'blabla': 'coucou'})
         ok_(isinstance(obj, self.Object))
         ok_(obj.a1 == 90)
         ok_(obj.blabla == 'coucou')
@@ -154,7 +154,7 @@ class MappingToObject_Test(Base_test):
             mm_to_cast={Mm(): Identity(), Mm(from_=int): self.MyCast(msg='an int'),},
             key_to_cast={'bb': self.MyCast(msg='index bb'),},
         )
-        obj = cast.call({'a1': 90, 'blabla': 'coucou', 'bb': 'bibi'})
+        obj = cast({'a1': 90, 'blabla': 'coucou', 'bb': 'bibi'})
         ok_(isinstance(obj, self.Object))
         ok_(obj.a1 == 'an int 90')
         ok_(obj.blabla == 'coucou')

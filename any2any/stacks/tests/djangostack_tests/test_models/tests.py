@@ -101,7 +101,7 @@ class ModelToMapping_Test(BaseModel):
         """
         Simple test ModelToMapping.call
         """
-        ok_(self.serializer.call(self.author) == {
+        ok_(self.serializer(self.author) == {
             'id': self.author.pk,
             'pk': self.author.pk,
             'firstname': 'John',
@@ -113,7 +113,7 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with a model with long inheritance chain.
         """
-        ok_(self.serializer.call(self.columnist) == {
+        ok_(self.serializer(self.columnist) == {
             'id': self.columnist.pk,
             'pk': self.columnist.pk,
             'firstname': 'Jamy',
@@ -127,7 +127,7 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with foreignkeys
         """
-        ok_(self.serializer.call(self.book) == {
+        ok_(self.serializer(self.book) == {
             'id': self.book.pk,
             'pk': self.book.pk,
             'title': 'Grapes of Wrath',
@@ -145,7 +145,7 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call with many2many field.
         """
-        ok_(self.serializer.call(self.gourmand) == {
+        ok_(self.serializer(self.gourmand) == {
             'id': self.gourmand.pk, 'pk': self.gourmand.pk, 
             'pseudo': 'Taz', 'favourite_dishes': [],
             'firstname': 'T', 'lastname': 'Aznicniev'
@@ -153,7 +153,7 @@ class ModelToMapping_Test(BaseModel):
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.favourite_dishes.add(self.foiegras)
         self.gourmand.save()
-        ok_(self.serializer.call(self.gourmand) == {
+        ok_(self.serializer(self.gourmand) == {
             'id': self.gourmand.pk, 'pk': self.gourmand.pk,
             'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
             'favourite_dishes': [
@@ -178,7 +178,7 @@ class ModelToMapping_Test(BaseModel):
             Mm(from_any=Journalist): journalist_cast,
             Mm(from_any=Journal): journal_cast,
         })
-        ok_(cast.call(self.journal) == {
+        ok_(cast(self.journal) == {
             'journalist_set': [
                 {'lastname': u'Courant', 'firstname': u'Fred'},
                 {'lastname': u'Gourmaud', 'firstname': u'Jamy'}
@@ -196,7 +196,7 @@ class ModelToMapping_Test(BaseModel):
             Mm(from_any=Gourmand): gourmand_cast,
             Mm(from_any=Dish): dish_cast,
         })
-        ok_(cast.call(self.salmon) == {
+        ok_(cast(self.salmon) == {
             'gourmand_set': [
                 {'pseudo': u'Taz'},
             ],
@@ -212,7 +212,7 @@ class ModelToMapping_Test(BaseModel):
         journal_cast = ModelToMapping(from_=journal_type, to=dict)
         issue_cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
         cast = DjangoSerializeStack(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
-        ok_(cast.call(self.issue) == {
+        ok_(cast(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
             'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
@@ -228,7 +228,7 @@ class MappingToModel_Test(BaseModel):
         Simple test MappingToModel.call
         """
         authors_before = Author.objects.count()
-        james = self.deserializer.call({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
+        james = self.deserializer({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
         james = Author.objects.get(pk=james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
@@ -244,7 +244,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.deserializer.call({
+        book = self.deserializer({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
             'author': {'id': self.author.pk, 'pk': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
         }, to=Book)
@@ -264,7 +264,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.deserializer.call({
+        book = self.deserializer({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
         }, to=Book)
@@ -287,7 +287,7 @@ class MappingToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.deserializer.call({
+        book = self.deserializer({
             'id': 989, 'title': '1984', 'comments': 'great great great',
             'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
         }, to=Book)
@@ -312,7 +312,7 @@ class MappingToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand = self.deserializer.call({
+        gourmand = self.deserializer({
             'id': self.gourmand.pk,
             'pseudo': 'Taaaaz',
             'favourite_dishes': [
@@ -338,7 +338,7 @@ class MappingToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand = self.deserializer.call({
+        gourmand = self.deserializer({
             'pseudo': 'Touz',
             'favourite_dishes': [
                 {'id': 888, 'name': 'Vitamine O'},
@@ -362,12 +362,12 @@ class MappingToModel_Test(BaseModel):
         """
         # reverse ForeignKey - only works if fk can be null
         journal_type = ModelWrap(klass=Journal, include_related=True)
-        journal = self.deserializer.call({
+        journal = self.deserializer({
             'id': self.journal.id,
             'journalist_set': [],
         }, to=journal_type)
         ok_(set(journal.journalist_set.all()) == set())
-        journal = self.deserializer.call({
+        journal = self.deserializer({
             'id': self.journal.id,
             'journalist_set': [
                 {'id': self.journalist.id},
@@ -376,7 +376,7 @@ class MappingToModel_Test(BaseModel):
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
         dish_type = ModelWrap(klass=Dish, include_related=True)
-        salmon = self.deserializer.call({
+        salmon = self.deserializer({
             'id': self.salmon.id,
             'gourmand_set': [
                 {'id': self.gourmand.id},
@@ -390,7 +390,7 @@ class MappingToModel_Test(BaseModel):
         """
         columnist_before = Columnist.objects.count()
         columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
-        jamy = self.deserializer.call({
+        jamy = self.deserializer({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'column': 'truck'
@@ -407,7 +407,7 @@ class MappingToModel_Test(BaseModel):
         """
         columnist_before = Columnist.objects.count()
         columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
-        fred = self.deserializer.call({
+        fred = self.deserializer({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
             'journal': {'id': self.journal.pk},
@@ -424,7 +424,7 @@ class MappingToModel_Test(BaseModel):
         """
         Test ModelToMapping.call serializing date and datetime
         """
-        issue = self.deserializer.call({
+        issue = self.deserializer({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
             'last_char_datetime': {'year': 1864, 'month': 12, 'day': 31, 'hour': 1},
