@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast, Setting, CopiedSetting
-from utils import closest_parent, Wrap, DeclarativeWrap, Mm, memoize
+from utils import closest_parent, Wrapped, Mm, memoize
 
 
 # Abstract DivideAndConquerCast
@@ -78,168 +78,111 @@ class DivideAndConquerCast(Cast):
         return self.build_output(iter_ouput)
 
 
-# Type wraps
+# Wrappeds
 #======================================
-class ObjectWrap(Wrap):
+class WrappedObject(Wrapped):
     """
-    Wrapper for any type, providing extra-informations such as attribute schema, accessors, constructor :
+    A subclass of :class:`utils.Wrapped` providing informations on the wrapped type's instances' :
 
         - attribute schema - :meth:`default_schema`
         - attribute access - :meth:`setattr` and :meth:`getattr`
         - creation of new instances - :meth:`new`
-
-    Features:
-
-        - include(list). The list of attributes to include in the schema see, :meth:`get_schema`.
-        - exclude(list). The list of attributes to exclude from the schema see, :meth:`get_schema`.
-        - extra_schema(dict). ``{<attribute_name>: <attribute_type>}``. Adds extra attributes to the default schema, see :meth:`get_schema`.
     """
 
-    defaults = {
-        'extra_schema': {},
-        'include': [],
-        'exclude': [],
-    }
+    extra_schema = {}
+    """dict. ``{<attribute_name>: <attribute_type>}``. Allows to update the default schema, see :meth:`get_schema`."""
 
-    def get_class(self, attr_name):
+    include = []
+    """list. The list of attributes to include in the schema see, :meth:`get_schema`."""
+
+    exclude = []
+    """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
+    
+    def __new__(cls, *args, **kwargs):
+        return cls.new(**kwargs)
+
+    @classmethod
+    def get_class(cls, attr_name):
         """
         Returns the class of attribute `attr_name`, as found from the schema, see :meth:`get_schema`.
         """
-        schema = self.get_schema()
+        schema = cls.get_schema()
         if attr_name in schema:
             return schema[attr_name]
         else:
             raise KeyError("'%s' not in schema" % attr_name)
     
-    def get_schema(self):
+    @classmethod
+    def get_schema(cls):
         """
-        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of the type, taking into account : `default_schema`, `extra_schema`, `include` and `exclude`.
+        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of an instance, taking into account (respectively) : `default_schema`, `extra_schema`, `include` and `exclude`.
         """
-        schema = self.default_schema()
-        schema.update(self.extra_schema)
-        if self.include:
-            [schema.setdefault(k, NotImplemented) for k in self.include]
-            [schema.pop(k) for k in schema.keys() if k not in self.include]
-        if self.exclude:
-            [schema.pop(k, None) for k in self.exclude]
+        schema = cls.default_schema()
+        schema.update(cls.extra_schema)
+        if cls.include:
+            [schema.setdefault(k, NotImplemented) for k in cls.include]
+            [schema.pop(k) for k in schema.keys() if k not in cls.include]
+        if cls.exclude:
+            [schema.pop(k, None) for k in cls.exclude]
         for attr_name, cls in schema.iteritems():
             schema[attr_name] = cls
         return schema
 
-    def default_schema(self):
+    @classmethod
+    def default_schema(cls):
         """
-        Returns the schema - known a priori - of the wrapped type. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
+        Returns the schema - known a priori - of an instance. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
         """
         return {}
 
-    def setattr(self, obj, name, value):
+    @classmethod
+    def setattr(cls, instance, name, value):
         """
-        Sets the attribute `name` on `obj`, with value `value`. If the calling :class:`ObjectWrap` has a method `set_<name>`, this method will be used to set the attribute.
+        Sets the attribute `name` on `instance`, with value `value`. If the calling :class:`WrappedObject` has a method `set_<name>`, this method will be used to set the attribute.
         """
-        if hasattr(self, 'set_%s' % name):
-            getattr(self, 'set_%s' % name)(obj, value)
+        if hasattr(cls, 'set_%s' % name):
+            getattr(cls, 'set_%s' % name)(instance, value)
         else:
-            setattr(obj, name, value)
+            setattr(instance, name, value)
 
-    def getattr(self, obj, name):
+    @classmethod
+    def getattr(cls, instance, name):
         """
-        Gets the attribute `name` from `obj`. If the calling :class:`ObjectWrap` has a method `get_<name>`, this method will be used to get the attribute.
+        Gets the attribute `name` from `instance`. If the calling :class:`WrappedObject` has a method `get_<name>`, this method will be used to get the attribute.
         """
-        if hasattr(self, 'get_%s' % name):
-            return getattr(self, 'get_%s' % name)(obj)
+        if hasattr(cls, 'get_%s' % name):
+            return getattr(cls, 'get_%s' % name)(instance)
         else:
-            return getattr(obj, name)
+            return getattr(instance, name)
 
-    def new(self, **kwargs):
+    @classmethod
+    def new(cls, **kwargs):
         """
         Creates and returns a new instance of the wrapped type.
         """
-        return (self.factory or self.klass)(**kwargs)
-
-    def __call__(self, *args, **kwargs):
-        return self.new(**kwargs)
+        return (cls.factory or cls.klass)(**kwargs)
 
 
-class DeclarativeObjectWrap(ObjectWrap, DeclarativeWrap): pass
-class WrappedObject(object):
+class WrappedContainer(Wrapped):
     """
-    Subclass this to create an :class:`ObjectWrap` instance using a declarative syntax, e.g. 
-
-        >>> class MyWrappedObject(WrappedObject):
-        ... 
-        ...     klass = int
-        ...     superclasses = (MyInt,)
-        ...     include = ['attr1', 'attr2']
-        ...    
-        ...     @classmethod
-        ...     def get_attr1(cls, instance):
-        ...         return instance['attr1']
-        ... 
-        ...         
-
-    Which is equivalent to :
-
-        >>> class MyObjectWrap(ObjectWrap):
-        ...
-        ...     def get_attr1(self, instance):
-        ...         return instance['attr1']
-        ...
-        >>> MyWrappedObject = MyObjectWrap(klass=int, superclasses=(MyInt,) include=['attr1', 'attr2']
+    A subclass of :class:`utils.Wrapped` providing informations on a container type.
     """
 
-    __metaclass__ = DeclarativeObjectWrap
+    value_type = NotImplemented
+    """type. The type of value contained."""
 
-    klass = object
-
-
-class ContainerWrap(Wrap):
-    """
-    Wrapper for any type of container.
-
-    Features:
-        
-        value_type(type or NotImplemented). The type of values in that container.
-    """
-
-    defaults = {'value_type': NotImplemented}
-
-    def __superclasshook__(self, C):
+    @classmethod
+    def __superclasshook__(cls, C):
         # this allows to implement the following behaviour :
-        # >>> Wrap.issubclass(ContainerWrap(list, value_type=str), ContainerWrap(list, value_type=basestring))
+        # >>> Wrapped.issubclass(ListOfStr, ListOfBaseString)
         # True
-        if super(ContainerWrap, self).__superclasshook__(C):
-            if isinstance(C, ContainerWrap):
-                return Wrap.issubclass(self.value_type, C.value_type)
+        if super(WrappedContainer, cls).__superclasshook__(C):
+            if issubclass(C, WrappedContainer):
+                return Wrapped.issubclass(cls.value_type, C.value_type)
             else:
                 return True
         else:
             return False
-
-    def __repr__(self):
-        return 'Wrapped%s%s' % (self.klass.__name__.capitalize(),
-        '' if self.value_type == NotImplemented else 'Of%s' % self.value_type)
-
-
-class DeclarativeContainerWrap(ContainerWrap, DeclarativeWrap): pass
-class WrappedContainer(object):
-    """
-    Subclass this to create a :class:`ContainerWrap` instance using a declarative syntax, e.g. 
-
-        >>> class MyWrappedContainer(WrappedContainer):
-        ... 
-        ...     klass = set
-        ...     superclasses = (list,)
-        ...     value_type = int
-        ...         
-
-    Which is equivalent to :
-
-        >>> MyWrappedContainer = ContainerWrap(klass=set, superclasses=(list,), value_type=int)
-    """
-
-    __metaclass__ = DeclarativeContainerWrap
-
-    klass = object
 
 
 # Mixins for DivideAndConquerCast
@@ -315,10 +258,10 @@ class FromMapping(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     
-    Note that `FromMapping` is more clever when `from_` is a :class:`ContainerWrap`.
+    Note that `FromMapping` is more clever when `from_` is a subclass of :class:`WrappedContainer`.
     """
 
-    from_wrap = Setting(default=ContainerWrap)
+    from_wrapped = Setting(default=WrappedContainer)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -331,10 +274,10 @@ class ToMapping(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     
-    Note that `ToMapping` is more clever when `to` is a :class:`ContainerWrap`.
+    Note that `ToMapping` is more clever when `to` is a subclass of :class:`WrappedContainer`.
     """
 
-    to_wrap = Setting(default=ContainerWrap)
+    to_wrapped = Setting(default=WrappedContainer)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -347,10 +290,10 @@ class FromIterable(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     
-    Note that `FromIterable` is more clever when `from_` is a :class:`ContainerWrap`.
+    Note that `FromIterable` is more clever when `from_` is a subclass of :class:`WrappedContainer`.
     """
 
-    from_wrap = Setting(default=ContainerWrap)
+    from_wrapped = Setting(default=WrappedContainer)
 
     def get_item_from(self, key):
         return self.from_.value_type
@@ -363,10 +306,10 @@ class ToIterable(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     
-    Note that `ToIterable` is more clever when `to` is a :class:`ContainerWrap`.
+    Note that `ToIterable` is more clever when `to` is a subclass of :class:`WrappedContainer`.
     """
 
-    to_wrap = Setting(default=ContainerWrap)
+    to_wrapped = Setting(default=WrappedContainer)
 
     def get_item_to(self, key):
         return self.to.value_type
@@ -379,10 +322,10 @@ class FromObject(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.iter_input`.
     
-    Note that `FromObject` is more clever when `from_` is an :class:`ObjectWrap`.
+    Note that `FromObject` is more clever when `from_` is a subclass of :class:`WrappedObject`.
     """
 
-    from_wrap = Setting(default=ObjectWrap)
+    from_wrapped = Setting(default=WrappedObject)
 
     def get_item_from(self, key):
         return self.from_.get_class(key)
@@ -396,10 +339,10 @@ class ToObject(object):
     """
     Mixin for :class:`DivideAndConquerCast`. Implements :meth:`DivideAndConquerCast.build_output`.
     
-    Note that `ToObject` is more clever when `to` is an :class:`ObjectWrap`.
+    Note that `ToObject` is more clever when `to` is a subclass of :class:`WrappedObject`.
     """
 
-    to_wrap = Setting(default=ObjectWrap)
+    to_wrapped = Setting(default=WrappedObject)
 
     def get_item_to(self, key):
         return self.to.get_class(key)

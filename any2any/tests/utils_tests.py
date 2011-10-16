@@ -134,105 +134,64 @@ class Mm_Test(object):
         # No match
         ok_(animal_to_salesman.super_mms([human_to_salesman]) == [])
         
-class Wrap_Test(object):
+class Wrapped_Test(object):
     """
-    Tests for the Wrap class
+    Tests for the Wrapped class
     """
-
-    def wrapmeta_test(self):
-        """
-        Test subclassing a wrap and defaults inheritance
-        """
-        # declare new setting
-        class MyWrap(Wrap):
-            defaults = {'feat1': 123}
-        ok_(MyWrap.defaults == {'factory': None, 'feat1': 123, 'superclasses': (), 'klass': None})
-        # override setting
-        class MyWrap(Wrap):
-            defaults = {'klass': int}
-        ok_(MyWrap.defaults['klass'] == int)
 
     def issubclass_test(self):
         """
-        Test Wrap.issubclass
+        Test Wrapped.issubclass
         """
         # built-in types
-        ok_(Wrap.issubclass(int, object))
-        ok_(not Wrap.issubclass(object, int))
-        ok_(Wrap.issubclass(object, object))
-        # Wrap + built-in type
-        ok_(Wrap.issubclass(Wrap(klass=str), str))
-        ok_(not Wrap.issubclass(str, Wrap(klass=str)))
-        ok_(Wrap.issubclass(Wrap(klass=str), Wrap(klass=str)))
-        ok_(Wrap.issubclass(Wrap(klass=Wrap(klass=str)), Wrap(klass=str)))
+        ok_(Wrapped.issubclass(int, object))
+        ok_(not Wrapped.issubclass(object, int))
+        ok_(Wrapped.issubclass(object, object))
+        # Wrapped + built-in type
+        class WrappedStr(Wrapped):
+            klass = str
+        class WrappedWrappedStr(Wrapped):
+            klass = WrappedStr
+        ok_(Wrapped.issubclass(WrappedStr, str))
+        ok_(not Wrapped.issubclass(str, WrappedStr))
+        ok_(Wrapped.issubclass(WrappedStr, WrappedStr))
+        ok_(Wrapped.issubclass(WrappedWrappedStr, WrappedStr))
         # test with different superclass.
-        WrappedTypes = Wrap(klass=int, superclasses=(str,))
-        ok_(Wrap.issubclass(WrappedTypes, str))
+        class WrappedInt1(Wrapped):
+            klass = int
+            superclasses = (str,)
         class Dumb(object): pass
-        WrappedTypes = Wrap(klass=int, superclasses=(Dumb, str,))
-        ok_(Wrap.issubclass(WrappedTypes, str))
-        ok_(Wrap.issubclass(WrappedTypes, int))
-        ok_(Wrap.issubclass(WrappedTypes, Dumb))
+        class WrappedInt2(Wrapped):
+            klass = int
+            superclasses = (Dumb, str,)
+        ok_(Wrapped.issubclass(WrappedInt1, str))
+        ok_(Wrapped.issubclass(WrappedInt2, str))
+        ok_(Wrapped.issubclass(WrappedInt2, int))
+        ok_(Wrapped.issubclass(WrappedInt2, Dumb))
 
     def instantiate_test(self):
         """
-        Test instantiate a Wrap
+        Test instantiate a Wrapped
         """
-        WrappedStr = Wrap(klass=str)
+        class WrappedStr(Wrapped):
+            klass = str
+        class WrappedInt(Wrapped):
+            klass = int
+        class WrappedWrappedStr(Wrapped):
+            klass = WrappedStr
+
         a_str = WrappedStr("blabla")
         ok_(type(a_str) == str)
         ok_(a_str == "blabla")
 
-        WrappedWrappedStr = Wrap(klass=WrappedStr)
         a_str = WrappedWrappedStr("bloblo")
         ok_(type(a_str) == str)
         ok_(a_str == "bloblo")
 
-        WrappedInt = Wrap(klass=int, superclasses=(str,))
         an_int = WrappedInt(198)
         ok_(an_int == 198)
         ok_(type(an_int) == int)
 
-    def declarative_instantiate_test(self):
-        """
-        Test instantiate a wrap with the declarative syntax
-        """
-        class WrappedInt(Wrapped):
-            klass = int
-        # Test right instance type is created
-        ok_(isinstance(WrappedInt, Wrap))
-        ok_(issubclass(WrappedInt, Wrapped))
-        # Test features are set right
-        ok_(WrappedInt.superclasses == ())
-        ok_(WrappedInt.all_superclasses == (int,))
-        ok_(WrappedInt.factory == None)
-        an_int = WrappedInt(198)
-        ok_(an_int == 198)
-        ok_(type(an_int) == int)
-        # Test declaring instance methods
-        try:
-            class UnvalidWrapped(Wrapped):
-                def non_sense(self): pass
-                klass = int
-        except TypeError:
-            pass
-        else:
-            raise Exception("test failed, because cannot declare instance methods there")
-        # Test declaring class methods
-        class MyWrapped(Wrapped):
-            @classmethod
-            def makes_sense(self): return 11
-            klass = int
-            superclasses = (float,)
-            factory = int
-        ok_(MyWrapped.makes_sense() == 11)
-        # Check that inheritance works as well
-        class MyOhMyWrapped(MyWrapped):
-            factory = float
-        ok_(MyOhMyWrapped.makes_sense() == 11)
-        ok_(MyOhMyWrapped.factory == float)
-        ok_(MyOhMyWrapped.klass == int)
-        ok_(MyOhMyWrapped.superclasses == (float,))
 
 class Memoization_Test(object):
     """
@@ -294,3 +253,17 @@ class Memoization_Test(object):
         import time ; time.sleep(0.1)
         ok_(self.cast.method4() == result)
 
+
+class classproperty_test(object):
+    """
+    Test classproperty
+    """
+    def test(self):
+        class C(object):
+            _myprop = 99
+            @classproperty
+            def myprop(cls):
+                return cls._myprop
+        ok_(C.myprop == 99)
+        C._myprop = 78
+        ok_(C._myprop == 78)

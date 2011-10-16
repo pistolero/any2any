@@ -3,7 +3,7 @@ import datetime
 from types import FunctionType
 
 from any2any import (Cast, CastStack, FromMapping, ToMapping, FromIterable, ToIterable,
-FromObject, ToObject, ContainerWrap, ObjectWrap, Wrap, CastItems, Mm, DivideAndConquerCast)
+FromObject, ToObject, WrappedObject, CastItems, Mm, DivideAndConquerCast)
 
 #TODO: document, reorganize tests
 
@@ -18,6 +18,7 @@ class Identity(Cast):
     def call(self, obj):
         return obj
 
+
 class ToType(Cast):
     """
     Dumb cast :
@@ -29,6 +30,7 @@ class ToType(Cast):
 
     def call(self, obj):
         return self.to(obj)
+
 
 class CallFunction(Cast):
     """
@@ -44,6 +46,7 @@ class CallFunction(Cast):
     def call(self, func):
         return func()
 
+
 class MappingToMapping(FromMapping, CastItems, ToMapping, DivideAndConquerCast):
     """
     Dictionaries to dictionaries :
@@ -52,6 +55,7 @@ class MappingToMapping(FromMapping, CastItems, ToMapping, DivideAndConquerCast):
         {'1': 'its casted version 1', 2: 'its casted version 2'}
     """
     pass
+
 
 class IterableToIterable(FromIterable, CastItems, ToIterable, DivideAndConquerCast):
     """
@@ -62,6 +66,7 @@ class IterableToIterable(FromIterable, CastItems, ToIterable, DivideAndConquerCa
     """
     pass
 
+
 class ObjectToMapping(FromObject, CastItems, ToMapping, DivideAndConquerCast):
     """
     Object to dictionary :
@@ -70,6 +75,7 @@ class ObjectToMapping(FromObject, CastItems, ToMapping, DivideAndConquerCast):
         {'attr1': 'its casted value', 'attr2': 'its casted value'}
     """
     pass
+
 
 class MappingToObject(FromMapping, CastItems, ToObject, DivideAndConquerCast):
     """
@@ -81,21 +87,36 @@ class MappingToObject(FromMapping, CastItems, ToObject, DivideAndConquerCast):
     """
     pass
 
-WrappedDateTime = ObjectWrap(klass=datetime.datetime, extra_schema={
-    'year': int,
-    'month': int,
-    'day': int,
-    'hour': int,
-    'minute': int,
-    'second': int,
-    'microsecond': int,
-})
 
-WrappedDate = ObjectWrap(klass=datetime.date, extra_schema={
-    'year': int,
-    'month': int,
-    'day': int,
-})
+class WrappedDateTime(WrappedObject):
+
+    klass = datetime.datetime
+    
+    @classmethod
+    def default_schema(cls):
+        return {
+            'year': int,
+            'month': int,
+            'day': int,
+            'hour': int,
+            'minute': int,
+            'second': int,
+            'microsecond': int,
+        }
+
+
+class WrappedDate(WrappedObject):
+
+    klass = datetime.date
+
+    @classmethod
+    def default_schema(cls):
+        return {
+            'year': int,
+            'month': int,
+            'day': int,
+        }
+
 
 class BasicStack(CastStack):
 
@@ -108,10 +129,10 @@ class BasicStack(CastStack):
                 Mm(from_any=tuple): IterableToIterable(to=tuple), # Any tuple to a tuple (of undefined elements)
                 Mm(from_any=set): IterableToIterable(to=set), # Any tuple to a tuple (of undefined elements)
                 Mm(from_any=dict): MappingToMapping(to=dict), # Any set to set (of undefined elements)
-                Mm(from_any=datetime.date): ObjectToMapping(from_=WrappedDate, to=dict), # TODO: pb : from_ can't be customized
-                Mm(from_any=datetime.datetime): ObjectToMapping(from_=WrappedDateTime, to=dict),
-                Mm(to_any=datetime.date): MappingToObject(to=WrappedDate),
-                Mm(to_any=datetime.datetime): MappingToObject(to=WrappedDateTime),
+                Mm(from_any=datetime.date): ObjectToMapping(from_wrapped=WrappedDate, to=dict), # TODO: pb : from_ can't be customized
+                Mm(from_any=datetime.datetime): ObjectToMapping(from_wrapped=WrappedDateTime, to=dict),
+                Mm(to_any=datetime.date): MappingToObject(to_wrapped=WrappedDate),
+                Mm(to_any=datetime.datetime): MappingToObject(to_wrapped=WrappedDateTime),
             }
         }
 

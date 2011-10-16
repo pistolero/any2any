@@ -10,7 +10,7 @@ from functools import wraps
 import logging
 import types
 
-from utils import memoize, Mm, Wrap
+from utils import memoize, Mm, Wrapped
 
  
 # Logging 
@@ -229,25 +229,29 @@ class BaseCast(object):
 # Cast, CastStack 
 #====================================
 class ToSetting(Setting):
-    # Automatically wraps `to` with the setting `to_wrap`, if provided.
+    # Automatically wraps `to` with the setting `to_wrapped`, if provided.
 
     def get(self, instance):
         to = super(ToSetting, self).get(instance)
-        if instance.to_wrap and to != None and not isinstance(to, instance.to_wrap):
-            to = instance.to_wrap(klass=to)
+        if instance.to_wrapped and to != None and not issubclass(to, instance.to_wrapped):
+            class WrappedTo(instance.to_wrapped):
+                klass = to
+            to = WrappedTo
         return to
 
 
 class FromSetting(Setting):
-    # Automatically wraps `from_` with the setting `from_wrap`, if provided.
+    # Automatically wraps `from_` with the setting `from_wrapped`, if provided.
     # If `from_` is not provided, guesses it from the cast's input.
 
     def get(self, instance):
         from_ = super(FromSetting, self).get(instance)
         if from_ == None and 'input' in instance._context:
             from_ = type(instance._context['input'])
-        if instance.from_wrap and from_ != None and not isinstance(from_, instance.from_wrap):
-            from_= instance.from_wrap(klass=from_)
+        if instance.from_wrapped and from_ != None and not issubclass(from_, instance.from_wrapped):
+            class WrappedFrom(instance.from_wrapped):
+                klass = from_
+            from_ = WrappedFrom
         return from_
 
 
@@ -279,11 +283,11 @@ class Cast(BaseCast):
     to = ToSetting()
     """type. The type to cast to."""
 
-    from_wrap = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause :attr:`from_` to be automatically wrapped."""
+    from_wrapped = Setting()
+    """type. A subclass of :class:`any2any.utils.Wrapped`. If provided, will cause :attr:`from_` to be automatically wrapped."""
 
-    to_wrap = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrap`. If provided, will cause :attr:`to` to be automatically wrapped."""
+    to_wrapped = Setting()
+    """type. A subclass of :class:`any2any.utils.Wrapped`. If provided, will cause :attr:`to` to be automatically wrapped."""
 
     logs = ViralSetting(default=False)
     """bool. If True, the cast writes debug informations to the logger."""
@@ -336,18 +340,18 @@ class Cast(BaseCast):
             for v2 in list(filtered):
                 if v1._from_set < v2._from_set:
                     filtered.remove(v2)
-        # If wraps, we give preference to wrap's `all_superclasses` in the order
+        # If wraps, we give preference to wrap's `superclasses` in the order
         # they are declared.
-        # e.g. if mm is `Wrap(int, str) -> object`, we prefer `int -> object` than `str -> object`.
+        # e.g. if mm is `(int, str) -> object`, we prefer `int -> object` than `str -> object`.
         from_class, to_class = mm._from_set.klass, mm._to_set.klass
-        if isinstance(to_class, Wrap):
-            for k in to_class.all_superclasses:
+        if issubclass(to_class, Wrapped):
+            for k in to_class.get_superclasses():
                 temp = filter(lambda v: k <= v._to_set, filtered)
                 if temp:
                     filtered = temp
                     break
-        if isinstance(from_class, Wrap):
-            for k in from_class.all_superclasses:
+        if issubclass(from_class, Wrapped):
+            for k in from_class.get_superclasses():
                 temp = filter(lambda v: k <= v._from_set, filtered)
                 if temp:
                     filtered = temp

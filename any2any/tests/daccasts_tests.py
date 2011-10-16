@@ -2,7 +2,7 @@
 from nose.tools import assert_raises, ok_
 from any2any.daccasts import *
 from any2any.base import Cast, Setting, ToSetting
-from any2any.utils import Wrap
+from any2any.utils import Wrapped
 
 # Casts for the tests 
 class Identity(Cast):
@@ -56,183 +56,187 @@ class CastItems_Test(object):
         cast = FromDictToDict(key_cast=ToStr())
         ok_(cast({1: 'bla', 2: 'bla', u'blo': None, 'coucou': [1]}) == {'1': 'bla', '2': 'bla', 'blo': None, 'coucou': [1]})
         
-class ObjectWrap_Test(object):
+class WrappedObject_Test(object):
     """
-    Test ObjectWrap
+    Test WrappedObject
     """
 
     def setUp(self):
         class AnObject(object): pass
         self.AnObject = AnObject
-        class AnObjectWrap(ObjectWrap):
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-            def guess_class(self, key):
-                try:
-                    return {'mystery': float}[key]
-                except KeyError:
-                    return NotImplemented
-        self.AnObjectWrap = AnObjectWrap
 
     def get_schema_test(self):
         """
-        Test ObjectWrap.get_schema
+        Test WrappedObject.get_schema
         """
         # provided schema
-        obj_type = ObjectWrap(klass=self.AnObject, extra_schema={'a': int, 'b': str})
-        ok_(obj_type.get_schema() == {'a': int, 'b': str})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': int, 'b': str}
+        ok_(ObjectWithSchema.get_schema() == {'a': int, 'b': str})
         # with exclude
-        obj_type = ObjectWrap(klass=self.AnObject, extra_schema={'a': int, 'b': str}, exclude=['a'])
-        ok_(obj_type.get_schema() == {'b': str})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': int, 'b': str}
+            exclude = ['a']
+        ok_(ObjectWithSchema.get_schema() == {'b': str})
         # default schema
-        obj_type = self.AnObjectWrap(klass=self.AnObject)
-        ok_(obj_type.get_schema() == {'a': float, 'b': unicode, 'c': float})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode, 'c': float})
         # default schema + exclude
-        obj_type = self.AnObjectWrap(klass=self.AnObject, exclude=['b', 'c', 'd'])
-        ok_(obj_type.get_schema() == {'a': float})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            exclude = ['b', 'c', 'd']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float})
         # default schema + extra_schema
-        obj_type = self.AnObjectWrap(klass=self.AnObject, extra_schema={'a': unicode, 'd': str})
-        ok_(obj_type.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': unicode, 'd': str}
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
         # default schema + extra_schema + exclude
-        obj_type = self.AnObjectWrap(klass=self.AnObject, extra_schema={'a': unicode, 'd': str, 'e': int}, exclude=['d', 'a', 'b'])
-        ok_(obj_type.get_schema() == {'c': float, 'e': int})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': unicode, 'd': str, 'e': int}
+            exclude = ['d', 'a', 'b']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'c': float, 'e': int})
         # default schema + include
-        obj_type = self.AnObjectWrap(klass=self.AnObject, include=['a', 'b'])
-        ok_(obj_type.get_schema() == {'a': float, 'b': unicode})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            include = ['a', 'b']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode})
         # default schema + extra_schema + include
-        obj_type = self.AnObjectWrap(klass=self.AnObject, extra_schema={'d': str}, include=['a', 'd'])
-        ok_(obj_type.get_schema() == {'a': float, 'd': str})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'d': str}
+            include = ['a', 'd']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'd': str})
         # default schema + extra_schema + exclude + include
-        obj_type = self.AnObjectWrap(klass=self.AnObject, extra_schema={'d': str, 'e': int}, include=['a', 'b', 'e'], exclude=['a'])
-        ok_(obj_type.get_schema() == {'b': unicode, 'e': int})
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'d': str, 'e': int}
+            include = ['a', 'b', 'e']
+            exclude = ['a']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
 
     def get_class_test(self):
         """
-        Test ObjectWrap.get_class
+        Test WrappedObject.get_class
         """
         # provided schema
-        obj_type = ObjectWrap(klass=self.AnObject, extra_schema={'a': int, 'b': str})
-        ok_(obj_type.get_class('a') == int)
-        ok_(obj_type.get_class('b') == str)
-        assert_raises(KeyError, obj_type.get_class, 'c')
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': int, 'b': str}
+        ok_(ObjectWithSchema.get_class('a') == int)
+        ok_(ObjectWithSchema.get_class('b') == str)
+        assert_raises(KeyError, ObjectWithSchema.get_class, 'c')
         # default schema
-        obj_type = self.AnObjectWrap(klass=self.AnObject)
-        ok_(obj_type.get_class('a') == float)
-        ok_(obj_type.get_class('b') == unicode)
-        ok_(obj_type.get_class('c') == float)
-        assert_raises(KeyError, obj_type.get_class, 'd')
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_class('a') == float)
+        ok_(ObjectWithSchema.get_class('b') == unicode)
+        ok_(ObjectWithSchema.get_class('c') == float)
+        assert_raises(KeyError, ObjectWithSchema.get_class, 'd')
 
     def getattr_test(self):
         """
-        Test ObjectWrap.getattr
+        Test WrappedObject.getattr
         """
-        class AnObjectWrap(ObjectWrap):
+        class WrappedAnObject(WrappedObject):
+            klass = self.AnObject
+            @classmethod
             def get_a(self, obj):
                 return 'blabla'
-        obj_type = AnObjectWrap(klass=self.AnObject)
         obj = self.AnObject()
         obj.b = 'bloblo'
-        ok_(obj_type.getattr(obj, 'a') == 'blabla')
-        ok_(obj_type.getattr(obj, 'b') == 'bloblo')
+        ok_(WrappedAnObject.getattr(obj, 'a') == 'blabla')
+        ok_(WrappedAnObject.getattr(obj, 'b') == 'bloblo')
                 
     def setattr_test(self):
         """
-        Test ObjectWrap.setattr
+        Test WrappedObject.setattr
         """
-        class AnObjectWrap(ObjectWrap):
+        class WrappedAnObject(WrappedObject):
+            klass=self.AnObject
+            @classmethod
             def set_a(self, obj, value):
                 obj.a = 'bloblo'
-        obj_type = AnObjectWrap(klass=self.AnObject)
         obj = self.AnObject()
-        obj_type.setattr(obj, 'a', 'blibli')
-        obj_type.setattr(obj, 'b', 'blabla')
+        WrappedAnObject.setattr(obj, 'a', 'blibli')
+        WrappedAnObject.setattr(obj, 'b', 'blabla')
         ok_(obj.a == 'bloblo')
         ok_(obj.b == 'blabla')
-
-    def declarative_test(self):
-        """
-        Test creating wrapped object with declarative syntax
-        """
-
-        class MyWrappedObject(WrappedObject):
-
-            klass = int
-            superclasses = (float, str)
-            include = ['attr1', 'attr2']
-
-            @classmethod
-            def default_schema(self):
-                return {'attr1': int, 'attr2': str, 'attr3': object}
-
-            @classmethod
-            def get_attr1(cls, instance):
-                return instance['attr1']
-
-        obj = {'attr1': 888}
-
-        ok_(MyWrappedObject.klass == int)
-        ok_(MyWrappedObject.get_attr1(obj) == 888)
-        ok_(MyWrappedObject.superclasses == (float, str))
-        ok_(MyWrappedObject.all_superclasses == (int, float, str))
-        ok_(MyWrappedObject.include == ['attr1', 'attr2'])
-        ok_(MyWrappedObject.get_schema() == {'attr1': int, 'attr2': str})
-        
             
 
-ListOfObjects = ContainerWrap(klass=list, value_type=object)
-ListOfStr = ContainerWrap(klass=list, value_type=str)
-ListOfInt = ContainerWrap(klass=list, value_type=int)
-
-class ContainerWrap_Test(object):
+class WrappedContainer_Test(object):
     """
-    Test ContainerWrap
+    Test WrappedContainer
     """
 
     def issubclass_test(self):
         """
-        Tests for isubclass with ContainerWrap
+        Tests for isubclass with WrappedContainer
         """
-        # Nested specializations
-        ok_(Wrap.issubclass(
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfStr
-            )),
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfObjects
-            ))
-        ))
-        ok_(not Wrap.issubclass(
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfObjects
-            )),
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfStr
-            ))
-        ))
-        ok_(Wrap.issubclass(
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfObjects
-            )),
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=list
-            ))
-        ))
-        ok_(Wrap.issubclass(
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfObjects
-            )),
-            list
-        ))
-        ok_(Wrap.issubclass(
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfObjects
-            )),
-            ContainerWrap(klass=list, value_type=ListOfObjects)
-        ))
-        ok_(not Wrap.issubclass(
-            ContainerWrap(klass=list, value_type=ContainerWrap(
-                klass=list, value_type=ListOfObjects
-            )),
-            ContainerWrap(klass=list, value_type=ListOfInt)
-        ))
+        class ListOfObject(WrappedContainer):
+            klass = list
+            value_type = object
+
+        class ListOfStr(WrappedContainer):
+            klass = list
+            value_type = str
+
+        class ListOfListOfStr(WrappedContainer): 
+            klass = list
+            value_type = ListOfStr
+
+        class ListOfListOfObject(WrappedContainer): 
+            klass = list
+            value_type = ListOfObject
+
+        class ListOfListOfListOfObject(WrappedContainer): 
+            klass = list
+            value_type = ListOfListOfObject
+
+        class ListOfListOfListOfStr(WrappedContainer): 
+            klass = list
+            value_type = ListOfListOfStr
+
+        class ListOfList(WrappedContainer): 
+            klass = list
+            value_type = list
+
+        class ListOfListOfList(WrappedContainer): 
+            klass = list
+            value_type = ListOfList
+
+        ok_(Wrapped.issubclass(ListOfListOfListOfStr, ListOfListOfListOfObject))
+        ok_(not Wrapped.issubclass(ListOfListOfListOfObject, ListOfListOfListOfStr))
+        ok_(Wrapped.issubclass(ListOfListOfListOfObject, ListOfListOfList))
+        ok_(Wrapped.issubclass(ListOfListOfListOfObject, list))
+        ok_(Wrapped.issubclass(ListOfListOfListOfObject, ListOfListOfObject))
+        ok_(not Wrapped.issubclass(ListOfListOfListOfObject, ListOfListOfStr))
     

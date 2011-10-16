@@ -6,47 +6,59 @@ from django.db.models.manager import Manager
 from django.http import QueryDict
 
 from any2any.stacks.djangostack import *
-from any2any import Wrap
+from any2any import Wrapped
 from models import *
 
 from nose.tools import assert_raises, ok_
 
-class ModelWrap_Test(object):
+class WrappedModel_Test(object):
 
     def fields_test(self):
         """
-        Test ModelWrap.default_schema
+        Test WrappedModel.default_schema
         """
-        columnist_fields = ModelWrap(klass=Columnist).default_schema()
-        gourmand_fields = ModelWrap(klass=Gourmand).default_schema()
-        wsausage_fields = ModelWrap(klass=WritingSausage).default_schema()
-        journal_fields = ModelWrap(klass=Journal).default_schema()
-        dish_fields = ModelWrap(klass=Dish).default_schema()
+        class WrappedColumnist(WrappedModel):
+            klass = Columnist
+        class WrappedGourmand(WrappedModel):
+            klass = Gourmand
+        class WrappedWritingSausage(WrappedModel):
+            klass = WritingSausage
+        class WrappedJournal(WrappedModel):
+            klass = Journal
+        class WrappedDish(WrappedModel):
+            klass = Dish
+        columnist_fields = WrappedColumnist.default_schema()
+        gourmand_fields = WrappedGourmand.default_schema()
+        wsausage_fields = WrappedWritingSausage.default_schema()
+        journal_fields = WrappedJournal.default_schema()
+        dish_fields = WrappedDish.default_schema()
         ok_(set(columnist_fields) == set(['id', 'pk', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(Wrap.issubclass(columnist_fields['pk'], AutoField))
-        ok_(Wrap.issubclass(columnist_fields['id'], AutoField))
-        ok_(Wrap.issubclass(columnist_fields['lastname'], CharField))
-        ok_(Wrap.issubclass(columnist_fields['nickname'], CharField))
-        ok_(Wrap.issubclass(columnist_fields['journal'], ForeignKey))
+        ok_(Wrapped.issubclass(columnist_fields['pk'], AutoField))
+        ok_(Wrapped.issubclass(columnist_fields['id'], AutoField))
+        ok_(Wrapped.issubclass(columnist_fields['lastname'], CharField))
+        ok_(Wrapped.issubclass(columnist_fields['nickname'], CharField))
+        ok_(Wrapped.issubclass(columnist_fields['journal'], ForeignKey))
         ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(Wrap.issubclass(gourmand_fields['firstname'], CharField))
-        ok_(Wrap.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
-        ok_(Wrap.issubclass(gourmand_fields['pseudo'], CharField))
+        ok_(Wrapped.issubclass(gourmand_fields['firstname'], CharField))
+        ok_(Wrapped.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
+        ok_(Wrapped.issubclass(gourmand_fields['pseudo'], CharField))
         ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
-        ok_(Wrap.issubclass(journal_fields['name'], CharField))
-        ok_(Wrap.issubclass(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor))
-        ok_(Wrap.issubclass(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor))
+        ok_(Wrapped.issubclass(journal_fields['name'], CharField))
+        ok_(Wrapped.issubclass(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor))
+        ok_(Wrapped.issubclass(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor))
         ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
-        ok_(Wrap.issubclass(dish_fields['name'], CharField))
-        ok_(Wrap.issubclass(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor))
+        ok_(Wrapped.issubclass(dish_fields['name'], CharField))
+        ok_(Wrapped.issubclass(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor))
         ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 
     def nk_test(self):
         """
-        Test ModelWrap.extract_key
+        Test WrappedModel.extract_key
         """
-        columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
-        ok_(columnist_type.extract_key({
+        class WrappedColumnist(WrappedModel):
+            klass = Columnist
+            key_schema = ('firstname', 'lastname')
+        ok_(WrappedColumnist.extract_key({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': 806, 'name': "C'est pas sorcier"},
@@ -78,8 +90,8 @@ class BaseModel(object):
         self.journalist.save()
         self.columnist.save()
 
-        self.serializer = DjangoSerializeStack()
-        self.deserializer = DjangoDeserializeStack()
+        self.serializer = DjangoSerializer()
+        self.deserializer = DjangoDeserializer()
 
     def tearDown(self):
         self.author.delete()
@@ -167,14 +179,15 @@ class ModelToMapping_Test(BaseModel):
         Test ModelToMapping.call serializing a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey
-        journalist_type = ModelWrap(klass=Journalist, include=['firstname', 'lastname'])
-        journal_type = ModelWrap(klass=Journal,
-            include=['name', 'journalist_set'],
-            key_schema=('firstname', 'lastname')
-        )
-        journalist_cast = ModelToMapping(from_=journalist_type, to=dict)
-        journal_cast = ModelToMapping(from_=journal_type, to=dict)
-        cast = DjangoSerializeStack(extra_mm_to_cast={
+        class WrappedJournalist(WrappedModel):
+            klass = Journalist
+            include = ['firstname', 'lastname']
+        class WrappedJournal(WrappedModel):
+            klass = Journal
+            include = ['name', 'journalist_set']
+        journalist_cast = ModelToMapping(from_=WrappedJournalist, to=dict)
+        journal_cast = ModelToMapping(from_=WrappedJournal, to=dict)
+        cast = DjangoSerializer(extra_mm_to_cast={
             Mm(from_any=Journalist): journalist_cast,
             Mm(from_any=Journal): journal_cast,
         })
@@ -188,11 +201,16 @@ class ModelToMapping_Test(BaseModel):
         # reverse m2m
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
-        gourmand_type = ModelWrap(klass=Gourmand, include=['pseudo'])
-        dish_type = ModelWrap(klass=Dish, exclude=['id', 'pk'], include_related=True)
-        gourmand_cast = ModelToMapping(from_=gourmand_type, to=dict)
-        dish_cast = ModelToMapping(from_=dish_type, to=dict)
-        cast = DjangoSerializeStack(extra_mm_to_cast={
+        class WrappedGourmand(WrappedModel):
+            klass = Gourmand
+            include = ['pseudo']
+        class WrappedDish(WrappedModel):
+            klass = Dish
+            exclude = ['id', 'pk']
+            include_related = True
+        gourmand_cast = ModelToMapping(from_=WrappedGourmand, to=dict)
+        dish_cast = ModelToMapping(from_=WrappedDish, to=dict)
+        cast = DjangoSerializer(extra_mm_to_cast={
             Mm(from_any=Gourmand): gourmand_cast,
             Mm(from_any=Dish): dish_cast,
         })
@@ -207,11 +225,15 @@ class ModelToMapping_Test(BaseModel):
         """
         Test ModelToMapping.call serializing date and datetime
         """
-        issue_type = ModelWrap(klass=Issue, include=['journal', 'issue_date', 'last_char_datetime'])
-        journal_type = ModelWrap(klass=Journal, include=['name'])
-        journal_cast = ModelToMapping(from_=journal_type, to=dict)
-        issue_cast = ModelToMapping(from_=issue_type, to=dict, key_to_cast={'journal': journal_cast})
-        cast = DjangoSerializeStack(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
+        class WrappedJournal(WrappedModel):
+            klass = Journal
+            include = ['name']
+        class WrappedIssue(WrappedModel):
+            klass = Issue
+            include=['journal', 'issue_date', 'last_char_datetime']
+        journal_cast = ModelToMapping(from_=WrappedJournal, to=dict)
+        issue_cast = ModelToMapping(from_=WrappedIssue, to=dict, key_to_cast={'journal': journal_cast})
+        cast = DjangoSerializer(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
         ok_(cast(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
@@ -361,40 +383,46 @@ class MappingToModel_Test(BaseModel):
         Test MappingToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey - only works if fk can be null
-        journal_type = ModelWrap(klass=Journal, include_related=True)
+        class WrappedJournal(WrappedModel):
+            klass = Journal
+            include_related = True
         journal = self.deserializer({
             'id': self.journal.id,
             'journalist_set': [],
-        }, to=journal_type)
+        }, to=WrappedJournal)
         ok_(set(journal.journalist_set.all()) == set())
         journal = self.deserializer({
             'id': self.journal.id,
             'journalist_set': [
                 {'id': self.journalist.id},
             ],
-        }, to=journal_type)
+        }, to=WrappedJournal)
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
-        dish_type = ModelWrap(klass=Dish, include_related=True)
+        class WrappedDish(WrappedModel):
+            klass = Dish
+            include_related = True
         salmon = self.deserializer({
             'id': self.salmon.id,
             'gourmand_set': [
                 {'id': self.gourmand.id},
             ]
-        }, to=dish_type)
+        }, to=WrappedDish)
         ok_(set(salmon.gourmand_set.all()) == set([self.gourmand]))
 
     def update_object_with_nk_test(self):
         """
         Test update an object with its natural key, natural key already existing.
         """
+        class WrappedColumnist(WrappedModel):
+            klass = Columnist
+            key_schema = ('firstname', 'lastname')
         columnist_before = Columnist.objects.count()
-        columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
         jamy = self.deserializer({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'column': 'truck'
-        }, to=columnist_type)
+        }, to=WrappedColumnist)
         jamy = Columnist.objects.get(pk=jamy.pk)
         # We check the fields
         ok_(jamy.column == 'truck')
@@ -405,14 +433,16 @@ class MappingToModel_Test(BaseModel):
         """
         Test deserialize and create an object with its natural key.
         """
+        class WrappedColumnist(WrappedModel):
+            klass = Columnist
+            key_schema = ('firstname', 'lastname')
         columnist_before = Columnist.objects.count()
-        columnist_type = ModelWrap(klass=Columnist, key_schema=('firstname', 'lastname'))
         fred = self.deserializer({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
             'journal': {'id': self.journal.pk},
             'column': 'on the field',
-        }, to=columnist_type)
+        }, to=WrappedColumnist)
         fred = Columnist.objects.get(pk=fred.pk)
         # We check the fields
         ok_(fred.column == 'on the field')
@@ -438,15 +468,16 @@ class QueryDictFlatener_Test(object):
     """
 
     def setUp(self):
-        self.serializer = DjangoSerializeStack()
-        self.deserializer = DjangoDeserializeStack()
+        self.serializer = DjangoSerializer()
+        self.deserializer = DjangoDeserializer()
 
     def call_test(self):
         """
         Test QueryDictFlatener.call
         """
-        WrappedQueryDict = QueryDictWrap(list_keys=['a_list'])
-        ok_(self.serializer(QueryDict('a_list=1&a_list=2&a_normal_key=1&a_normal_key=2&a_normal_key=3'), to=WrappedQueryDict) == {
+        class MyWrappedQueryDict(WrappedQueryDict):
+            list_keys = ['a_list']
+        ok_(self.serializer(QueryDict('a_list=1&a_list=2&a_normal_key=1&a_normal_key=2&a_normal_key=3'), to=MyWrappedQueryDict) == {
             'a_list': ['1', '2'],
             'a_normal_key': '1',
         })
@@ -455,8 +486,9 @@ class QueryDictFlatener_Test(object):
         """
         Test QueryDictFlatener.call configured for a model
         """
-        WrappedQueryDict = QueryDictWrap(model=Gourmand)
-        ok_(self.serializer(QueryDict('favourite_dishes=1&favourite_dishes=2&pseudo=Taz&pseudo=Touz'), to=WrappedQueryDict) == {
+        class MyWrappedQueryDict(WrappedQueryDict):
+            model = Gourmand
+        ok_(self.serializer(QueryDict('favourite_dishes=1&favourite_dishes=2&pseudo=Taz&pseudo=Touz'), to=MyWrappedQueryDict) == {
             'favourite_dishes': ['1', '2'],
             'pseudo': 'Taz',
         })
@@ -465,19 +497,20 @@ class QueryDictFlatener_Test(object):
         """
         Test QueryDictFlatener.call configured for a model
         """
-        WrappedQueryDict = QueryDictWrap(model=Gourmand)
+        class MyWrappedQueryDict(WrappedQueryDict):
+            model = Gourmand
         # Test that life is sad
-        ok_(self.serializer(QueryDict('favourite_dishes='), to=WrappedQueryDict) == {
+        ok_(self.serializer(QueryDict('favourite_dishes='), to=MyWrappedQueryDict) == {
             'favourite_dishes': [''],
         })
         # Test that with our cast it is much brighter
         qd_cast = QueryDictFlatener(mm_to_cast={
             Mm(list, list): StripEmptyValues(empty_value='EMPTY')
         })
-        cast = DjangoSerializeStack(mm_to_cast={
+        cast = DjangoSerializer(mm_to_cast={
             Mm(QueryDict): qd_cast
         })
-        ok_(cast(QueryDict('favourite_dishes=EMPTY'), to=WrappedQueryDict) == {
+        ok_(cast(QueryDict('favourite_dishes=EMPTY'), to=MyWrappedQueryDict) == {
             'favourite_dishes': [],
         })
 

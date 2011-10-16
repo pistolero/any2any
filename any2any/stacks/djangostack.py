@@ -9,165 +9,169 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey, GenericRelation
 from django.db.models.query import QuerySet
 
-from any2any import (Cast, Mm, Wrap, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
-FromMapping, ToObject, ContainerWrap, ObjectWrap, Setting, DivideAndConquerCast, WrappedObject)
-from any2any.daccasts import DeclarativeObjectWrap
-from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity
+from any2any import (Cast, Mm, Wrapped, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
+FromMapping, ToObject, WrappedContainer, WrappedObject, Setting, DivideAndConquerCast)
+from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity, WrappedDateTime, WrappedDate
 from any2any.base import MmToCastSetting
+from any2any.utils import classproperty
 
 
 # Model instrospector
 #======================================
 class ModelIntrospector(object):
     """
-    Mixin for adding introspection capabilities to Wraps.
+    Mixin for adding introspection capabilities.
     """
 
-    @property
-    def fields(self):
+    @classproperty
+    def fields(cls):
         # Returns a set with all the fields,
         # but excluding the pointers used for MTI
-        mod_opts = self.model._meta
-        ptr_fields = self.collect_ptrs(self.model)
+        mod_opts = cls.model._meta
+        ptr_fields = cls.collect_ptrs(cls.model)
         all_fields = mod_opts.fields + mod_opts.many_to_many
         return set(all_fields) - set(ptr_fields)
 
-    @property
-    def fields_dict(self):
+    @classproperty
+    def fields_dict(cls):
         # Returns a dictionary `{<field_name>, <field>}`
-        return dict(((f.name, f) for f in self.fields))
+        return dict(((f.name, f) for f in cls.fields))
 
-    @property
-    def related_dict(self):
+    @classproperty
+    def related_dict(cls):
         # Returns a dictionary {<attr_name>: <descriptor>} with all the related descriptors,
         def retrieve_desc((k, v)):
             return isinstance(v, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor))
-        return dict(filter(retrieve_desc, self.model.__dict__.items()))
+        return dict(filter(retrieve_desc, cls.model.__dict__.items()))
 
-    @property
-    def pk_field_name(self):
+    @classproperty
+    def pk_field_name(cls):
         # We get pk's field name from the "super" parent (i.e. the "eldest").
         # This allows to handle MTI nicely (and transparently).
-        all_pks = set([p._meta.pk for p in self.model._meta.get_parent_list()])
-        all_pks.add(self.model._meta.pk)
-        all_ptrs = set(self.collect_ptrs(self.model))
+        all_pks = set([p._meta.pk for p in cls.model._meta.get_parent_list()])
+        all_pks.add(cls.model._meta.pk)
+        all_ptrs = set(cls.collect_ptrs(cls.model))
         return list(all_pks - all_ptrs)[0].name
 
-    @property
-    def pk_field(self):
-        return self.fields_dict[self.pk_field_name]
+    @classproperty
+    def pk_field(cls):
+        return cls.fields_dict[cls.pk_field_name]
 
-    def collect_ptrs(self, model):
+    @classmethod
+    def collect_ptrs(cls, model):
         # Recursively collects all the fields pointing to parents of `model`
         ptr_fields = []
         for parent_model, ptr_field in model._meta.parents.iteritems():
             ptr_fields.append(ptr_field)
-            ptr_fields += self.collect_ptrs(parent_model)
+            ptr_fields += cls.collect_ptrs(parent_model)
         return ptr_fields
 
 
-# Model Wrap
+# WrappedModel
 #======================================
-class ModelWrap(ModelIntrospector, ObjectWrap):
+class WrappedModel(ModelIntrospector, WrappedObject):
     """
-    Wrap for django models.
-
-    Kwargs:
-        
-        create_allowed(bool). If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created.
-        key_schema(tuple). ``(<field_name>)``. Tuple of field names used to fetch the object from the database.
+    A subclass of :class:`daccasts.WrappedObject` for django models.
     """
 
-    defaults = {
-        'key_schema': ('pk',),
-        'include_related': False,
-        'create_allowed': True,
-    }
+    key_schema = ('pk',)
+    """tuple. ``(<field_name>)``. Tuple of field names used to fetch the object from the database."""
 
-    def default_schema(self):
+    include_related = False
+    """bool. If True, the schema will also include related ForeignKeys and related ManyToMany."""
+    
+    create_allowed = True
+    """bool. If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created."""
+
+    @classmethod
+    def default_schema(cls):
         schema = {}
-        schema.update(self._wrap_fields({'pk': self.pk_field}))
-        schema.update(self._wrap_fields(self.fields_dict))
-        schema.update(self._wrap_fields(self.related_dict))
+        schema.update(cls._wrap_fields({'pk': cls.pk_field}))
+        schema.update(cls._wrap_fields(cls.fields_dict))
+        schema.update(cls._wrap_fields(cls.related_dict))
         return schema
 
-    def _wrap_fields(self, fields_dict):
+    @classmethod
+    def _wrap_fields(cls, fields_dict):
         # Takes a dict ``{<field_name>: <fields>}``, and returns a dict
         # ``{<field_name>: <wrapped_field>}``.
         wrapped_fields = {}
         for name, field in fields_dict.items():
             field_type = type(field)
-            # If fk, we return the right model
             if isinstance(field, models.ForeignKey):
-                wrapped_type = ModelWrap(
-                    klass=field.rel.to,
-                    superclasses=(field_type,)
-                )
-            # If m2m, we want a list of the right model
+                class WrappedField(WrappedModel):
+                    klass = field.rel.to
+                    superclasses = (field_type,)
             elif isinstance(field, (models.ManyToManyField, GenericRelation)):
-                wrapped_type = ContainerWrap(
-                    klass=field_type,
-                    superclasses=(models.Manager,),
-                    factory=list,
-                    value_type=field.rel.to
-                )
-            # related FK or related m2m, same as m2m 
+                class WrappedField(WrappedContainer):
+                    klass = field_type
+                    superclasses = (models.Manager,)
+                    factory = list
+                    value_type = field.rel.to
             elif isinstance(field, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
-                wrapped_type = ContainerWrap(
-                    klass=field_type,
-                    superclasses=(models.Manager,),
-                    factory=list,
-                    value_type=field.related.model
-                )
-            # "Complex" Python types to the right type 
-            elif isinstance(field, (models.DateTimeField, models.DateField)):
-                actual_type = {
-                    models.DateTimeField: datetime.datetime,
-                    models.DateField: datetime.date,
-                }[field_type]
-                wrapped_type = Wrap(klass=field_type, superclasses=(actual_type,))
+                class WrappedField(WrappedContainer):
+                    klass = field_type
+                    superclasses = (models.Manager,)
+                    factory = list
+                    value_type = field.related.model
+            elif isinstance(field, models.DateTimeField):
+                class WrappedField(WrappedDateTime):
+                    klass = field_type
+                    superclasses = (datetime.datetime,)
+                    factory = datetime.datetime
+            elif isinstance(field, models.DateField):
+                class WrappedField(WrappedDate):
+                    klass = field_type
+                    superclasses = (datetime.date,)
+                    factory = datetime.date
             else:
-                wrapped_type = field_type
-            wrapped_fields[name] = wrapped_type
+                class WrappedField(Wrapped):
+                    klass = field_type
+            wrapped_fields[name] = WrappedField
         return wrapped_fields
 
-    def get_schema(self):
-        schema = super(ModelWrap, self).get_schema()
-        related_keys = self.related_dict.keys()
-        if not self.include_related:
+    @classmethod
+    def get_schema(cls):
+        schema = super(WrappedModel, cls).get_schema()
+        related_keys = cls.related_dict.keys()
+        if not cls.include_related:
             for k in related_keys:
-                if not k in self.include and not k in self.extra_schema:
+                if not k in cls.include and not k in cls.extra_schema:
                     schema.pop(k, None)
         return schema
 
-    def new(self, *args, **kwargs):
+    @classmethod
+    def new(cls, *args, **kwargs):
         try:
-            instance = self.retrieve(*args, **kwargs)
-        except self.model.MultipleObjectsReturned:
+            instance = cls.retrieve(*args, **kwargs)
+        except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
-            (self.key_schema, self.model))
-        except self.model.DoesNotExist:
-            if not self.create_allowed:
+            (cls.key_schema, cls.model))
+        except cls.model.DoesNotExist:
+            if not cls.create_allowed:
                 raise
-            instance = self.create(*args, **kwargs)
-        return self.update(instance, *args, **kwargs)
+            instance = cls.create(*args, **kwargs)
+        return cls.update(instance, *args, **kwargs)
 
-    def retrieve(self, *args, **kwargs):
-        key_dict = self.extract_key(kwargs)
+    @classmethod
+    def retrieve(cls, *args, **kwargs):
+        key_dict = cls.extract_key(kwargs)
         if not key_dict:
-            raise self.model.DoesNotExist("no key could be extracted from the data")
-        return self.model.objects.get(**key_dict)
+            raise cls.model.DoesNotExist("no key could be extracted from the data")
+        return cls.model.objects.get(**key_dict)
 
-    def create(self, *args, **kwargs):
-        key_dict = self.extract_key(kwargs)
-        return self.model(**(key_dict or {'pk': None}))
+    @classmethod
+    def create(cls, *args, **kwargs):
+        key_dict = cls.extract_key(kwargs)
+        return cls.model(**(key_dict or {'pk': None}))
 
-    def update(self, instance, *args, **kwargs):
+    @classmethod
+    def update(cls, instance, *args, **kwargs):
         for name, value in kwargs.iteritems():
-            klass = self.get_class(name)
-            if Wrap.issubclass(klass, models.Manager):
+            klass = cls.get_class(name)
+            if Wrapped.issubclass(klass, models.Manager):
                 instance.save()# Because otherwise we cannot handle manytomany
                 manager = getattr(instance, name)
                 # clear() only provided if the ForeignKey can have a value of null:
@@ -181,17 +185,18 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
                 setattr(instance, name, value)
         return instance
 
-    @property
-    def model(self):
-        return self.factory or self.klass
+    @classproperty
+    def model(cls):
+        return cls.klass
 
-    def extract_key(self, data):
+    @classmethod
+    def extract_key(cls, data):
         # Extracts and returns the object key from the dictionary `data`, or None
         key_dict = {}
-        for field_name in self.key_schema:
+        for field_name in cls.key_schema:
             try:
                 if field_name == 'pk':
-                    value = data.get('pk') or data[self.pk_field_name]
+                    value = data.get('pk') or data[cls.pk_field_name]
                 else:
                     value = data[field_name]
             except KeyError:
@@ -201,28 +206,24 @@ class ModelWrap(ModelIntrospector, ObjectWrap):
         return key_dict
 
 
-class DeclarativeModelWrap(ModelWrap, DeclarativeObjectWrap): pass
-class WrappedModel(WrappedObject):
-
-    __metaclass__ = DeclarativeModelWrap
-
-    klass = models.Model
-
-
 # Mixins
 #======================================
 class FromModel(FromObject):
 
-    from_wrap = Setting(default=ModelWrap)
+    from_wrapped = Setting(default=WrappedModel)
 
 
 class ToModel(ToObject):
 
-    to_wrap = Setting(default=ModelWrap)
+    to_wrapped = Setting(default=WrappedModel)
 
     def call(self, inpt):
         instance = super(ToModel, self).call(inpt)
-        instance.save() # TODO: why save ?
+        # At this point we can save, because if the object
+        # was created or already existed it's ok to save,
+        # it couldn't be created, we wouldn't pass here.
+        # This is necessary to save here for handling FKs. 
+        instance.save()
         return instance
 
 
@@ -272,24 +273,24 @@ class FromQueryDict(FromMapping):
         return qd.iterlists()
 
 
-class QueryDictWrap(Wrap, ModelIntrospector):
+class WrappedQueryDict(Wrapped, ModelIntrospector):
 
-    defaults = {
-        'list_keys': [],
-        'klass': dict,
-        'model': None,
-    }
+    list_keys = []
+    klass = dict
+    model = None
 
-    def get_class(self, key):
-        if (key in self.list_keys) or self.is_list(key):
+    @classmethod
+    def get_class(cls, key):
+        if (key in cls.list_keys) or cls.is_list(key):
             return list
         else:
             return NotImplemented
 
-    def is_list(self, key):
-        if self.model:
+    @classmethod
+    def is_list(cls, key):
+        if cls.model:
             try:
-                field = filter(lambda f: f.name == key, self.fields)[0]
+                field = filter(lambda f: f.name == key, cls.fields)[0]
             except IndexError:
                 pass
             else:
@@ -318,7 +319,7 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCas
         True
     """
 
-    to_wrap = Setting(default=QueryDictWrap)
+    to_wrapped = Setting(default=WrappedQueryDict)
     mm_to_cast = LockedMmToCastSetting(default={
         Mm(from_=list): ListToFirstElem(),
         Mm(to=list): OneElemToList(),
@@ -338,7 +339,7 @@ class QuerySetToIterable(FromQuerySet, CastItems, ToIterable, DivideAndConquerCa
 class IterableToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast): pass
 
 
-class DjangoSerializeStack(BasicStack):
+class DjangoSerializer(BasicStack):
     """
     Subclass of :class:`base.CastStack`, for serializing Django objects
     """
@@ -354,7 +355,7 @@ class DjangoSerializeStack(BasicStack):
         }
 
 
-class DjangoDeserializeStack(BasicStack):
+class DjangoDeserializer(BasicStack):
     """
     Subclass of :class:`base.CastStack`, for deserializing Django objects
     """
