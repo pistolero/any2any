@@ -102,15 +102,15 @@ class WrappedObject(Wrapped):
         return cls.new(**kwargs)
 
     @classmethod
-    def get_class(cls, attr_name):
+    def get_class(cls, key):
         """
-        Returns the class of attribute `attr_name`, as found from the schema, see :meth:`get_schema`.
+        Returns the class of attribute `key`, as found from the schema, see :meth:`get_schema`.
         """
         schema = cls.get_schema()
-        if attr_name in schema:
-            return schema[attr_name]
+        if key in schema:
+            return schema[key]
         else:
-            raise KeyError("'%s' not in schema" % attr_name)
+            raise KeyError("'%s' not in schema" % key)
     
     @classmethod
     def get_schema(cls):
@@ -124,8 +124,8 @@ class WrappedObject(Wrapped):
             [schema.pop(k) for k in schema.keys() if k not in cls.include]
         if cls.exclude:
             [schema.pop(k, None) for k in cls.exclude]
-        for attr_name, cls in schema.iteritems():
-            schema[attr_name] = cls
+        for key, cls in schema.iteritems():
+            schema[key] = cls
         return schema
 
     @classmethod
@@ -170,6 +170,10 @@ class WrappedContainer(Wrapped):
 
     value_type = NotImplemented
     """type. The type of value contained."""
+
+    @classmethod
+    def get_class(cls, key):
+        return cls.value_type
 
     @classmethod
     def __superclasshook__(cls, C):
@@ -264,7 +268,7 @@ class FromMapping(object):
     from_wrapped = Setting(default=WrappedContainer)
 
     def get_item_from(self, key):
-        return self.from_.value_type
+        return self.from_.get_class(key)
 
     def iter_input(self, inpt):
         return inpt.iteritems()
@@ -280,7 +284,7 @@ class ToMapping(object):
     to_wrapped = Setting(default=WrappedContainer)
 
     def get_item_to(self, key):
-        return self.to.value_type
+        return self.to.get_class(key)
 
     def build_output(self, items_iter):
         return self.to(items_iter)
@@ -296,7 +300,7 @@ class FromIterable(object):
     from_wrapped = Setting(default=WrappedContainer)
 
     def get_item_from(self, key):
-        return self.from_.value_type
+        return self.from_.get_class(key)
 
     def iter_input(self, inpt):
         return enumerate(inpt)
@@ -312,7 +316,7 @@ class ToIterable(object):
     to_wrapped = Setting(default=WrappedContainer)
 
     def get_item_to(self, key):
-        return self.to.value_type
+        return self.to.get_class(key)
 
     def build_output(self, items_iter):
         return self.to((value for key, value in items_iter))
