@@ -233,7 +233,7 @@ class ToSetting(Setting):
 
     def get(self, instance):
         to = super(ToSetting, self).get(instance)
-        if instance.to_wrapped and to != None and not issubclass(to, instance.to_wrapped):
+        if instance.to_wrapped and to != None and not issubclass(to, Wrapped):
             class WrappedTo(instance.to_wrapped):
                 klass = to
             to = WrappedTo
@@ -248,7 +248,7 @@ class FromSetting(Setting):
         from_ = super(FromSetting, self).get(instance)
         if from_ == None and 'input' in instance._context:
             from_ = type(instance._context['input'])
-        if instance.from_wrapped and from_ != None and not issubclass(from_, instance.from_wrapped):
+        if instance.from_wrapped and from_ != None and not issubclass(from_, Wrapped):
             class WrappedFrom(instance.from_wrapped):
                 klass = from_
             from_ = WrappedFrom
@@ -294,7 +294,13 @@ class Cast(BaseCast):
 
     def __repr__(self):
         if self.from_ or self.to:
-            return '%s.%s(%s=>%s)' % (self.__class__.__module__, self.__class__.__name__, self.from_ or '', self.to or '')
+            from_ = self.from_
+            to = self.to
+            if from_ and issubclass(self.from_, Wrapped):
+                from_ = 'Wrapped%s' % self.from_.klass.__name__
+            if to and issubclass(self.to, Wrapped):
+                to = 'Wrapped%s' % self.to.klass.__name__
+            return '%s.%s(%s=>%s)' % (self.__class__.__module__, self.__class__.__name__, from_ or '', to or '')
         else:
             return '%s.%s()' % (self.__class__.__module__, self.__class__.__name__)
 
@@ -314,7 +320,7 @@ class Cast(BaseCast):
             return cast
         # builds a customized version of <cast>.
         cast = copy.copy(cast)
-        cast._depth = cast._depth + 1
+        cast._depth = self._depth + 1
         cast.customize(self)
         # Sets `from_` and `to` for the calling cast with mm's, only if mm's 
         # are singletons (not `from_any` or `to_any`).

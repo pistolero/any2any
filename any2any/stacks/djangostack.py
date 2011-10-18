@@ -11,7 +11,7 @@ from django.db.models.query import QuerySet
 
 from any2any import (Cast, Mm, Wrapped, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
 FromMapping, ToObject, WrappedContainer, WrappedObject, Setting, DivideAndConquerCast)
-from any2any.stacks.basicstack import BasicStack, IterableToIterable, Identity, WrappedDateTime, WrappedDate
+from any2any.stacks.basicstack import BasicStack, ListToList, Identity, WrappedDateTime, WrappedDate
 from any2any.base import MmToCastSetting
 from any2any.utils import classproperty
 
@@ -253,7 +253,7 @@ class OneElemToList(Cast):
         return [inpt]
 
 
-class StripEmptyValues(IterableToIterable):
+class StripEmptyValues(ListToList):
 
     empty_value = Setting(default='_empty')
     

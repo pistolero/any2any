@@ -28,16 +28,16 @@ class Identity_Test(object):
         ok_(other_list is a_list)
 
 
-class IterableToIterable_Test(object):
+class ListToList_Test(object):
     """
-    Tests for IterableToIterable
+    Tests for ListToList
     """
 
     def call_test(self):
         """
         Test call
         """
-        cast = IterableToIterable(to=list, mm_to_cast={Mm(): Identity()})
+        cast = ListToList(mm_to_cast={Mm(): Identity()})
         a_list = [1, 'a']
         other_list = cast(a_list)
         ok_(other_list == a_list)
@@ -47,8 +47,7 @@ class IterableToIterable_Test(object):
         """
         Test call, with a custom cast for the list elements
         """
-        cast = IterableToIterable(
-            to=list,
+        cast = ListToList(
             mm_to_cast={
                 Mm(from_=int): MyCast(msg='an int'),
                 Mm(from_=str): MyCast(msg='a str'),
@@ -57,9 +56,9 @@ class IterableToIterable_Test(object):
         )
         ok_(cast([1, '3by', 78]) == ['an int 1', 'a str 3by', 'index 2 78'])
 
-class MappingToMapping_Test(object):
+class DictToDict_Test(object):
     """
-    Tests for MappingToMapping
+    Tests for DictToDict
     """
 
     def call_test(self):
@@ -67,7 +66,7 @@ class MappingToMapping_Test(object):
         Test call
         """
         a_dict = {1: 78, 'a': 'testi', 'b': 1.89}
-        cast = MappingToMapping(to=dict, mm_to_cast={Mm(): Identity()})
+        cast = DictToDict(mm_to_cast={Mm(): Identity()})
         other_dict = cast(a_dict)
         ok_(other_dict == a_dict)
         ok_(not other_dict is a_dict)
@@ -76,16 +75,15 @@ class MappingToMapping_Test(object):
         """
         Test call, with a custom cast for the dict elements
         """
-        cast = MappingToMapping(
-            to=dict,
+        cast = DictToDict(
             mm_to_cast={Mm(from_=int): MyCast(msg='an int'),},
             key_to_cast={'a': MyCast(msg='index a'),},
         )
         ok_(cast({1: 78, 'a': 'testi', 'b': 1}) == {1: 'an int 78', 'a': 'index a testi', 'b': 'an int 1'})
 
-class ObjectToMapping_Test(object):
+class ObjectToDict_Test(object):
     """
-    Tests for ObjectToMapping
+    Tests for ObjectToDict
     """
 
     def call_test(self):
@@ -97,7 +95,7 @@ class ObjectToMapping_Test(object):
             extra_schema={'a1': int, 'blabla': str}
 
         obj = Object() ; obj.a1 = 90 ; obj.blabla = 'coucou'
-        cast = ObjectToMapping(from_=MyWrappedObject, mm_to_cast={Mm(): Identity()}, to=dict)
+        cast = ObjectToDict(from_=MyWrappedObject, mm_to_cast={Mm(): Identity()})
         ok_(cast(obj) == {'a1': 90, 'blabla': 'coucou'})
 
     def custom_cast_for_elems_test(self):
@@ -109,17 +107,16 @@ class ObjectToMapping_Test(object):
             extra_schema = {'a1': int, 'blabla': str, 'bb': str}
 
         obj = Object() ; obj.a1 = 90 ; obj.blabla = 'coucou' ; obj.bb = 'bibi'
-        cast = ObjectToMapping(
+        cast = ObjectToDict(
             from_=MyWrappedObject,
-            to=dict,
             mm_to_cast={Mm(): Identity(), Mm(from_=int): MyCast(msg='an int'),},
             key_to_cast={'bb': MyCast(msg='index bb'),},
         )
         ok_(cast(obj) == {'a1': 'an int 90', 'blabla': 'coucou', 'bb': 'index bb bibi'})
 
-class MappingToObject_Test(object):
+class DictToObject_Test(object):
     """
-    Tests for MappingToObject
+    Tests for DictToObject
     """
 
     def call_test(self):
@@ -136,7 +133,7 @@ class MappingToObject_Test(object):
                     setattr(obj, name, value)
                 return obj
 
-        cast = MappingToObject(to=MyWrappedObject, mm_to_cast={Mm(): Identity()})
+        cast = DictToObject(to=MyWrappedObject, mm_to_cast={Mm(): Identity()})
         obj = cast({'a1': 90, 'blabla': 'coucou'})
         ok_(isinstance(obj, Object))
         ok_(obj.a1 == 90)
@@ -156,7 +153,7 @@ class MappingToObject_Test(object):
                     setattr(obj, name, value)
                 return obj
 
-        cast = MappingToObject(
+        cast = DictToObject(
             to=MyWrappedObject,
             mm_to_cast={Mm(): Identity(), Mm(from_=int): MyCast(msg='an int'),},
             key_to_cast={'bb': MyCast(msg='index bb'),},
