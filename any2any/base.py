@@ -228,6 +228,8 @@ class BaseCast(object):
 
 # Cast, CastStack 
 #====================================
+
+
 class ToSetting(Setting):
     # Automatically wraps `to` with the setting `to_wrapped`, if provided.
 
@@ -238,6 +240,16 @@ class ToSetting(Setting):
                 klass = to
             to = WrappedTo
         return to
+
+    def set(self, instance, value):
+        # If the setting was explicitely initialized with a value, we don't want it
+        # to be overwritten.
+        if not getattr(instance, '_to_initialized', False) and value != None:
+            super(ToSetting, self).set(instance, value)
+
+    def init(self, instance, value):
+        instance._to_initialized = True
+        super(ToSetting, self).set(instance, value)
 
 
 class FromSetting(Setting):
@@ -253,6 +265,16 @@ class FromSetting(Setting):
                 klass = from_
             from_ = WrappedFrom
         return from_
+
+    def set(self, instance, value):
+        # If the setting was explicitely initialized with a value, we don't want it
+        # to be overwritten.
+        if not getattr(instance, '_from_initialized', False) and value != None:
+            super(FromSetting, self).set(instance, value)
+
+    def init(self, instance, value):
+        instance._from_initialized = True
+        super(FromSetting, self).set(instance, value)
 
 
 class MmToCastSetting(ViralSetting):
@@ -319,15 +341,14 @@ class Cast(BaseCast):
         if isinstance(cast, types.FunctionType):
             return cast
         # builds a customized version of <cast>.
-        cast = copy.copy(cast)
+        copied_cast = copy.copy(cast)
+        copied_cast._to_initialized = getattr(cast, '_to_initialized', False)
+        copied_cast._from_initialized = getattr(cast, '_from_initialized', False)
+        cast = copied_cast
         cast._depth = self._depth + 1
         cast.customize(self)
-        # Sets `from_` and `to` for the calling cast with mm's, only if mm's 
-        # are singletons (not `from_any` or `to_any`).
-        if mm.from_ and not cast.from_:
-            cast.from_ = mm.from_
-        if mm.to and not cast.to:
-            cast.to = mm.to
+        cast.from_ = mm.from_
+        cast.to = mm.to
         return cast
 
     def _pick_best_match(self, mm, mm_list):
