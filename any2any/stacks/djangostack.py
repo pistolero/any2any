@@ -70,6 +70,16 @@ class ModelIntrospector(object):
 
 # WrappedModel
 #======================================
+class WrappedQuerySet(WrappedContainer):
+    """
+    A subclass of :class:`daccasts.WrappedContainer` for querysets.
+    """
+
+    klass = QuerySet
+    superclasses = (QuerySet, models.Manager)
+    factory = list
+
+
 class WrappedModel(ModelIntrospector, WrappedObject):
     """
     A subclass of :class:`daccasts.WrappedObject` for django models.
@@ -104,17 +114,13 @@ class WrappedModel(ModelIntrospector, WrappedObject):
                     klass = field.rel.to
                     superclasses = (field_type,)
             elif isinstance(field, (models.ManyToManyField, GenericRelation)):
-                class WrappedField(WrappedContainer):
+                class WrappedField(WrappedQuerySet):
                     klass = field_type
-                    superclasses = (models.Manager,)
-                    factory = list
                     value_type = field.rel.to
             elif isinstance(field, (ManyRelatedObjectsDescriptor,
             ForeignRelatedObjectsDescriptor)):
-                class WrappedField(WrappedContainer):
+                class WrappedField(WrappedQuerySet):
                     klass = field_type
-                    superclasses = (models.Manager,)
-                    factory = list
                     value_type = field.related.model
             elif isinstance(field, models.DateTimeField):
                 class WrappedField(WrappedDateTime):
