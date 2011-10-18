@@ -348,7 +348,7 @@ class QuerySetToList(FromQuerySet, CastItems, ToIterable, DivideAndConquerCast):
     class Meta:
         defaults = {'to': list}
 
-class ListToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast):
+class ListToQuerySet(FromIterable, CastItems, ToIterable, DivideAndConquerCast):
 
     class Meta:
         defaults = {'from_': list}
@@ -377,8 +377,8 @@ class DjangoDeserializer(BasicStack):
     class Meta:
         defaults = {
             'mm_to_cast': {
-                Mm(to_any=models.Manager): ListToQueryset(),
-                Mm(to_any=QuerySet): ListToQueryset(),
+                Mm(to_any=models.Manager): ListToQuerySet(),
+                Mm(to_any=QuerySet): ListToQuerySet(),
                 Mm(from_any=dict, to_any=models.Model): DictToModel(),
             }
         }
