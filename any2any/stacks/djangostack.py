@@ -333,11 +333,25 @@ class QueryDictFlatener(FromQueryDict, CastItems, ToMapping, DivideAndConquerCas
 
 # Building stack for Django
 #======================================
-class ModelToMapping(FromModel, ToMapping, CastItems, DivideAndConquerCast): pass
-class MappingToModel(ToModel, FromMapping, CastItems, DivideAndConquerCast): pass
-class QuerySetToIterable(FromQuerySet, CastItems, ToIterable, DivideAndConquerCast): pass
-class IterableToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast): pass
+class ModelToDict(FromModel, ToMapping, CastItems, DivideAndConquerCast):
 
+    class Meta:
+        defaults = {'to': dict}    
+
+class DictToModel(ToModel, FromMapping, CastItems, DivideAndConquerCast):
+
+    class Meta:
+        defaults = {'from_': dict}
+
+class QuerySetToList(FromQuerySet, CastItems, ToIterable, DivideAndConquerCast):
+
+    class Meta:
+        defaults = {'to': list}
+
+class ListToQueryset(FromIterable, CastItems, ToIterable, DivideAndConquerCast):
+
+    class Meta:
+        defaults = {'from_': list}
 
 class DjangoSerializer(BasicStack):
     """
@@ -347,9 +361,9 @@ class DjangoSerializer(BasicStack):
     class Meta:
         defaults = {
             'mm_to_cast': {
-                Mm(from_any=models.Manager): QuerySetToIterable(to=list),
-                Mm(from_any=QuerySet): QuerySetToIterable(to=list),
-                Mm(from_any=models.Model): ModelToMapping(to=dict),
+                Mm(from_any=models.Manager): QuerySetToList(),
+                Mm(from_any=QuerySet): QuerySetToList(),
+                Mm(from_any=models.Model): ModelToDict(),
                 Mm(from_any=QueryDict): QueryDictFlatener(),
             }
         }
@@ -363,8 +377,8 @@ class DjangoDeserializer(BasicStack):
     class Meta:
         defaults = {
             'mm_to_cast': {
-                Mm(to_any=models.Manager): IterableToQueryset(),
-                Mm(to_any=QuerySet): IterableToQueryset(),
-                Mm(from_any=dict, to_any=models.Model): MappingToModel(),
+                Mm(to_any=models.Manager): ListToQueryset(),
+                Mm(to_any=QuerySet): ListToQueryset(),
+                Mm(from_any=dict, to_any=models.Model): DictToModel(),
             }
         }

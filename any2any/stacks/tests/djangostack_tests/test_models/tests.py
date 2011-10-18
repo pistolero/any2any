@@ -104,14 +104,14 @@ class BaseModel(object):
         self.issue.delete()
         self.journal.delete()
 
-class ModelToMapping_Test(BaseModel):
+class ModelToDict_Test(BaseModel):
     """
-    Tests for ModelToMapping
+    Tests for ModelToDict
     """
 
     def call_test(self):
         """
-        Simple test ModelToMapping.call
+        Simple test ModelToDict.call
         """
         ok_(self.serializer(self.author) == {
             'id': self.author.pk,
@@ -123,7 +123,7 @@ class ModelToMapping_Test(BaseModel):
 
     def mti_test(self):
         """
-        Test ModelToMapping.call with a model with long inheritance chain.
+        Test ModelToDict.call with a model with long inheritance chain.
         """
         ok_(self.serializer(self.columnist) == {
             'id': self.columnist.pk,
@@ -137,7 +137,7 @@ class ModelToMapping_Test(BaseModel):
 
     def fk_test(self):
         """
-        Test ModelToMapping.call with foreignkeys
+        Test ModelToDict.call with foreignkeys
         """
         ok_(self.serializer(self.book) == {
             'id': self.book.pk,
@@ -155,7 +155,7 @@ class ModelToMapping_Test(BaseModel):
 
     def many2many_test(self):
         """
-        Test ModelToMapping.call with many2many field.
+        Test ModelToDict.call with many2many field.
         """
         ok_(self.serializer(self.gourmand) == {
             'id': self.gourmand.pk, 'pk': self.gourmand.pk, 
@@ -176,7 +176,7 @@ class ModelToMapping_Test(BaseModel):
 
     def relatedmanager_test(self):
         """
-        Test ModelToMapping.call serializing a reverse relationship (fk, m2m).
+        Test ModelToDict.call serializing a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey
         class WrappedJournalist(WrappedModel):
@@ -185,8 +185,8 @@ class ModelToMapping_Test(BaseModel):
         class WrappedJournal(WrappedModel):
             klass = Journal
             include = ['name', 'journalist_set']
-        journalist_cast = ModelToMapping(from_=WrappedJournalist, to=dict)
-        journal_cast = ModelToMapping(from_=WrappedJournal, to=dict)
+        journalist_cast = ModelToDict(from_=WrappedJournalist)
+        journal_cast = ModelToDict(from_=WrappedJournal)
         cast = DjangoSerializer(extra_mm_to_cast={
             Mm(from_any=Journalist): journalist_cast,
             Mm(from_any=Journal): journal_cast,
@@ -208,8 +208,8 @@ class ModelToMapping_Test(BaseModel):
             klass = Dish
             exclude = ['id', 'pk']
             include_related = True
-        gourmand_cast = ModelToMapping(from_=WrappedGourmand, to=dict)
-        dish_cast = ModelToMapping(from_=WrappedDish, to=dict)
+        gourmand_cast = ModelToDict(from_=WrappedGourmand)
+        dish_cast = ModelToDict(from_=WrappedDish)
         cast = DjangoSerializer(extra_mm_to_cast={
             Mm(from_any=Gourmand): gourmand_cast,
             Mm(from_any=Dish): dish_cast,
@@ -223,7 +223,7 @@ class ModelToMapping_Test(BaseModel):
 
     def date_and_datetime_test(self):
         """
-        Test ModelToMapping.call serializing date and datetime
+        Test ModelToDict.call serializing date and datetime
         """
         class WrappedJournal(WrappedModel):
             klass = Journal
@@ -231,8 +231,8 @@ class ModelToMapping_Test(BaseModel):
         class WrappedIssue(WrappedModel):
             klass = Issue
             include=['journal', 'issue_date', 'last_char_datetime']
-        journal_cast = ModelToMapping(from_=WrappedJournal, to=dict)
-        issue_cast = ModelToMapping(from_=WrappedIssue, to=dict, key_to_cast={'journal': journal_cast})
+        journal_cast = ModelToDict(from_=WrappedJournal)
+        issue_cast = ModelToDict(from_=WrappedIssue, key_to_cast={'journal': journal_cast})
         cast = DjangoSerializer(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
         ok_(cast(self.issue) == {
             'journal': {'name': "C'est pas sorcier"},
@@ -240,14 +240,14 @@ class ModelToMapping_Test(BaseModel):
             'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
         })
 
-class MappingToModel_Test(BaseModel):
+class DictToModel_Test(BaseModel):
     """
-    Tests for MappingToModel
+    Tests for DictToModel
     """
 
     def call_test(self):
         """
-        Simple test MappingToModel.call
+        Simple test DictToModel.call
         """
         authors_before = Author.objects.count()
         james = self.deserializer({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
@@ -380,7 +380,7 @@ class MappingToModel_Test(BaseModel):
 
     def update_relatedmanager_already_existing_objects_test(self):
         """
-        Test MappingToModel.call updating a reverse relationship (fk, m2m).
+        Test DictToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey - only works if fk can be null
         class WrappedJournal(WrappedModel):
@@ -452,7 +452,7 @@ class MappingToModel_Test(BaseModel):
     
     def update_date_and_datetime_test(self):
         """
-        Test ModelToMapping.call serializing date and datetime
+        Test ModelToDict.call serializing date and datetime
         """
         issue = self.deserializer({
             'id': self.issue.pk,
