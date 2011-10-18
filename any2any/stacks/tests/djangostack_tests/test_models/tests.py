@@ -11,6 +11,69 @@ from models import *
 
 from nose.tools import assert_raises, ok_
 
+class WrappedAuthor(WrappedModel):
+    klass = Author
+
+class WrappedBook(WrappedModel):
+    klass = Book
+    extra_schema = {'author': WrappedAuthor}
+
+class UpdateOnlyGourmand(UpdateOnlyWrappedModel):
+    klass = Gourmand
+
+class UpdateOnlyGourmandQuerySet(WrappedQuerySet):
+    value_type = UpdateOnlyGourmand
+
+class UpdateOnlyDish(UpdateOnlyWrappedModel):
+    klass = Dish
+    extra_schema = {'gourmand_set': UpdateOnlyGourmandQuerySet}
+
+class WrappedDish(WrappedModel):
+    klass = Dish
+
+class UpdateOnlyDishQuerySet(WrappedQuerySet):
+    value_type = UpdateOnlyDish
+
+class DishQuerySet(WrappedQuerySet):
+    value_type = WrappedDish
+
+class WrappedGourmand(WrappedModel):
+    klass = Gourmand
+    extra_schema = {'favourite_dishes': DishQuerySet}
+
+class UpdateOnlyGourmand(UpdateOnlyWrappedModel):
+    klass = Gourmand
+    extra_schema = {'favourite_dishes': UpdateOnlyDishQuerySet}
+
+class UpdateOnlyAuthor(UpdateOnlyWrappedModel):
+    klass = Author
+
+class UpdateOnlyBook(UpdateOnlyWrappedModel):
+    klass = Book
+    extra_schema = {'author': UpdateOnlyAuthor}
+
+class UpdateOnlyJournalist(UpdateOnlyWrappedModel):
+    klass = Journalist
+
+class UpdateOnlyJournalistQuerySet(WrappedQuerySet):
+    value_type = UpdateOnlyJournalist
+
+class UpdateOnlyJournal(UpdateOnlyWrappedModel):
+    klass = Journal
+    extra_schema = {'journalist_set': UpdateOnlyJournalistQuerySet}
+
+class UpdateOnlyColumnist(UpdateOnlyWrappedModel):
+    klass = Columnist
+    key_schema = ('firstname', 'lastname')
+
+class WrappedColumnist(WrappedModel):
+    klass = Columnist
+    key_schema = ('firstname', 'lastname')
+
+class UpdateOnlyIssue(UpdateOnlyWrappedModel):
+    klass = Issue
+
+
 class WrappedModel_Test(object):
 
     def fields_test(self):
@@ -250,7 +313,7 @@ class DictToModel_Test(BaseModel):
         Simple test DictToModel.call
         """
         authors_before = Author.objects.count()
-        james = self.deserializer({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=Author)
+        james = self.deserializer({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=WrappedAuthor)
         james = Author.objects.get(pk=james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
@@ -269,7 +332,7 @@ class DictToModel_Test(BaseModel):
         book = self.deserializer({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
             'author': {'id': self.author.pk, 'pk': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
-        }, to=Book)
+        }, to=UpdateOnlyBook)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(pk=book.author.pk)
         # We check the fields
@@ -289,7 +352,7 @@ class DictToModel_Test(BaseModel):
         book = self.deserializer({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
-        }, to=Book)
+        }, to=WrappedBook)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -312,7 +375,7 @@ class DictToModel_Test(BaseModel):
         book = self.deserializer({
             'id': 989, 'title': '1984', 'comments': 'great great great',
             'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
-        }, to=Book)
+        }, to=WrappedBook)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -341,7 +404,7 @@ class DictToModel_Test(BaseModel):
                 {'id': self.salmon.pk, 'name': 'Pretty much'},
                 {'id': self.foiegras.pk, 'name': 'Anything'},
             ]
-        }, to=Gourmand)
+        }, to=UpdateOnlyGourmand)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         salmon = Dish.objects.get(pk=self.salmon.pk)
         foiegras = Dish.objects.get(pk=self.foiegras.pk)
@@ -367,7 +430,7 @@ class DictToModel_Test(BaseModel):
                 {'id': self.salmon.pk},
                 {'id': self.foiegras.pk},
             ]
-        }, to=Gourmand)
+        }, to=WrappedGourmand)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         vitamineo = Dish.objects.get(pk=888)
         # We check the fields
@@ -383,46 +446,37 @@ class DictToModel_Test(BaseModel):
         Test DictToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey - only works if fk can be null
-        class WrappedJournal(WrappedModel):
-            klass = Journal
-            include_related = True
         journal = self.deserializer({
             'id': self.journal.id,
             'journalist_set': [],
-        }, to=WrappedJournal)
+        }, to=UpdateOnlyJournal)
         ok_(set(journal.journalist_set.all()) == set())
         journal = self.deserializer({
             'id': self.journal.id,
             'journalist_set': [
                 {'id': self.journalist.id},
             ],
-        }, to=WrappedJournal)
+        }, to=UpdateOnlyJournal)
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
-        class WrappedDish(WrappedModel):
-            klass = Dish
-            include_related = True
         salmon = self.deserializer({
             'id': self.salmon.id,
             'gourmand_set': [
                 {'id': self.gourmand.id},
             ]
-        }, to=WrappedDish)
+        }, to=UpdateOnlyDish)
         ok_(set(salmon.gourmand_set.all()) == set([self.gourmand]))
 
     def update_object_with_nk_test(self):
         """
         Test update an object with its natural key, natural key already existing.
         """
-        class WrappedColumnist(WrappedModel):
-            klass = Columnist
-            key_schema = ('firstname', 'lastname')
         columnist_before = Columnist.objects.count()
         jamy = self.deserializer({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'column': 'truck'
-        }, to=WrappedColumnist)
+        }, to=UpdateOnlyColumnist)
         jamy = Columnist.objects.get(pk=jamy.pk)
         # We check the fields
         ok_(jamy.column == 'truck')
@@ -433,9 +487,6 @@ class DictToModel_Test(BaseModel):
         """
         Test deserialize and create an object with its natural key.
         """
-        class WrappedColumnist(WrappedModel):
-            klass = Columnist
-            key_schema = ('firstname', 'lastname')
         columnist_before = Columnist.objects.count()
         fred = self.deserializer({
             'firstname': 'Frédéric',
@@ -458,7 +509,7 @@ class DictToModel_Test(BaseModel):
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
             'last_char_datetime': {'year': 1864, 'month': 12, 'day': 31, 'hour': 1},
-        }, to=Issue)
+        }, to=UpdateOnlyIssue)
         ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 

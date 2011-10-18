@@ -20,7 +20,7 @@ from any2any.utils import classproperty
 #======================================
 class ModelIntrospector(object):
     """
-    Mixin for adding introspection capabilities.
+    Mixin for adding introspection capabilities to any class.
     """
 
     @classproperty
@@ -80,7 +80,7 @@ class WrappedQuerySet(WrappedContainer):
     factory = list
 
 
-class WrappedModel(ModelIntrospector, WrappedObject):
+class BaseWrappedModel(ModelIntrospector, WrappedObject):
     """
     A subclass of :class:`daccasts.WrappedObject` for django models.
     """
@@ -90,9 +90,14 @@ class WrappedModel(ModelIntrospector, WrappedObject):
 
     include_related = False
     """bool. If True, the schema will also include related ForeignKeys and related ManyToMany."""
-    
-    create_allowed = True
-    """bool. If True, and if the object doesn't exist yet in the database, or no primary key is provided, it will be created."""
+
+    @classproperty
+    def model(cls):
+        return cls.klass
+
+    @classmethod
+    def new(cls, *args, **kwargs):
+        raise NotImplementedError
 
     @classmethod
     def default_schema(cls):
@@ -103,6 +108,62 @@ class WrappedModel(ModelIntrospector, WrappedObject):
         return schema
 
     @classmethod
+    def get_schema(cls):
+        schema = super(BaseWrappedModel, cls).get_schema()
+        related_keys = cls.related_dict.keys()
+        if not cls.include_related:
+            for k in related_keys:
+                if not k in cls.include and not k in cls.extra_schema:
+                    schema.pop(k, None)
+        return schema
+
+    @classmethod
+    def extract_key(cls, data):
+        # Extracts and returns the object key from the dictionary `data`, or None
+        key_dict = {}
+        for field_name in cls.key_schema:
+            try:
+                if field_name == 'pk':
+                    value = data.get('pk') or data[cls.pk_field_name]
+                else:
+                    value = data[field_name]
+            except KeyError:
+                return None
+            else:
+                key_dict[field_name] = value
+        return key_dict
+
+    @classmethod
+    def create(cls, *args, **kwargs):
+        key_dict = cls.extract_key(kwargs)
+        return cls.model(**(key_dict or {'pk': None}))
+
+    @classmethod
+    def retrieve(cls, *args, **kwargs):
+        key_dict = cls.extract_key(kwargs)
+        if not key_dict:
+            raise cls.model.DoesNotExist("no key could be extracted from the data")
+        return cls.model.objects.get(**key_dict)
+
+    @classmethod
+    def update(cls, instance, *args, **kwargs):
+        for name, value in kwargs.iteritems():
+            klass = cls.get_class(name)
+            if Wrapped.issubclass(klass, models.Manager):
+                instance.save()# Because otherwise we cannot handle manytomany
+                manager = getattr(instance, name)
+                # clear() only provided if the ForeignKey can have a value of null:
+                if hasattr(manager, 'clear'):
+                    manager.clear()
+                    for element in value:
+                        manager.add(element)
+                else:
+                    raise TypeError("cannot update if the related ForeignKey cannot be null")
+            else:
+                setattr(instance, name, value)
+        return instance
+
+    @classmethod
     def _wrap_fields(cls, fields_dict):
         # Takes a dict ``{<field_name>: <fields>}``, and returns a dict
         # ``{<field_name>: <wrapped_field>}``.
@@ -110,7 +171,7 @@ class WrappedModel(ModelIntrospector, WrappedObject):
         for name, field in fields_dict.items():
             field_type = type(field)
             if isinstance(field, models.ForeignKey):
-                class WrappedField(WrappedModel):
+                class WrappedField(ReadOnlyWrappedModel):
                     klass = field.rel.to
                     superclasses = (field_type,)
             elif isinstance(field, (models.ManyToManyField, GenericRelation)):
@@ -138,15 +199,48 @@ class WrappedModel(ModelIntrospector, WrappedObject):
             wrapped_fields[name] = WrappedField
         return wrapped_fields
 
+
+class ReadOnlyWrappedModel(BaseWrappedModel):
+    """
+    A subclass of :class:`daccasts.WrappedObject` for django models. Only allows to retrieve objects that exist in the database, e.g. :
+
+        >>> obj = ReadOnlyWrappedModel({'pk': 12, 'a_field': 'new_value'})
+        >>> obj.a_field != 'new_value'
+        True
+    """
+
     @classmethod
-    def get_schema(cls):
-        schema = super(WrappedModel, cls).get_schema()
-        related_keys = cls.related_dict.keys()
-        if not cls.include_related:
-            for k in related_keys:
-                if not k in cls.include and not k in cls.extra_schema:
-                    schema.pop(k, None)
-        return schema
+    def new(cls, *args, **kwargs):
+        try:
+            return cls.retrieve(*args, **kwargs)
+        except cls.model.MultipleObjectsReturned:
+            raise ValueError("'%s' is not unique for '%s'" %
+            (cls.key_schema, cls.model))
+
+
+class UpdateOnlyWrappedModel(BaseWrappedModel):
+    """
+    A subclass of :class:`daccasts.WrappedObject` for django models. Only allows to retrieve and update objects that exist in the database, e.g. :
+
+        >>> obj = UpdateOnlyWrappedModel({'pk': 12, 'a_field': 'new_value'})
+        >>> obj.a_field == 'new_value'
+        True
+    """
+
+    @classmethod
+    def new(cls, *args, **kwargs):
+        try:
+            instance = cls.retrieve(*args, **kwargs)
+        except cls.model.MultipleObjectsReturned:
+            raise ValueError("'%s' is not unique for '%s'" %
+            (cls.key_schema, cls.model))
+        return cls.update(instance, *args, **kwargs)
+
+
+class WrappedModel(BaseWrappedModel):
+    """
+    A subclass of :class:`daccasts.WrappedObject` for django models. Allows to retrieve/create and update objects.
+    """
 
     @classmethod
     def new(cls, *args, **kwargs):
@@ -156,79 +250,24 @@ class WrappedModel(ModelIntrospector, WrappedObject):
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
         except cls.model.DoesNotExist:
-            if not cls.create_allowed:
-                raise
             instance = cls.create(*args, **kwargs)
         return cls.update(instance, *args, **kwargs)
-
-    @classmethod
-    def retrieve(cls, *args, **kwargs):
-        key_dict = cls.extract_key(kwargs)
-        if not key_dict:
-            raise cls.model.DoesNotExist("no key could be extracted from the data")
-        return cls.model.objects.get(**key_dict)
-
-    @classmethod
-    def create(cls, *args, **kwargs):
-        key_dict = cls.extract_key(kwargs)
-        return cls.model(**(key_dict or {'pk': None}))
-
-    @classmethod
-    def update(cls, instance, *args, **kwargs):
-        for name, value in kwargs.iteritems():
-            klass = cls.get_class(name)
-            if Wrapped.issubclass(klass, models.Manager):
-                instance.save()# Because otherwise we cannot handle manytomany
-                manager = getattr(instance, name)
-                # clear() only provided if the ForeignKey can have a value of null:
-                if hasattr(manager, 'clear'):
-                    manager.clear()
-                    for element in value:
-                        manager.add(element)
-                else:
-                    raise TypeError("cannot update if the related ForeignKey cannot be null")
-            else:
-                setattr(instance, name, value)
-        return instance
-
-    @classproperty
-    def model(cls):
-        return cls.klass
-
-    @classmethod
-    def extract_key(cls, data):
-        # Extracts and returns the object key from the dictionary `data`, or None
-        key_dict = {}
-        for field_name in cls.key_schema:
-            try:
-                if field_name == 'pk':
-                    value = data.get('pk') or data[cls.pk_field_name]
-                else:
-                    value = data[field_name]
-            except KeyError:
-                return None
-            else:
-                key_dict[field_name] = value
-        return key_dict
 
 
 # Mixins
 #======================================
 class FromModel(FromObject):
 
-    from_wrapped = Setting(default=WrappedModel)
+    from_wrapped = Setting(default=ReadOnlyWrappedModel)
 
 
 class ToModel(ToObject):
 
-    to_wrapped = Setting(default=WrappedModel)
+    to_wrapped = Setting(default=ReadOnlyWrappedModel)
 
     def call(self, inpt):
         instance = super(ToModel, self).call(inpt)
-        # At this point we can save, because if the object
-        # was created or already existed it's ok to save,
-        # it couldn't be created, we wouldn't pass here.
-        # This is necessary to save here for handling FKs. 
+        # It is necessary to save here for handling FKs. 
         instance.save()
         return instance
 
@@ -344,20 +383,24 @@ class ModelToDict(FromModel, ToMapping, CastItems, DivideAndConquerCast):
     class Meta:
         defaults = {'to': dict}    
 
+
 class DictToModel(ToModel, FromMapping, CastItems, DivideAndConquerCast):
 
     class Meta:
         defaults = {'from_': dict}
+
 
 class QuerySetToList(FromQuerySet, CastItems, ToIterable, DivideAndConquerCast):
 
     class Meta:
         defaults = {'to': list}
 
+
 class ListToQuerySet(FromIterable, CastItems, ToIterable, DivideAndConquerCast):
 
     class Meta:
         defaults = {'from_': list}
+
 
 class DjangoSerializer(BasicStack):
     """
