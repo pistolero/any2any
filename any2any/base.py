@@ -338,7 +338,7 @@ class Cast(BaseCast):
         return self.build_customized(cast, mm)
 
     def build_customized(self, cast, mm):
-        if isinstance(cast, types.FunctionType):
+        if not isinstance(cast, Cast):
             return cast
         # builds a customized version of <cast>.
         copied_cast = copy.copy(cast)
