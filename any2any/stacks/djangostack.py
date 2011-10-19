@@ -9,8 +9,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey, GenericRelation
 from django.db.models.query import QuerySet
 
-from any2any import (Cast, Mm, Wrapped, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
-FromMapping, ToObject, WrappedContainer, WrappedObject, Setting, DivideAndConquerCast)
+from any2any import (Cast, Mm, WrappedObject, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
+FromMapping, ToObject, WrappedContainer, Setting, DivideAndConquerCast)
 from any2any.stacks.basicstack import BasicStack, ListToList, Identity, WrappedDateTime, WrappedDate
 from any2any.base import MmToCastSetting
 from any2any.utils import classproperty
@@ -149,7 +149,7 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
     def update(cls, instance, *args, **kwargs):
         for name, value in kwargs.iteritems():
             klass = cls.get_class(name)
-            if Wrapped.issubclass(klass, models.Manager):
+            if WrappedObject.issubclass(klass, models.Manager):
                 instance.save()# Because otherwise we cannot handle manytomany
                 manager = getattr(instance, name)
                 # clear() only provided if the ForeignKey can have a value of null:
@@ -194,7 +194,7 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
                     superclasses = (datetime.date,)
                     factory = datetime.date
             else:
-                class WrappedField(Wrapped):
+                class WrappedField(WrappedObject):
                     klass = field_type
             wrapped_fields[name] = WrappedField
         return wrapped_fields
@@ -318,7 +318,7 @@ class FromQueryDict(FromMapping):
         return qd.iterlists()
 
 
-class WrappedQueryDict(Wrapped, ModelIntrospector):
+class WrappedQueryDict(WrappedObject, ModelIntrospector):
 
     list_keys = []
     klass = dict

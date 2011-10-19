@@ -8,8 +8,8 @@ Metamorphoses (Mm)
 
 .. autoclass:: Mm
 
-Wraps
-======
+WrappedObject
+================
 
-.. autoclass:: Wrap
-.. autoclass:: Wrapped
+.. autoclass:: WrappedObject
+    :members:

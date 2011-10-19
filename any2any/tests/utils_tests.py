@@ -134,50 +134,54 @@ class Mm_Test(object):
         # No match
         ok_(animal_to_salesman.super_mms([human_to_salesman]) == [])
         
-class Wrapped_Test(object):
+class WrappedObject_Test(object):
     """
-    Tests for the Wrapped class
+    Tests for the WrappedObject class
     """
+
+    def setUp(self):
+        class AnObject(object): pass
+        self.AnObject = AnObject
 
     def issubclass_test(self):
         """
-        Test Wrapped.issubclass
+        Test WrappedObject.issubclass
         """
         # built-in types
-        ok_(Wrapped.issubclass(int, object))
-        ok_(not Wrapped.issubclass(object, int))
-        ok_(Wrapped.issubclass(object, object))
-        # Wrapped + built-in type
-        class WrappedStr(Wrapped):
+        ok_(WrappedObject.issubclass(int, object))
+        ok_(not WrappedObject.issubclass(object, int))
+        ok_(WrappedObject.issubclass(object, object))
+        # WrappedObject + built-in type
+        class WrappedStr(WrappedObject):
             klass = str
-        class WrappedWrappedStr(Wrapped):
+        class WrappedWrappedStr(WrappedObject):
             klass = WrappedStr
-        ok_(Wrapped.issubclass(WrappedStr, str))
-        ok_(not Wrapped.issubclass(str, WrappedStr))
-        ok_(Wrapped.issubclass(WrappedStr, WrappedStr))
-        ok_(Wrapped.issubclass(WrappedWrappedStr, WrappedStr))
+        ok_(WrappedObject.issubclass(WrappedStr, str))
+        ok_(not WrappedObject.issubclass(str, WrappedStr))
+        ok_(WrappedObject.issubclass(WrappedStr, WrappedStr))
+        ok_(WrappedObject.issubclass(WrappedWrappedStr, WrappedStr))
         # test with different superclass.
-        class WrappedInt1(Wrapped):
+        class WrappedInt1(WrappedObject):
             klass = int
             superclasses = (str,)
         class Dumb(object): pass
-        class WrappedInt2(Wrapped):
+        class WrappedInt2(WrappedObject):
             klass = int
             superclasses = (Dumb, str,)
-        ok_(Wrapped.issubclass(WrappedInt1, str))
-        ok_(Wrapped.issubclass(WrappedInt2, str))
-        ok_(Wrapped.issubclass(WrappedInt2, int))
-        ok_(Wrapped.issubclass(WrappedInt2, Dumb))
+        ok_(WrappedObject.issubclass(WrappedInt1, str))
+        ok_(WrappedObject.issubclass(WrappedInt2, str))
+        ok_(WrappedObject.issubclass(WrappedInt2, int))
+        ok_(WrappedObject.issubclass(WrappedInt2, Dumb))
 
     def instantiate_test(self):
         """
-        Test instantiate a Wrapped
+        Test instantiate a WrappedObject
         """
-        class WrappedStr(Wrapped):
+        class WrappedStr(WrappedObject):
             klass = str
-        class WrappedInt(Wrapped):
+        class WrappedInt(WrappedObject):
             klass = int
-        class WrappedWrappedStr(Wrapped):
+        class WrappedWrappedStr(WrappedObject):
             klass = WrappedStr
 
         a_str = WrappedStr("blabla")
@@ -191,6 +195,132 @@ class Wrapped_Test(object):
         an_int = WrappedInt(198)
         ok_(an_int == 198)
         ok_(type(an_int) == int)
+
+    def get_schema_test(self):
+        """
+        Test WrappedObject.get_schema
+        """
+        # provided schema
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': int, 'b': str}
+        ok_(ObjectWithSchema.get_schema() == {'a': int, 'b': str})
+        # with exclude
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': int, 'b': str}
+            exclude = ['a']
+        ok_(ObjectWithSchema.get_schema() == {'b': str})
+        # default schema
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode, 'c': float})
+        # default schema + exclude
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            exclude = ['b', 'c', 'd']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float})
+        # default schema + extra_schema
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': unicode, 'd': str}
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
+        # default schema + extra_schema + exclude
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': unicode, 'd': str, 'e': int}
+            exclude = ['d', 'a', 'b']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'c': float, 'e': int})
+        # default schema + include
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            include = ['a', 'b']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode})
+        # default schema + extra_schema + include
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'d': str}
+            include = ['a', 'd']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'd': str})
+        # default schema + extra_schema + exclude + include
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'d': str, 'e': int}
+            include = ['a', 'b', 'e']
+            exclude = ['a']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
+
+    def get_class_test(self):
+        """
+        Test WrappedObject.get_class
+        """
+        # provided schema
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            extra_schema = {'a': int, 'b': str}
+        ok_(ObjectWithSchema.get_class('a') == int)
+        ok_(ObjectWithSchema.get_class('b') == str)
+        assert_raises(KeyError, ObjectWithSchema.get_class, 'c')
+        # default schema
+        class ObjectWithSchema(WrappedObject):
+            klass = self.AnObject
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_class('a') == float)
+        ok_(ObjectWithSchema.get_class('b') == unicode)
+        ok_(ObjectWithSchema.get_class('c') == float)
+        assert_raises(KeyError, ObjectWithSchema.get_class, 'd')
+
+    def getattr_test(self):
+        """
+        Test WrappedObject.getattr
+        """
+        class WrappedAnObject(WrappedObject):
+            klass = self.AnObject
+            @classmethod
+            def get_a(self, obj):
+                return 'blabla'
+        obj = self.AnObject()
+        obj.b = 'bloblo'
+        ok_(WrappedAnObject.getattr(obj, 'a') == 'blabla')
+        ok_(WrappedAnObject.getattr(obj, 'b') == 'bloblo')
+                
+    def setattr_test(self):
+        """
+        Test WrappedObject.setattr
+        """
+        class WrappedAnObject(WrappedObject):
+            klass=self.AnObject
+            @classmethod
+            def set_a(self, obj, value):
+                obj.a = 'bloblo'
+        obj = self.AnObject()
+        WrappedAnObject.setattr(obj, 'a', 'blibli')
+        WrappedAnObject.setattr(obj, 'b', 'blabla')
+        ok_(obj.a == 'bloblo')
+        ok_(obj.b == 'blabla')
 
 
 class Memoization_Test(object):

@@ -40,10 +40,6 @@ Mixins for DivideAndConquerCast
 Wraps
 ========
 
-.. autoclass:: ObjectWrap
+.. autoclass:: WrappedContainer
     :members:
     :show-inheritance:
-.. autoclass:: WrappedObject
-.. autoclass:: ContainerWrap
-    :members:
-.. autoclass:: WrappedContainer

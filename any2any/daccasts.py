@@ -5,7 +5,7 @@ try:
 except ImportError:
     from compat import abc
 from base import Cast, Setting, CopiedSetting
-from utils import closest_parent, Wrapped, Mm, memoize
+from utils import closest_parent, WrappedObject, Mm, memoize
 
 
 # Abstract DivideAndConquerCast
@@ -80,92 +80,9 @@ class DivideAndConquerCast(Cast):
 
 # Wrappeds
 #======================================
-class WrappedObject(Wrapped):
+class WrappedContainer(WrappedObject):
     """
-    A subclass of :class:`utils.Wrapped` providing informations on the wrapped type's instances' :
-
-        - attribute schema - :meth:`default_schema`
-        - attribute access - :meth:`setattr` and :meth:`getattr`
-        - creation of new instances - :meth:`new`
-    """
-
-    extra_schema = {}
-    """dict. ``{<attribute_name>: <attribute_type>}``. Allows to update the default schema, see :meth:`get_schema`."""
-
-    include = []
-    """list. The list of attributes to include in the schema see, :meth:`get_schema`."""
-
-    exclude = []
-    """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
-    
-    def __new__(cls, *args, **kwargs):
-        return cls.new(**kwargs)
-
-    @classmethod
-    def get_class(cls, key):
-        """
-        Returns the class of attribute `key`, as found from the schema, see :meth:`get_schema`.
-        """
-        schema = cls.get_schema()
-        if key in schema:
-            return schema[key]
-        else:
-            raise KeyError("'%s' not in schema" % key)
-    
-    @classmethod
-    def get_schema(cls):
-        """
-        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of an instance, taking into account (respectively) : `default_schema`, `extra_schema`, `include` and `exclude`.
-        """
-        schema = cls.default_schema()
-        schema.update(cls.extra_schema)
-        if cls.include:
-            [schema.setdefault(k, NotImplemented) for k in cls.include]
-            [schema.pop(k) for k in schema.keys() if k not in cls.include]
-        if cls.exclude:
-            [schema.pop(k, None) for k in cls.exclude]
-        for key, cls in schema.iteritems():
-            schema[key] = cls
-        return schema
-
-    @classmethod
-    def default_schema(cls):
-        """
-        Returns the schema - known a priori - of an instance. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
-        """
-        return {}
-
-    @classmethod
-    def setattr(cls, instance, name, value):
-        """
-        Sets the attribute `name` on `instance`, with value `value`. If the calling :class:`WrappedObject` has a method `set_<name>`, this method will be used to set the attribute.
-        """
-        if hasattr(cls, 'set_%s' % name):
-            getattr(cls, 'set_%s' % name)(instance, value)
-        else:
-            setattr(instance, name, value)
-
-    @classmethod
-    def getattr(cls, instance, name):
-        """
-        Gets the attribute `name` from `instance`. If the calling :class:`WrappedObject` has a method `get_<name>`, this method will be used to get the attribute.
-        """
-        if hasattr(cls, 'get_%s' % name):
-            return getattr(cls, 'get_%s' % name)(instance)
-        else:
-            return getattr(instance, name)
-
-    @classmethod
-    def new(cls, **kwargs):
-        """
-        Creates and returns a new instance of the wrapped type.
-        """
-        return (cls.factory or cls.klass)(**kwargs)
-
-
-class WrappedContainer(Wrapped):
-    """
-    A subclass of :class:`utils.Wrapped` providing informations on a container type.
+    A subclass of :class:`utils.WrappedObject` providing informations on a container type.
     """
 
     value_type = NotImplemented
@@ -178,11 +95,11 @@ class WrappedContainer(Wrapped):
     @classmethod
     def __superclasshook__(cls, C):
         # this allows to implement the following behaviour :
-        # >>> Wrapped.issubclass(ListOfStr, ListOfBaseString)
+        # >>> WrappedObject.issubclass(ListOfStr, ListOfBaseString)
         # True
         if super(WrappedContainer, cls).__superclasshook__(C):
             if issubclass(C, WrappedContainer):
-                return Wrapped.issubclass(cls.value_type, C.value_type)
+                return WrappedObject.issubclass(cls.value_type, C.value_type)
             else:
                 return True
         else:

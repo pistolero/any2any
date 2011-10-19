@@ -53,7 +53,7 @@ class AllSubSetsOf(ClassSet):
 
     def __lt__(self, other):
         if isinstance(other, AllSubSetsOf):
-            return Wrapped.issubclass(self.klass, other.klass) and not other == self
+            return WrappedObject.issubclass(self.klass, other.klass) and not other == self
         else:
             return False
 
@@ -69,7 +69,7 @@ class Singleton(ClassSet):
 
     def __lt__(self, other):
         if isinstance(other, AllSubSetsOf):
-            return Wrapped.issubclass(self.klass, other.klass)
+            return WrappedObject.issubclass(self.klass, other.klass)
         else:
             return False
 
@@ -155,25 +155,31 @@ class Mm(object):
         return (self.from_, self.to, self.from_any, self.to_any).__hash__()
 
 
-class Wrapped(object):
+class WrappedObject(object):
     """
-    Subclass `Wrapped` to create a placeholder containing extra-information on a type. e.g. :
+    Subclass `WrappedObject` to create a placeholder containing extra-information on a type. e.g. :
 
-        >>> class WrappedInt(Wrapped):
+        >>> class WrappedInt(WrappedObject):
         ...
         ...     klass = int
         ...     greater_than = 0
         ...
-    """
-    #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change Wrapped.__eq__ (or .issubclass ?)
 
+    A subclass of `WrappedObject` can also providing informations on the wrapped type's instances' :
+
+        - attribute schema - :meth:`default_schema`
+        - attribute access - :meth:`setattr` and :meth:`getattr`
+        - creation of new instances - :meth:`new`
+    """
+    #TODO: Wrap(atype) doesn't match to Mm(atype), but Mm(from_any=atype) -> change WrappedObject.__eq__ (or .issubclass ?)
+    
     klass = object
     """type. The wrapped type."""
 
     factory = None
     """type. The type used for instance creation :
 
-            >>> class WrappedBS(Wrapped):
+            >>> class WrappedBS(WrappedObject):
             ...     klass = basestring
             ...     factory = str
             ...
@@ -183,18 +189,27 @@ class Wrapped(object):
     """
 
     superclasses = ()
-    """tuple. Allows to customize :meth:`Wrapped.issubclass` behaviour :
+    """tuple. Allows to customize :meth:`WrappedObject.issubclass` behaviour :
 
-            >>> class WrappedStr(Wrapped):
+            >>> class WrappedStr(WrappedObject):
             ...     klass=str
             ...     superclasses=(MyStr, AllStrings)
             ... 
-            >>> Wrapped.issubclass(WrappedStr, str), Wrapped.issubclass(WrappedStr, MyStr), # ...
+            >>> WrappedObject.issubclass(WrappedStr, str), WrappedObject.issubclass(WrappedStr, MyStr), # ...
             (True, True)
     """
 
+    extra_schema = {}
+    """dict. ``{<attribute_name>: <attribute_type>}``. Allows to update the default schema, see :meth:`get_schema`."""
+
+    include = []
+    """list. The list of attributes to include in the schema see, :meth:`get_schema`."""
+
+    exclude = []
+    """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
+
     def __new__(cls, *args, **kwargs):
-        return (cls.factory or cls.klass)(*args, **kwargs)
+        return cls.new(*args, **kwargs)
 
     @classmethod
     def get_superclasses(cls):
@@ -202,30 +217,91 @@ class Wrapped(object):
 
     @classmethod
     def __superclasshook__(cls, C):
-        if issubclass(C, Wrapped): C = C.klass
+        if issubclass(C, WrappedObject): C = C.klass
         # `C` is superclass of `cls`,
         # if `C` is superclass of one of `cls`'s superclasses.
         for parent in cls.get_superclasses():
-            if Wrapped.issubclass(parent, C):
+            if WrappedObject.issubclass(parent, C):
                 return True
         return False
 
     @staticmethod
     def issubclass(c1, c2s):
         if not isinstance(c2s, tuple): c2s = (c2s,)
-        # If `c1` is a `Wrapped`, we use its `__superclasshook__`
-        if issubclass(c1, Wrapped):
+        # If `c1` is a `WrappedObject`, we use its `__superclasshook__`
+        if issubclass(c1, WrappedObject):
             for c2 in c2s:
                 if c1.__superclasshook__(c2):
                     return True
         else:
             for c2 in c2s:
-                # `Wrapped` cannot be a superclass of a normal class
-                if issubclass(c2, Wrapped):
+                # `WrappedObject` cannot be a superclass of a normal class
+                if issubclass(c2, WrappedObject):
                     return False
                 elif issubclass(c1, c2):
                     return True
         return False
+
+    @classmethod
+    def get_class(cls, key):
+        """
+        Returns the class of attribute `key`, as found from the schema, see :meth:`get_schema`.
+        """
+        schema = cls.get_schema()
+        if key in schema:
+            return schema[key]
+        else:
+            raise KeyError("'%s' not in schema" % key)
+    
+    @classmethod
+    def get_schema(cls):
+        """
+        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of an instance, taking into account (respectively) : `default_schema`, `extra_schema`, `include` and `exclude`.
+        """
+        schema = cls.default_schema()
+        schema.update(cls.extra_schema)
+        if cls.include:
+            [schema.setdefault(k, NotImplemented) for k in cls.include]
+            [schema.pop(k) for k in schema.keys() if k not in cls.include]
+        if cls.exclude:
+            [schema.pop(k, None) for k in cls.exclude]
+        for key, cls in schema.iteritems():
+            schema[key] = cls
+        return schema
+
+    @classmethod
+    def default_schema(cls):
+        """
+        Returns the schema - known a priori - of an instance. Must return a dictionary with the format ``{<attribute_name>: <attribute_type>}``. 
+        """
+        return {}
+
+    @classmethod
+    def setattr(cls, instance, name, value):
+        """
+        Sets the attribute `name` on `instance`, with value `value`. If the calling :class:`WrappedObject` has a method `set_<name>`, this method will be used to set the attribute.
+        """
+        if hasattr(cls, 'set_%s' % name):
+            getattr(cls, 'set_%s' % name)(instance, value)
+        else:
+            setattr(instance, name, value)
+
+    @classmethod
+    def getattr(cls, instance, name):
+        """
+        Gets the attribute `name` from `instance`. If the calling :class:`WrappedObject` has a method `get_<name>`, this method will be used to get the attribute.
+        """
+        if hasattr(cls, 'get_%s' % name):
+            return getattr(cls, 'get_%s' % name)(instance)
+        else:
+            return getattr(instance, name)
+
+    @classmethod
+    def new(cls, *args, **kwargs):
+        """
+        Creates and returns a new instance of the wrapped type.
+        """
+        return (cls.factory or cls.klass)(*args, **kwargs)
 
 
 def closest_parent(klass, other_classes):
@@ -235,7 +311,7 @@ def closest_parent(klass, other_classes):
     #We select only the super classes of `klass`
     candidates = []
     for oclass in other_classes:
-        if Wrapped.issubclass(klass, oclass):
+        if WrappedObject.issubclass(klass, oclass):
             candidates.append(oclass)
 
     #This is used to sort the list and take the closer parent of `klass`
@@ -243,11 +319,11 @@ def closest_parent(klass, other_classes):
         def __init__(self, klass):
             self.klass = klass
         def __lt__(self, other):
-            return Wrapped.issubclass(self.klass, other.klass)
+            return WrappedObject.issubclass(self.klass, other.klass)
         def __eq__(self, other):
             return self.klass == other.klass
         def __gt__(self, other):
-            return Wrapped.issubclass(other.klass, klass.klass)
+            return WrappedObject.issubclass(other.klass, klass.klass)
     
     if not candidates:
         return object

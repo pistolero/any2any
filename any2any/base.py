@@ -10,7 +10,7 @@ from functools import wraps
 import logging
 import types
 
-from utils import memoize, Mm, Wrapped
+from utils import memoize, Mm, WrappedObject
 
  
 # Logging 
@@ -235,7 +235,7 @@ class ToSetting(Setting):
 
     def get(self, instance):
         to = super(ToSetting, self).get(instance)
-        if instance.to_wrapped and to != None and not issubclass(to, Wrapped):
+        if instance.to_wrapped and to != None and not issubclass(to, WrappedObject):
             class WrappedTo(instance.to_wrapped):
                 klass = to
             to = WrappedTo
@@ -260,7 +260,7 @@ class FromSetting(Setting):
         from_ = super(FromSetting, self).get(instance)
         if from_ == None and 'input' in instance._context:
             from_ = type(instance._context['input'])
-        if instance.from_wrapped and from_ != None and not issubclass(from_, Wrapped):
+        if instance.from_wrapped and from_ != None and not issubclass(from_, WrappedObject):
             class WrappedFrom(instance.from_wrapped):
                 klass = from_
             from_ = WrappedFrom
@@ -306,10 +306,10 @@ class Cast(BaseCast):
     """type. The type to cast to."""
 
     from_wrapped = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrapped`. If provided, will cause :attr:`from_` to be automatically wrapped."""
+    """type. A subclass of :class:`any2any.utils.WrappedObject`. If provided, will cause :attr:`from_` to be automatically wrapped."""
 
     to_wrapped = Setting()
-    """type. A subclass of :class:`any2any.utils.Wrapped`. If provided, will cause :attr:`to` to be automatically wrapped."""
+    """type. A subclass of :class:`any2any.utils.WrappedObject`. If provided, will cause :attr:`to` to be automatically wrapped."""
 
     logs = ViralSetting(default=False)
     """bool. If True, the cast writes debug informations to the logger."""
@@ -318,9 +318,9 @@ class Cast(BaseCast):
         if self.from_ or self.to:
             from_ = self.from_
             to = self.to
-            if from_ and issubclass(self.from_, Wrapped):
+            if from_ and issubclass(self.from_, WrappedObject):
                 from_ = 'Wrapped%s' % self.from_.klass.__name__
-            if to and issubclass(self.to, Wrapped):
+            if to and issubclass(self.to, WrappedObject):
                 to = 'Wrapped%s' % self.to.klass.__name__
             return '%s.%s(%s=>%s)' % (self.__class__.__module__, self.__class__.__name__, from_ or '', to or '')
         else:
@@ -371,13 +371,13 @@ class Cast(BaseCast):
         # they are declared.
         # e.g. if mm is `(int, str) -> object`, we prefer `int -> object` than `str -> object`.
         from_class, to_class = mm._from_set.klass, mm._to_set.klass
-        if issubclass(to_class, Wrapped):
+        if issubclass(to_class, WrappedObject):
             for k in to_class.get_superclasses():
                 temp = filter(lambda v: k <= v._to_set, filtered)
                 if temp:
                     filtered = temp
                     break
-        if issubclass(from_class, Wrapped):
+        if issubclass(from_class, WrappedObject):
             for k in from_class.get_superclasses():
                 temp = filter(lambda v: k <= v._from_set, filtered)
                 if temp:

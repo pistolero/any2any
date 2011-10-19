@@ -6,7 +6,7 @@ from django.db.models.manager import Manager
 from django.http import QueryDict
 
 from any2any.stacks.djangostack import *
-from any2any import Wrapped
+from any2any import WrappedObject
 from models import *
 
 from nose.tools import assert_raises, ok_
@@ -96,22 +96,22 @@ class WrappedModel_Test(object):
         journal_fields = WrappedJournal.default_schema()
         dish_fields = WrappedDish.default_schema()
         ok_(set(columnist_fields) == set(['id', 'pk', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(Wrapped.issubclass(columnist_fields['pk'], AutoField))
-        ok_(Wrapped.issubclass(columnist_fields['id'], AutoField))
-        ok_(Wrapped.issubclass(columnist_fields['lastname'], CharField))
-        ok_(Wrapped.issubclass(columnist_fields['nickname'], CharField))
-        ok_(Wrapped.issubclass(columnist_fields['journal'], ForeignKey))
+        ok_(WrappedObject.issubclass(columnist_fields['pk'], AutoField))
+        ok_(WrappedObject.issubclass(columnist_fields['id'], AutoField))
+        ok_(WrappedObject.issubclass(columnist_fields['lastname'], CharField))
+        ok_(WrappedObject.issubclass(columnist_fields['nickname'], CharField))
+        ok_(WrappedObject.issubclass(columnist_fields['journal'], ForeignKey))
         ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(Wrapped.issubclass(gourmand_fields['firstname'], CharField))
-        ok_(Wrapped.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
-        ok_(Wrapped.issubclass(gourmand_fields['pseudo'], CharField))
+        ok_(WrappedObject.issubclass(gourmand_fields['firstname'], CharField))
+        ok_(WrappedObject.issubclass(gourmand_fields['favourite_dishes'], ManyToManyField))
+        ok_(WrappedObject.issubclass(gourmand_fields['pseudo'], CharField))
         ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
-        ok_(Wrapped.issubclass(journal_fields['name'], CharField))
-        ok_(Wrapped.issubclass(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor))
-        ok_(Wrapped.issubclass(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor))
+        ok_(WrappedObject.issubclass(journal_fields['name'], CharField))
+        ok_(WrappedObject.issubclass(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor))
+        ok_(WrappedObject.issubclass(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor))
         ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
-        ok_(Wrapped.issubclass(dish_fields['name'], CharField))
-        ok_(Wrapped.issubclass(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor))
+        ok_(WrappedObject.issubclass(dish_fields['name'], CharField))
+        ok_(WrappedObject.issubclass(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor))
         ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 
     def nk_test(self):

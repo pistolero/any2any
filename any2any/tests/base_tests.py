@@ -214,11 +214,11 @@ class Cast_test(object):
         ok_(isinstance(cast.cast_for(Mm(unicode, int)), self.Identity))
         ok_(isinstance(cast.cast_for(Mm()), self.Identity))
         
-        # With Wrapped : give preference to the superclasses respectively to their order
-        class MyWrapped1(Wrapped):
+        # With WrappedObject : give preference to the superclasses respectively to their order
+        class MyWrapped1(WrappedObject):
             klass=int
             superclasses=(float,)
-        class MyWrapped2(Wrapped):
+        class MyWrapped2(WrappedObject):
             klass=float
             superclasses=(int,)            
         ok_(isinstance(cast.cast_for(Mm(MyWrapped1)), self.ToFloat))
