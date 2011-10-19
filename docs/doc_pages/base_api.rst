@@ -14,8 +14,8 @@ Casts
     .. autoattribute:: Cast.to
     .. autoattribute:: Cast.mm_to_cast
     .. autoattribute:: extra_mm_to_cast
-    .. autoattribute:: Cast.from_wrap
-    .. autoattribute:: Cast.to_wrap
+    .. autoattribute:: Cast.from_wrapped
+    .. autoattribute:: Cast.to_wrapped
     .. autoattribute:: Cast.logs
 
     **Members :**
@@ -23,6 +23,7 @@ Casts
     .. automethod:: Cast.call(inpt)
     .. automethod:: Cast.cast_for(mm)
     .. automethod:: Cast.set_debug_on
+    .. automethod:: Cast.set_debug_off
 
 .. autoclass:: CastStack
 

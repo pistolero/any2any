@@ -165,7 +165,7 @@ class WrappedObject(object):
         ...     greater_than = 0
         ...
 
-    A subclass of `WrappedObject` can also providing informations on the wrapped type's instances' :
+    A subclass of `WrappedObject` can also provide informations on the wrapped type's instances' :
 
         - attribute schema - :meth:`default_schema`
         - attribute access - :meth:`setattr` and :meth:`getattr`

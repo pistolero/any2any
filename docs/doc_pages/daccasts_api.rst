@@ -8,11 +8,8 @@ DivideAndConquerCast
 
 .. autoclass:: DivideAndConquerCast
 
-    .. automethod:: iter_input
-    .. automethod:: iter_output
-    .. automethod:: build_output
-    .. automethod:: get_item_from
-    .. automethod:: get_item_to
+    :members: 
+    :member-order: bysource
 
 Mixins for DivideAndConquerCast
 ================================
@@ -41,5 +38,6 @@ Wraps
 ========
 
 .. autoclass:: WrappedContainer
-    :members:
+    :members: 
+    :member-order: bysource
     :show-inheritance:

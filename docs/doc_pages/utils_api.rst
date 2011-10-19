@@ -12,4 +12,5 @@ WrappedObject
 ================
 
 .. autoclass:: WrappedObject
-    :members:
+    :members: 
+    :member-order: bysource
