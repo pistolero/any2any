@@ -4,7 +4,7 @@
 from distutils.core import setup
 
 setup(name='any2any',
-      version='0.3.2',
+      version='0.3.3',
       description='A Python library to write casts from any type to any other type.',
       author='Sébastien Piquemal',
       author_email='sebastien.piquemal@futurice.com',
