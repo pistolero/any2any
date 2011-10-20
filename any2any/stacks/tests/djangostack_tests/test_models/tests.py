@@ -4,6 +4,8 @@ from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.db.models.manager import Manager
 from django.http import QueryDict
+from django.contrib.gis.geos import (Point, LineString,
+LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
 
 from any2any.stacks.djangostack import *
 from any2any import WrappedObject
@@ -565,27 +567,40 @@ class QueryDictFlatener_Test(object):
             'favourite_dishes': [],
         })
 
-donttest="""
 
-.. currentmodule:: spiteat.djangosrz
+class GeoDjango_Test(object):
+    """
+    Test serialize and deserialize GeoDjango's geometry objects.
+    (Point, LineString,
+    LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
+    """
 
-This module contains a serializer :class:`ModelSrz` for your Django models. This serializer features :
+    def setUp(self):
+        self.serializer = DjangoSerializer()
+        self.deserializer = DjangoDeserializer()
 
-    - Deep serialization. Foreign keys, and foreign keys of foreign keys, and so on ... are completely serialized.
-    - Support multi-table inheritance. All attributes from parent models can be serialized.
+    def Point_test(self):
+        """
+        Test serialize and deserialize Point
+        """
+        point = Point([1, 2, 3])
+        ok_(self.serializer(point) == [1.0, 2.0, 3.0])
+        point = Point([1, 2])
+        ok_(self.serializer(point) == [1.0, 2.0])
+        point = self.deserializer([1, 2, 3], to=Point)
+        ok_([point.x, point.y, point.z] == [1.0, 2.0, 3.0])
+        point = self.deserializer([5.0, 2], to=Point)
+        ok_([point.x, point.y, point.z] == [5.0, 2, None])
 
-
-Content type - GenericForeignKey
-----------------------------------
-
-    >>> bookmark = Bookmark(name='favourite', to=foiegras)
-
-    >>> bookmark_srz = ModelSrz(custom_for=Bookmark, include=['to', 'pk'])
-    >>> bookmark = bookmark_srz.eat({'pk': bookmark.pk, 'to': ('test_models', 'dish', salmon.pk)})
-    >>> bookmark.to == salmon
-    True
-
-    >>> bookmark_srz.spit(bookmark) == {'to': ('test_models', 'dish', salmon.pk), 'pk': bookmark.pk}
-    True
-
-"""
+    def Point_test(self):
+        """
+        Test serialize and deserialize Point
+        """
+        point = Point([1, 2, 3])
+        ok_(self.serializer(point) == [1.0, 2.0, 3.0])
+        point = Point([1, 2])
+        ok_(self.serializer(point) == [1.0, 2.0])
+        point = self.deserializer([1, 2, 3], to=Point)
+        ok_([point.x, point.y, point.z] == [1.0, 2.0, 3.0])
+        point = self.deserializer([5.0, 2], to=Point)
+        ok_([point.x, point.y, point.z] == [5.0, 2, None])

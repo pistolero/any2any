@@ -9,8 +9,13 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.generic import GenericForeignKey, GenericRelation
 from django.db.models.query import QuerySet
 
-from any2any import (Cast, Mm, WrappedObject, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
-FromMapping, ToObject, WrappedContainer, Setting, DivideAndConquerCast)
+from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
+PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField, GeometryCollectionField)
+from django.contrib.gis.geos import (Point, LineString,
+LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
+
+from any2any import (Cast, Mm, CastItems, FromIterable, ToIterable, FromObject, ToMapping,
+FromMapping, ToObject, WrappedContainer, WrappedObject, Setting, DivideAndConquerCast)
 from any2any.stacks.basicstack import BasicStack, ListToList, Identity, WrappedDateTime, WrappedDate
 from any2any.base import MmToCastSetting
 from any2any.utils import classproperty
@@ -68,6 +73,58 @@ class ModelIntrospector(object):
         return ptr_fields
 
 
+# GeoDjango
+#======================================
+class WrappedGeo(WrappedContainer):
+
+    @classmethod
+    def new(cls, elem_list):
+        # Necessary because some constructor don't take lists
+        return super(WrappedGeo, cls).new(*elem_list)
+
+
+class WrappedPoint(WrappedGeo):
+
+    klass = Point
+    value_type = float
+
+
+class WrappedLineString(WrappedGeo):
+
+    klass = LineString
+    value_type = Point
+
+
+class WrappedLinearRing(WrappedGeo):
+
+    klass = LinearRing
+    value_type = Point
+
+
+class WrappedPolygon(WrappedGeo):
+
+    klass = Polygon
+    value_type = LinearRing
+
+
+class WrappedMultiPoint(WrappedGeo):
+
+    klass = MultiPoint
+    value_type = Point
+    
+
+class WrappedMultiLineString(WrappedGeo):
+
+    klass = MultiLineString
+    value_type = LineString
+
+
+class WrappedMultiPolygon(WrappedGeo):
+
+    klass = MultiPolygon
+    value_type = Polygon
+
+
 # WrappedModel
 #======================================
 class WrappedQuerySet(WrappedContainer):
@@ -80,9 +137,12 @@ class WrappedQuerySet(WrappedContainer):
     factory = list
 
 
-class BaseWrappedModel(ModelIntrospector, WrappedObject):
+class ModelMixin(ModelIntrospector):
     """
     A subclass of :class:`daccasts.WrappedObject` for django models.
+
+    .. note::
+        :class:`FileField`s won't appear in the default schema.
     """
 
     key_schema = ('pk',)
@@ -96,7 +156,7 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
         return cls.klass
 
     @classmethod
-    def new(cls, *args, **kwargs):
+    def new(cls, **items):
         raise NotImplementedError
 
     @classmethod
@@ -109,7 +169,7 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
 
     @classmethod
     def get_schema(cls):
-        schema = super(BaseWrappedModel, cls).get_schema()
+        schema = super(ModelMixin, cls).get_schema()
         related_keys = cls.related_dict.keys()
         if not cls.include_related:
             for k in related_keys:
@@ -134,20 +194,20 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
         return key_dict
 
     @classmethod
-    def create(cls, *args, **kwargs):
-        key_dict = cls.extract_key(kwargs)
+    def create(cls, **items):
+        key_dict = cls.extract_key(items)
         return cls.model(**(key_dict or {'pk': None}))
 
     @classmethod
-    def retrieve(cls, *args, **kwargs):
-        key_dict = cls.extract_key(kwargs)
+    def retrieve(cls, **items):
+        key_dict = cls.extract_key(items)
         if not key_dict:
             raise cls.model.DoesNotExist("no key could be extracted from the data")
         return cls.model.objects.get(**key_dict)
 
     @classmethod
-    def update(cls, instance, *args, **kwargs):
-        for name, value in kwargs.iteritems():
+    def update(cls, instance, **items):
+        for name, value in items.iteritems():
             klass = cls.get_class(name)
             if WrappedObject.issubclass(klass, models.Manager):
                 instance.save()# Because otherwise we cannot handle manytomany
@@ -170,6 +230,7 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
         wrapped_fields = {}
         for name, field in fields_dict.items():
             field_type = type(field)
+
             if isinstance(field, models.ForeignKey):
                 class WrappedField(ReadOnlyWrappedModel):
                     klass = field.rel.to
@@ -193,14 +254,37 @@ class BaseWrappedModel(ModelIntrospector, WrappedObject):
                     klass = field_type
                     superclasses = (datetime.date,)
                     factory = datetime.date
+            elif isinstance(field, models.FileField):
+                continue
+            # geodjango
+            elif isinstance(field, (GeometryField, PointField, LineStringField, 
+            PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField,
+            GeometryCollectionField)):
+                if isinstance(field, PointField):
+                    WrappedGeo = WrappedPoint
+                elif isinstance(field, LineStringField):
+                    WrappedGeo = WrappedLineString
+                elif isinstance(field, PolygonField):
+                    WrappedGeo = WrappedPolygon
+                elif isinstance(field, MultiPointField):
+                    WrappedGeo = WrappedMultiPoint
+                elif isinstance(field, MultiLineStringField):
+                    WrappedGeo = WrappedMultiLineString
+                elif isinstance(field, MultiPolygonField):
+                    WrappedGeo = WrappedMultiPolygon
+                class WrappedField(WrappedGeo):
+                    klass = field_type
+                    superclasses = (WrappedGeo.klass,)
+                    factory = WrappedGeo.klass
             else:
                 class WrappedField(WrappedObject):
                     klass = field_type
+
             wrapped_fields[name] = WrappedField
         return wrapped_fields
 
 
-class ReadOnlyWrappedModel(BaseWrappedModel):
+class ReadOnlyWrappedModel(ModelMixin, WrappedObject):
     """
     A subclass of :class:`daccasts.WrappedObject` for django models. Only allows to retrieve objects that exist in the database, e.g. :
 
@@ -210,15 +294,15 @@ class ReadOnlyWrappedModel(BaseWrappedModel):
     """
 
     @classmethod
-    def new(cls, *args, **kwargs):
+    def new(cls, **items):
         try:
-            return cls.retrieve(*args, **kwargs)
+            return cls.retrieve(**items)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
 
 
-class UpdateOnlyWrappedModel(BaseWrappedModel):
+class UpdateOnlyWrappedModel(ModelMixin, WrappedObject):
     """
     A subclass of :class:`daccasts.WrappedObject` for django models. Only allows to retrieve and update objects that exist in the database, e.g. :
 
@@ -228,30 +312,30 @@ class UpdateOnlyWrappedModel(BaseWrappedModel):
     """
 
     @classmethod
-    def new(cls, *args, **kwargs):
+    def new(cls, **items):
         try:
-            instance = cls.retrieve(*args, **kwargs)
+            instance = cls.retrieve(**items)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
-        return cls.update(instance, *args, **kwargs)
+        return cls.update(instance, **items)
 
 
-class WrappedModel(BaseWrappedModel):
+class WrappedModel(ModelMixin, WrappedObject):
     """
     A subclass of :class:`daccasts.WrappedObject` for django models. Allows to retrieve/create and update objects.
     """
 
     @classmethod
-    def new(cls, *args, **kwargs):
+    def new(cls, **items):
         try:
-            instance = cls.retrieve(*args, **kwargs)
+            instance = cls.retrieve(**items)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
         except cls.model.DoesNotExist:
-            instance = cls.create(*args, **kwargs)
-        return cls.update(instance, *args, **kwargs)
+            instance = cls.create(**items)
+        return cls.update(instance, **items)
 
 
 # Mixins
@@ -414,6 +498,14 @@ class DjangoSerializer(BasicStack):
                 Mm(from_any=QuerySet): QuerySetToList(),
                 Mm(from_any=models.Model): ModelToDict(),
                 Mm(from_any=QueryDict): QueryDictFlatener(),
+                # geodjango
+                Mm(from_any=Point): ListToList(from_wrapped=WrappedPoint),
+                Mm(from_any=LineString): ListToList(from_wrapped=WrappedLineString),
+                Mm(from_any=LinearRing): ListToList(from_wrapped=WrappedLinearRing),
+                Mm(from_any=Polygon): ListToList(from_wrapped=WrappedPolygon),
+                Mm(from_any=MultiPoint): ListToList(from_wrapped=WrappedMultiPoint),
+                Mm(from_any=MultiLineString): ListToList(from_wrapped=WrappedMultiLineString),
+                Mm(from_any=MultiPolygon): ListToList(from_wrapped=WrappedMultiPolygon),
             }
         }
 
@@ -429,5 +521,13 @@ class DjangoDeserializer(BasicStack):
                 Mm(to_any=models.Manager): ListToQuerySet(),
                 Mm(to_any=QuerySet): ListToQuerySet(),
                 Mm(from_any=dict, to_any=models.Model): DictToModel(),
+                # geodjango
+                Mm(to_any=Point): ListToList(to_wrapped=WrappedPoint),
+                Mm(to_any=LineString): ListToList(to_wrapped=WrappedLineString),
+                Mm(to_any=LinearRing): ListToList(to_wrapped=WrappedLinearRing),
+                Mm(to_any=Polygon): ListToList(to_wrapped=WrappedPolygon),
+                Mm(to_any=MultiPoint): ListToList(to_wrapped=WrappedMultiPoint),
+                Mm(to_any=MultiLineString): ListToList(to_wrapped=WrappedMultiLineString),
+                Mm(to_any=MultiPolygon): ListToList(to_wrapped=WrappedMultiPolygon),
             }
         }
