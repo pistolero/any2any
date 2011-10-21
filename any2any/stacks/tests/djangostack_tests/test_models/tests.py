@@ -571,36 +571,135 @@ class QueryDictFlatener_Test(object):
 class GeoDjango_Test(object):
     """
     Test serialize and deserialize GeoDjango's geometry objects.
-    (Point, LineString,
-    LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
     """
 
     def setUp(self):
         self.serializer = DjangoSerializer()
         self.deserializer = DjangoDeserializer()
 
-    def Point_test(self):
+    def Point_serialize_test(self):
         """
-        Test serialize and deserialize Point
+        Test serialize Point
         """
         point = Point([1, 2, 3])
         ok_(self.serializer(point) == [1.0, 2.0, 3.0])
         point = Point([1, 2])
         ok_(self.serializer(point) == [1.0, 2.0])
+
+    def Point_deserialize_test(self):
+        """
+        Test deserialize Point
+        """
         point = self.deserializer([1, 2, 3], to=Point)
         ok_([point.x, point.y, point.z] == [1.0, 2.0, 3.0])
         point = self.deserializer([5.0, 2], to=Point)
         ok_([point.x, point.y, point.z] == [5.0, 2, None])
 
-    def Point_test(self):
+    def LineString_serialize_test(self):
         """
-        Test serialize and deserialize Point
+        Test serialize LineString
         """
-        point = Point([1, 2, 3])
-        ok_(self.serializer(point) == [1.0, 2.0, 3.0])
-        point = Point([1, 2])
-        ok_(self.serializer(point) == [1.0, 2.0])
-        point = self.deserializer([1, 2, 3], to=Point)
-        ok_([point.x, point.y, point.z] == [1.0, 2.0, 3.0])
-        point = self.deserializer([5.0, 2], to=Point)
-        ok_([point.x, point.y, point.z] == [5.0, 2, None])
+        line = LineString([[1, 2, 3], [2, 7.0, 9.0], [3.0, 9.0, -6.8]])
+        ok_(self.serializer(line) == [[1, 2, 3], [2, 7.0, 9.0], [3.0, 9.0, -6.8]])
+        line = LineString(Point(-1, 7.9, 3), Point(3.0, 9.0, -77))
+        ok_(self.serializer(line) == [[-1.0, 7.9, 3.0], [3.0, 9.0, -77.0]])
+
+    def LineString_deserialize_test(self):
+        """
+        Test deserialize LineString
+        """
+        line = self.deserializer([[56.9, 2, 3], [2, 7.0, 8], [3.0, 9.0, -6.8], [156.9, 88, 0]], to=LineString)
+        ok_(line == LineString(Point(56.9, 2, 3), Point(2, 7.0, 8), Point(3.0, 9.0, -6.8), Point(156.9, 88, 0)))
+        def build_point(pdict):
+            return Point(pdict['x'], pdict['y'], pdict.get('z'))
+        deserializer = DjangoDeserializer(extra_mm_to_cast={Mm(to_any=Point): build_point})
+        line = deserializer([{'x': 5, 'y': -9.0}, {'x': 2, 'y': 7.0}], to=LineString)
+        ok_(line == LineString(Point(5, -9.0), Point(2, 7.0)))
+
+    def LinearRing_serialize_test(self):
+        """
+        Test serialize LinearRing
+        """
+        line = LinearRing([[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]])
+        ok_(self.serializer(line) == [[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]])
+
+    def LinearRing_deserialize_test(self):
+        """
+        Test deserialize LinearRing
+        """
+        line = self.deserializer([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]], to=LinearRing)
+        ok_(line == LinearRing([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]]))
+
+    def Polygon_serialize_test(self):
+        """
+        Test serialize Polygon
+        """
+        polygon = Polygon(LinearRing([[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]]))
+        ok_(self.serializer(polygon) == [[[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]]])
+
+    def Polygon_deserialize_test(self):
+        """
+        Test deserialize Polygon
+        """
+        line = self.deserializer([[[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]]], to=Polygon)
+        ok_(line == Polygon(LinearRing([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]])))
+
+    def MultiPoint_serialize_test(self):
+        """
+        Test serialize MultiPoint
+        """
+        mpoint = MultiPoint(Point(1, 2), Point(2, 6, 8))
+        ok_(self.serializer(mpoint) == [[1, 2], [2, 6, 8]])
+
+    def MultiPoint_deserialize_test(self):
+        """
+        Test deserialize MultiPoint
+        """
+        line = self.deserializer([[0, 0], [1, 2, 8], [8.6, 0]], to=MultiPoint)
+        ok_(line == MultiPoint(Point(0, 0), Point(1, 2, 8), Point(8.6, 0)))
+
+    def MultiLineString_serialize_test(self):
+        """
+        Test serialize MultiLineString
+        """
+        mline = MultiLineString(
+            LineString(Point(1, 2, 3), Point(2, 6, 8)),
+            LineString(Point(0, 0), Point(6.9, 8))
+        )
+        ok_(self.serializer(mline) == [[[1, 2, 3], [2, 6, 8]], [[0, 0], [6.9, 8]]])
+
+    def MultiLineString_deserialize_test(self):
+        """
+        Test deserialize MultiLineString
+        """
+        mline = self.deserializer([[[1, 2, 3], [2, 6, 8]], [[0, 0], [6.9, 8]]], to=MultiLineString)
+        ok_(mline == MultiLineString(
+            LineString(Point(1, 2, 3), Point(2, 6, 8)),
+            LineString(Point(0, 0), Point(6.9, 8))
+        ))
+
+    def MultiPolygon_serialize_test(self):
+        """
+        Test serialize MultiPolygon
+        """
+        mpoly = MultiPolygon(
+            Polygon(LinearRing(Point(1, 2, 3), Point(2, 6, 8), Point(2, 6, 10), Point(1, 2, 3))),
+            Polygon(LinearRing(Point(0, 0), Point(2, 6), Point(2.5, 6), Point(0, 0)))
+        )
+        ok_(self.serializer(mpoly) == [
+            [[[1, 2, 3], [2, 6, 8], [2, 6, 10], [1, 2, 3]]],
+            [[[0, 0], [2, 6], [2.5, 6], [0, 0]]]
+        ])
+
+    def MultiPolygon_deserialize_test(self):
+        """
+        Test deserialize MultiPolygon
+        """
+        mpoly = self.deserializer([
+            [[[1, 2, 3], [2, 6, 8], [2, 6, 10], [1, 2, 3]]],
+            [[[0, 0], [2, 6], [2.5, 6], [0, 0]]]
+        ], to=MultiPolygon)
+        ok_(mpoly == MultiPolygon(
+            Polygon(LinearRing(Point(1, 2, 3), Point(2, 6, 8), Point(2, 6, 10), Point(1, 2, 3))),
+            Polygon(LinearRing(Point(0, 0), Point(2, 6), Point(2.5, 6), Point(0, 0)))
+        ))
