@@ -297,6 +297,8 @@ class ReadOnlyWrappedModel(ModelMixin, WrappedObject):
     def new(cls, **items):
         try:
             return cls.retrieve(**items)
+        except cls.model.DoesNotExist as e:
+            raise cls.model.DoesNotExist('The WrappedModel is read only and %s' % e)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
@@ -315,6 +317,8 @@ class UpdateOnlyWrappedModel(ModelMixin, WrappedObject):
     def new(cls, **items):
         try:
             instance = cls.retrieve(**items)
+        except cls.model.DoesNotExist as e:
+            raise cls.model.DoesNotExist('The WrappedModel is update only and %s' % e)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
