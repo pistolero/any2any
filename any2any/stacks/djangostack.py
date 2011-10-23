@@ -161,11 +161,13 @@ class ModelMixin(ModelIntrospector):
 
     @classmethod
     def default_schema(cls):
-        schema = {}
-        schema.update(cls._wrap_fields({'pk': cls.pk_field}))
-        schema.update(cls._wrap_fields(cls.fields_dict))
-        schema.update(cls._wrap_fields(cls.related_dict))
-        return schema
+        if not hasattr(cls, '_default_schema'):
+            schema = {}
+            schema.update(cls._wrap_fields({'pk': cls.pk_field}))
+            schema.update(cls._wrap_fields(cls.fields_dict))
+            schema.update(cls._wrap_fields(cls.related_dict))
+            cls._default_schema = schema
+        return cls._default_schema
 
     @classmethod
     def get_schema(cls):
