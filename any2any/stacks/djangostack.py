@@ -209,13 +209,20 @@ class ModelMixin(ModelIntrospector):
     def update(cls, instance, **items):
         deferred = {}
         for name, value in items.items():
-            klass = cls.get_class(name)
-            if WrappedObject.issubclass(klass, models.Manager):
+            if cls._is_qs(name):
                 deferred[name] = value
             else:
-                setattr(instance, name, value)
+                cls.setattr(instance, name, value)
+        instance.save()# Because otherwise we cannot handle manytomany
         for name, value in deferred.items():
-            instance.save()# Because otherwise we cannot handle manytomany
+            cls.setattr(instance, name, value)
+        return instance
+
+    @classmethod
+    def setattr(cls, instance, name, value):
+        if hasattr(cls, 'set_%s' % name):
+            getattr(cls, 'set_%s' % name)(instance, value)
+        elif cls._is_qs(name):
             manager = getattr(instance, name)
             # clear() only provided if the ForeignKey can have a value of null:
             if hasattr(manager, 'clear'):
@@ -224,7 +231,13 @@ class ModelMixin(ModelIntrospector):
                     manager.add(element)
             else:
                 raise TypeError("cannot update if the related ForeignKey cannot be null")
-        return instance
+        else:
+            setattr(instance, name, value)
+
+    @classmethod
+    def _is_qs(cls, name):
+        klass = cls.get_class(name)
+        return WrappedObject.issubclass(klass, QuerySet)
 
     @classmethod
     def _wrap_fields(cls, fields_dict):
