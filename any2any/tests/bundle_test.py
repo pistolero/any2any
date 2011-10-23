@@ -1,6 +1,95 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
-from any2any.bundle import ObjectBundle
+from any2any.bundle import *
+
+
+class IdentityBundle_Test(object):
+    """
+    Simple tests on IdentityBundle
+    """
+
+    def iter_test(self):
+        """
+        Test IdentityBundle.iter
+        """
+        bundle = IdentityBundle(1.89)
+        ok_(list(bundle) == [(Bundle.Final, 1.89)])
+
+    def factory_test(self):
+        """
+        Test IdentityBundle.factory
+        """
+        bundle = IdentityBundle.factory({'whatever': 'hello'}.iteritems())
+        ok_(bundle.obj == 'hello')
+        assert_raises(FactoryError, IdentityBundle.factory, {}.iteritems())
+
+
+class IterableBundle_Test(object):
+    """
+    Simple tests on IterableBundle
+    """
+
+    def iter_test(self):
+        """
+        Test IterableBundle.iter
+        """
+        bundle = IterableBundle(['a', 'b', 'c'])
+        ok_(list(bundle) == [(0, 'a'), (1, 'b'), (2, 'c')])
+        bundle = IterableBundle(('a',))
+        ok_(list(bundle) == [(0, 'a')])
+        bundle = IterableBundle([])
+        ok_(list(bundle) == [])
+
+    def factory_test(self):
+        """
+        Test IterableBundle.factory
+        """
+        bundle = IterableBundle.factory({0: 'aaa', 1: 'bbb', 2: 'ccc'}.iteritems())
+        ok_(bundle.obj == ['aaa', 'bbb', 'ccc'])
+        bundle = IterableBundle.factory({}.iteritems())
+        ok_(bundle.obj == [])
+
+    def get_class_test(self):
+        """
+        Test IterableBundle.factory
+        """
+        class ListOfInt(IterableBundle):
+            value_type = int
+        ok_(ListOfInt.get_class(1) == int)
+        ok_(ListOfInt.get_class("a") == int)
+
+
+class MappingBundle_Test(object):
+    """
+    Simple tests on MappingBundle
+    """
+
+    def iter_test(self):
+        """
+        Test MappingBundle.iter
+        """
+        bundle = MappingBundle({"a": "aaa", "b": 2, "cc": 3})
+        ok_(set(bundle) == set([("a", "aaa"), ("b", 2), ("cc", 3)]))
+        bundle = MappingBundle({})
+        ok_(list(bundle) == [])
+
+    def factory_test(self):
+        """
+        Test MappingBundle.factory
+        """
+        bundle = MappingBundle.factory({'a': 'aaa', 1: 'bbb', 'c': 'ccc'}.iteritems())
+        ok_(bundle.obj == {'a': 'aaa', 1: 'bbb', 'c': 'ccc'})
+        bundle = MappingBundle.factory({}.iteritems())
+        ok_(bundle.obj == {})
+
+    def get_class_test(self):
+        """
+        Test MappingBundle.factory
+        """
+        class MappingOfInt(MappingBundle):
+            value_type = int
+        ok_(MappingOfInt.get_class(1) == int)
+        ok_(MappingOfInt.get_class("a") == int)
 
 
 class ObjectBundle_Test(object):
