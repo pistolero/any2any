@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from utils import AllSubSetsOf, Singleton, ClassSet
 
 
 class FactoryError(TypeError): pass
@@ -7,15 +6,20 @@ class FactoryError(TypeError): pass
 
 class Bundle(object):
 
-    use_for = None
+    klass = object
 
-    class Final(object): pass
+    class KeyFinal(object): pass
+    class KeyAny(object): pass
 
     def __init__(self, obj):
         self.obj = obj
 
     def __iter__(self):
         return self.iter()
+            
+    @classmethod
+    def get_schema(cls):
+        raise NotImplementedError()
 
     def iter(self):
         raise NotImplementedError()
@@ -24,17 +28,15 @@ class Bundle(object):
     def factory(cls, item_iter):
         raise NotImplementedError()
 
-    @classmethod
-    def get_class(self, key):
-        raise NotImplementedError()
-
 
 class IdentityBundle(Bundle):
 
-    use_for = AllSubSetsOf(object)
+    @classmethod
+    def get_schema(cls):
+        return {cls.KeyFinal: cls.klass}
 
     def iter(self):
-        yield self.Final, self.obj
+        yield self.KeyFinal, self.obj
 
     @classmethod
     def factory(cls, item_iter):
@@ -44,24 +46,19 @@ class IdentityBundle(Bundle):
             raise FactoryError("empty iterator received")
         return cls(obj)
 
-    @classmethod
-    def get_class(self, key):
-        return NotImplemented
-
 
 class ContainerBundle(Bundle):
 
     value_type = object
 
     @classmethod
-    def get_class(cls, key):
-        return cls.value_type
+    def get_schema(cls):
+        return {cls.KeyAny: cls.value_type}
 
 
 class IterableBundle(ContainerBundle):
 
     klass = list
-    use_for = AllSubSetsOf(list)
 
     def iter(self):
         return enumerate(self.obj)
@@ -75,7 +72,6 @@ class IterableBundle(ContainerBundle):
 class MappingBundle(ContainerBundle):
     
     klass = dict
-    use_for = AllSubSetsOf(dict)
 
     def iter(self):
         return ((k, self.obj[k]) for k in self.obj)
@@ -115,28 +111,6 @@ class ObjectBundle(Bundle):
     exclude = []
     """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
 
-    def iter(self):
-        for name in self.get_schema():
-            yield name, self.getattr(name)
-
-    @classmethod
-    def get_class(cls, key):
-        """
-        Returns the class of attribute `key`, as found from the schema, see :meth:`get_schema`.
-        """
-        schema = cls.get_schema()
-        if key in schema:
-            return schema[key]
-        else:
-            raise KeyError("'%s' not in schema" % key)
-    
-    @classmethod
-    def factory(cls, items_iter):
-        """
-        Creates and returns a new instance of the wrapped type.
-        """
-        return cls.klass(**items_iter)
-
     @classmethod
     def get_schema(cls):
         """
@@ -152,6 +126,17 @@ class ObjectBundle(Bundle):
         for key, cls in schema.iteritems():
             schema[key] = cls
         return schema
+
+    def iter(self):
+        for name in self.get_schema():
+            yield name, self.getattr(name)
+    
+    @classmethod
+    def factory(cls, items_iter):
+        """
+        Creates and returns a new instance of the wrapped type.
+        """
+        return cls.klass(**items_iter)
 
     @classmethod
     def default_schema(cls):

@@ -1,41 +1,92 @@
 # -*- coding: utf-8 -*-
+from bundle import Bundle
+from utils import AllSubSetsOf, Singleton, ClassSet
 
 
 class NoSuitableBundleClass(Exception): pass
 
-    
+
 class Cast(object):
 
-    bundle_class_list = []
+    def __init__(self, bundle_class_map):
+        self.bundle_class_map = bundle_class_map
 
     def __call__(self, inpt, to=None):
-        bundle = self.build_bundle(inpt)
-        to_bundle_class = self.get_bundle_class(to)
-        casted_dict = {}
-        for key, value in bundle:
-            if key is Bundle.Final:
-                casted_value = value
-            else:
-                value_to = to_bundle_class.get_class(key)        
-                casted_value = any2any(value, value_to)
-            casted_dict[key] = casted_value
-        return to_bundle_class.factory(casted_dict).obj
-
-    def build_bundle(self, obj):
-        return bundle_class(type(obj), self.bundle_class_list)(obj)
-
-    def is_usable(self, bundle_class, for_class):
-        return bundle_class.use_for >= for_class
+        # bundles input, finds an output bundle class
+        in_bundle_class = self.get_bundle_class(type(inpt))
+        out_bundle_class = self.get_bundle_class(to)
+        # match schemas
+        in_schema = in_bundle_class.get_schema()
+        out_schema = out_bundle_class.get_schema()
+        compiled = CompiledSchema(in_schema, out_schema)
+        # realize the casting
+        def generator():
+            for key, value in in_bundle_class(inpt):
+                if key is Bundle.KeyFinal:
+                    casted_value = value
+                else:
+                    # recursive call      
+                    casted_value = self(value, to=compiled.get(key))
+                yield key, casted_value
+        return out_bundle_class.factory(generator()).obj
 
     def get_bundle_class(self, klass):
         if issubclass(klass, Bundle):
             return klass
-        bundle_classes = set(filter(lambda b: self.is_usable(b, klass), self.bundle_class_list))
-        for m1 in bundle_classes.copy():
-            for m2 in bundle_classes.copy():
-                if m1 <= m2 and not m1 is m2:
-                    bundle_classes.discard(m2)
+        class_sets = set(filter(lambda cs: klass <= cs, self.bundle_class_map))
+        # Eliminate supersets
+        for cs1 in class_sets.copy():
+            for cs2 in class_sets.copy():
+                if cs1 <= cs2 and not cs1 is cs2:
+                    class_sets.discard(cs2)
         try:
-            return list(bundle_classes)[0]
+            best_match = list(class_sets)[0]
         except IndexError:
             raise NoSuitableBundleClass()
+        bundle_class = self.bundle_class_map[best_match]
+        return type(bundle_class.__name__, (bundle_class,), {'klass': klass})
+
+
+class SchemaError(TypeError): pass
+class SchemaNotValid(SchemaError): pass
+class SchemasDontMatch(SchemaError): pass
+
+
+class CompiledSchema(object):
+
+    def __init__(self, in_schema, out_schema):
+        self.validate_schema(in_schema)
+        self.validate_schema(out_schema)
+        self.in_schema = in_schema
+        self.out_schema = out_schema
+        self._get_out_class = None
+        if (set(out_schema) <= set(in_schema)):
+            if Bundle.KeyFinal in out_schema:
+                def get_out_class(key):
+                    return out_schema[key]
+            elif Bundle.KeyAny in out_schema:
+                out_class = out_schema[Bundle.KeyAny]
+                def get_out_class(key):
+                    return out_class
+            else:
+                def get_out_class(key):
+                    return out_schema[key]
+        elif Bundle.KeyFinal in in_schema:
+            raise SchemasDontMatch("both schemas must contain 'KeyFinal'")
+        elif Bundle.KeyAny in out_schema:
+            out_class = out_schema[Bundle.KeyAny]
+            def get_out_class(key):
+                return out_class
+        else:
+            raise SchemasDontMatch("in_schema doesn't provide '%s'" % list(set(out_schema) - set(in_schema)))
+        self._get_out_class = get_out_class
+
+    @classmethod
+    def validate_schema(cls, schema):
+        if (Bundle.KeyFinal in schema) and len(schema) != 1:
+            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
+        elif (Bundle.KeyAny in schema) and len(schema) != 1:
+            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyAny'")
+
+    def get(self, key):
+        return self._get_out_class(key)

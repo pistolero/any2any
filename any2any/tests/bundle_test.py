@@ -13,7 +13,7 @@ class IdentityBundle_Test(object):
         Test IdentityBundle.iter
         """
         bundle = IdentityBundle(1.89)
-        ok_(list(bundle) == [(Bundle.Final, 1.89)])
+        ok_(list(bundle) == [(Bundle.KeyFinal, 1.89)])
 
     def factory_test(self):
         """
@@ -23,6 +23,14 @@ class IdentityBundle_Test(object):
         ok_(bundle.obj == 'hello')
         assert_raises(FactoryError, IdentityBundle.factory, {}.iteritems())
 
+    def get_schema_test(self):
+        """
+        Test IdentityBundle.get_schema
+        """
+        class MyBundle(IdentityBundle):
+            klass = int
+        ok_(MyBundle.get_schema() == {Bundle.KeyFinal: int})
+        
 
 class IterableBundle_Test(object):
     """
@@ -49,14 +57,13 @@ class IterableBundle_Test(object):
         bundle = IterableBundle.factory({}.iteritems())
         ok_(bundle.obj == [])
 
-    def get_class_test(self):
+    def get_schema_test(self):
         """
-        Test IterableBundle.factory
+        Test IterableBundle.get_schema
         """
         class ListOfInt(IterableBundle):
             value_type = int
-        ok_(ListOfInt.get_class(1) == int)
-        ok_(ListOfInt.get_class("a") == int)
+        ok_(ListOfInt.get_schema() == {Bundle.KeyAny: int})
 
 
 class MappingBundle_Test(object):
@@ -82,14 +89,13 @@ class MappingBundle_Test(object):
         bundle = MappingBundle.factory({}.iteritems())
         ok_(bundle.obj == {})
 
-    def get_class_test(self):
+    def get_schema_test(self):
         """
-        Test MappingBundle.factory
+        Test MappingBundle.get_schema
         """
         class MappingOfInt(MappingBundle):
             value_type = int
-        ok_(MappingOfInt.get_class(1) == int)
-        ok_(MappingOfInt.get_class("a") == int)
+        ok_(MappingOfInt.get_schema() == {Bundle.KeyAny: int})
 
 
 class ObjectBundle_Test(object):
@@ -175,28 +181,6 @@ class ObjectBundle_Test(object):
             def default_schema(self):
                 return {'a': float, 'b': unicode, 'c': float}
         ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
-
-    def get_class_test(self):
-        """
-        Test ObjectBundle.get_class
-        """
-        # provided schema
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'a': int, 'b': str}
-        ok_(ObjectWithSchema.get_class('a') == int)
-        ok_(ObjectWithSchema.get_class('b') == str)
-        assert_raises(KeyError, ObjectWithSchema.get_class, 'c')
-        # default schema
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_class('a') == float)
-        ok_(ObjectWithSchema.get_class('b') == unicode)
-        ok_(ObjectWithSchema.get_class('c') == float)
-        assert_raises(KeyError, ObjectWithSchema.get_class, 'd')
 
     def getattr_test(self):
         """
