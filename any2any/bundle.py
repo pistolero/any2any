@@ -6,10 +6,11 @@ class FactoryError(TypeError): pass
 
 class Bundle(object):
 
-    klass = object
-
     class KeyFinal(object): pass
     class KeyAny(object): pass
+    class ValueUnknown(object): pass
+
+    klass = ValueUnknown
 
     def __init__(self, obj):
         self.obj = obj
@@ -49,7 +50,7 @@ class IdentityBundle(Bundle):
 
 class ContainerBundle(Bundle):
 
-    value_type = object
+    value_type = Bundle.ValueUnknown
 
     @classmethod
     def get_schema(cls):
