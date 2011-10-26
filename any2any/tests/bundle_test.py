@@ -2,6 +2,18 @@
 from nose.tools import assert_raises, ok_
 from any2any.bundle import *
 
+class Bundle_Test(object):
+    """
+    Tests on Bundle
+    """
+    
+    def get_subclass_test(self):
+        MyBundle = Bundle.get_subclass(klass=int, bla=8)
+        ok_(issubclass(MyBundle, Bundle))
+        ok_(not issubclass(Bundle, MyBundle))
+        ok_(MyBundle.klass == int)
+        ok_(MyBundle.bla == 8)
+
 
 class IdentityBundle_Test(object):
     """

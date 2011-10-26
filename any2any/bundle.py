@@ -23,12 +23,17 @@ class Bundle(object):
         raise NotImplementedError()
 
     def iter(self):
+        # TODO: name unpack ?
         raise NotImplementedError()
 
     @classmethod
     def factory(cls, item_iter):
+        # TODO: name pack ?
         raise NotImplementedError()
 
+    @classmethod
+    def get_subclass(cls, **attrs):
+        return type(cls.__name__, (cls,), attrs)
 
 class IdentityBundle(Bundle):
 
@@ -137,7 +142,8 @@ class ObjectBundle(Bundle):
         """
         Creates and returns a new instance of the wrapped type.
         """
-        return cls.klass(**items_iter)
+        obj = cls.klass(**dict(items_iter))
+        return cls(obj)
 
     @classmethod
     def default_schema(cls):
