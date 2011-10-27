@@ -16,32 +16,36 @@ class Cast(object):
         # `in_class` is always known, because we at least have the 
         # `inpt`'s class
         if in_class in [None, Bundle.ValueUnknown]:
-            in_class = type(inpt) 
+            in_class = type(inpt)
         if not issubclass(in_class, Bundle):
-            in_bundle_class = self.get_bundle_class(in_class, self.bundle_class_map)
+            in_b_class = self.get_bundle_class(in_class, self.bundle_class_map)
         else:
-            in_bundle_class = in_class
-        in_schema = in_bundle_class.get_schema()
+            in_b_class = in_class
+        in_schema = in_b_class.get_schema()
         # `out_class` can be unknown, and it that case, we find a good fallback 
-        if out_class in [Bundle.ValueUnknown, None]:
-            out_bundle_class = self._out_bundle_class_fallback(in_class, in_schema, out_class)
+        if out_class in [None, Bundle.ValueUnknown]:
+            # If input is a final value, we'll just assume that ouput is also
+            if Bundle.KeyFinal in in_schema:
+                out_b_class = IdentityBundle
+            else:
+                out_b_class = self._get_fallback(in_class, out_class)
         elif not issubclass(out_class, Bundle):
-            out_bundle_class = self.get_bundle_class(out_class, self.bundle_class_map)
-            out_bundle_class = out_bundle_class.get_subclass(klass=out_class)
+            out_b_class = self.get_bundle_class(out_class, self.bundle_class_map)
+            out_b_class = out_b_class.get_subclass(klass=out_class)
         else:
-            out_bundle_class = out_class
-        out_schema = out_bundle_class.get_schema()
+            out_b_class = out_class
+        out_schema = out_b_class.get_schema()
         # Compiling schemas : if it fails with the 2 schemas found, we try to be clever
-        # and guess the input schema with `inpt`.
+        # and guess the in_schema by bundling `inpt` and iterating over it.
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = self.get_actual_schema(inpt, in_bundle_class)
+            in_schema = self.get_actual_schema(inpt, in_b_class)
             compiled = CompiledSchema(in_schema, out_schema) 
-        self.log(inpt, in_bundle_class, in_schema, out_bundle_class, out_schema)
+        self.log(inpt, in_b_class, in_schema, out_b_class, out_schema)
         # realize the casting
         def generator():
-            for key, value in in_bundle_class(inpt):
+            for key, value in in_b_class(inpt):
                 if key is Bundle.KeyFinal:
                     casted_value = value
                 else:
@@ -51,30 +55,27 @@ class Cast(object):
                         in_class=compiled.get_in_class(key)
                     )
                 yield key, casted_value
-        return out_bundle_class.factory(generator()).obj
+        return out_b_class.factory(generator()).obj
 
-    def log(self, inpt, in_bundle_class, in_schema, out_bundle_class, out_schema):
-        print '%s\n%s-%s => %s-%s\n' % (inpt, in_bundle_class.__name__, in_schema, out_bundle_class.__name__, out_schema) 
+    def log(self, inpt, in_b_class, in_schema, out_b_class, out_schema):
+        print '%s\n%s-%s => %s-%s\n' % (inpt, in_b_class.__name__, in_schema, out_b_class.__name__, out_schema) 
 
-    def _out_bundle_class_fallback(self, in_class, in_schema, out_class):
+    def _get_fallback(self, in_class, out_class):
         if issubclass(in_class, Bundle):
             in_class = in_class.klass
-        # If input is a final value, we'll just assume that ouput is also
-        if Bundle.KeyFinal in in_schema:
-            return IdentityBundle
-        # Otherwise, we'll try to get a bundle from the `fallback_map`
+        # we try to get a bundle from the `fallback_map`
         try:
             return self.get_bundle_class(in_class, self.fallback_map)
         except NoSuitableBundleClass:
             pass
-        # An finally, we'll just try to build a bundle with `in_class`, so
+        # Or we'll just try to build a bundle with `in_class`, so
         # that operation would be an identity.
         try:
-            out_bundle_class = self.get_bundle_class(in_class, self.bundle_class_map)
+            out_b_class = self.get_bundle_class(in_class, self.bundle_class_map)
         except NoSuitableBundleClass:
             raise NoSuitableBundleClass("out_class is 'ValueUnknown', and no fallback could be found")
         else:
-            return out_bundle_class.get_subclass(klass=in_class)
+            return out_b_class.get_subclass(klass=in_class)
 
     @classmethod
     def get_bundle_class(cls, klass, bundle_class_map):

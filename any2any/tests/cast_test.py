@@ -227,6 +227,7 @@ class Cast_complex_calls_test(object):
 
         self.Book = Book
         self.Author = Author
+        self.BookBundle = BookBundle
         self.ListOfBooks = ListOfBooks
         self.CompleteAuthorBundle = CompleteAuthorBundle
         self.HalfCompleteAuthorBundle = HalfCompleteAuthorBundle
@@ -246,11 +247,16 @@ class Cast_complex_calls_test(object):
             AllSubSetsOf(object): MappingBundle,
         })
 
+        self.deserializer = Cast({
+            AllSubSetsOf(dict): MappingBundle,
+            AllSubSetsOf(list): IterableBundle,
+            AllSubSetsOf(object): IdentityBundle,
+        })
+
     def serialize_given_complete_schema_test(self):
         """
         test serialize object with a bundle class providing complete schema.
         """
-        # specifying a 
         ok_(self.serializer(self.george, in_class=self.CompleteAuthorBundle) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -265,16 +271,84 @@ class Cast_complex_calls_test(object):
             ]
         })
 
-    '''
-def deserialize_given_complete_schema_test(self):
+    def deserialize_given_complete_schema_test(self):
         """
         test deserialize object with bundle class providing complete schema
         """
-        truman = cast({'name': 'Truman Capote', 'books': [
+        truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=Author)
+        ]}, out_class=self.CompleteAuthorBundle)
+        ok_(isinstance(truman, self.Author))
         ok_(truman.name == 'Truman Capote')
         ok_(len(truman.books) == 1)
+        for book in truman.books:
+            ok_(isinstance(book, self.Book))
         ok_(truman.books[0].title == 'In cold blood')
-                
-    '''
+
+    def serialize_given_halfcomplete_schema_test(self):
+        """
+        test serialize object with a bundle class providing half complete schema.
+        """
+        self.serializer.bundle_class_map[Singleton(self.Book)] = self.BookBundle
+        ok_(self.serializer(self.george, in_class=self.HalfCompleteAuthorBundle) == {
+            'name': 'George Orwell', 'books': [
+                {'title': '1984'},
+                {'title': 'animal farm'}
+            ]
+        })
+        self.serializer.bundle_class_map[Singleton(self.Author)] = self.HalfCompleteAuthorBundle
+        ok_(self.serializer(self.george) == {
+            'name': 'George Orwell', 'books': [
+                {'title': '1984'},
+                {'title': 'animal farm'}
+            ]
+        })
+
+    def deserialize_given_halfcomplete_schema_test(self):
+        """
+        test deserialize object with bundle class providing half complete schema
+        """
+        self.deserializer.bundle_class_map[Singleton(self.Book)] = self.BookBundle
+        truman = self.deserializer({'name': 'Truman Capote', 'books': [
+            {'title': 'In cold blood'},
+        ]}, out_class=self.HalfCompleteAuthorBundle)
+        ok_(isinstance(truman, self.Author))
+        ok_(truman.name == 'Truman Capote')
+        ok_(len(truman.books) == 1)
+        for book in truman.books:
+            ok_(isinstance(book, self.Book))
+        ok_(truman.books[0].title == 'In cold blood')
+
+    def serialize_given_simple_schema_test(self):
+        """
+        test serialize object with a bundle class providing schema with missing infos.
+        """
+        self.serializer.bundle_class_map[Singleton(self.Book)] = self.BookBundle
+        ok_(self.serializer(self.george, in_class=self.SimpleAuthorBundle) == {
+            'name': 'George Orwell', 'books': [
+                {'title': '1984'},
+                {'title': 'animal farm'}
+            ]
+        })
+        self.serializer.bundle_class_map[Singleton(self.Author)] = self.SimpleAuthorBundle
+        ok_(self.serializer(self.george) == {
+            'name': 'George Orwell', 'books': [
+                {'title': '1984'},
+                {'title': 'animal farm'}
+            ]
+        })
+
+    def deserialize_given_simple_schema_test(self):
+        """
+        test deserialize object with bundle class providing schema missing infos.
+        """
+        self.deserializer.fallback_map[Singleton(dict)] = self.BookBundle
+        truman = self.deserializer({'name': 'Truman Capote', 'books': [
+            {'title': 'In cold blood'},
+        ]}, out_class=self.SimpleAuthorBundle)
+        ok_(isinstance(truman, self.Author))
+        ok_(truman.name == 'Truman Capote')
+        ok_(len(truman.books) == 1)
+        for book in truman.books:
+            ok_(isinstance(book, self.Book))
+        ok_(truman.books[0].title == 'In cold blood')
