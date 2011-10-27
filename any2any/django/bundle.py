@@ -14,60 +14,74 @@ from django.core.files import File
 
 from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
 PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField, GeometryCollectionField)
-from django.contrib.gis.geos import (Point, LineString,
+from django.contrib.gis.geos import (GEOSGeometry, Point, LineString,
 LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
 
 GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField, 
     PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField,
     GeometryCollectionField)
-
 QUERYSET_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor,
     models.ManyToManyField, GenericRelation)
+RELATED_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor)
+SIMPLE_FIELDS = (models.CharField, models.TextField, models.IntegerField, models.DateTimeField,
+    models.DateField, models.AutoField)
 
 from any2any import *
+from any2any.bundle import ValueInfo
 from any2any.utils import classproperty
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
 
 # GeoDjango
 #======================================
-class PointBundle(IterableBundle):
+class GEOSGeometryBundle(IterableBundle):
+
+    @classmethod
+    def factory(cls, items_iter):
+        # Necessary, because constructor of some GEOSGeometry objects don't 
+        # accept a list as argument.
+        # TODO: needs ordered dict to pass data between bundles
+        items_iter = sorted(items_iter, key=lambda i: i[0])
+        obj = cls.klass(*(v for k, v in items_iter))
+        return cls(obj)
+
+class PointBundle(GEOSGeometryBundle):
 
     klass = Point
     value_type = float
 
 
-class LineStringBundle(IterableBundle):
+class LineStringBundle(GEOSGeometryBundle):
 
     klass = LineString
     value_type = Point
 
 
-class LinearRingBundle(IterableBundle):
+class LinearRingBundle(GEOSGeometryBundle):
 
     klass = LinearRing
     value_type = Point
 
 
-class PolygonBundle(IterableBundle):
+class PolygonBundle(GEOSGeometryBundle):
 
     klass = Polygon
     value_type = LinearRing
 
 
-class MultiPointBundle(IterableBundle):
+class MultiPointBundle(GEOSGeometryBundle):
 
     klass = MultiPoint
     value_type = Point
     
 
-class MultiLineStringBundle(IterableBundle):
+class MultiLineStringBundle(GEOSGeometryBundle):
 
     klass = MultiLineString
     value_type = LineString
 
 
-class MultiPolygonBundle(IterableBundle):
+class MultiPolygonBundle(GEOSGeometryBundle):
 
     klass = MultiPolygon
     value_type = Polygon
@@ -110,7 +124,7 @@ class ModelMixin(ModelIntrospector):
         related_keys = cls.related_dict.keys()
         if not cls.include_related:
             for k in related_keys:
-                if not k in cls.include and not k in cls.extra_schema:
+                if not k in cls.include and (cls.schema is None or not k in cls.schema):
                     schema.pop(k, None)
         return schema
 
@@ -196,38 +210,47 @@ class ModelMixin(ModelIntrospector):
         # Takes a dict ``{<field_name>: <fields>}``, and returns a dict
         # ``{<field_name>: <class>}``.
         schema = {}
-        for name, field in fields_dict.items():
-            field_type = type(field)
+        for name, f in fields_dict.items():
+            ftype = type(f)
 
-            if isinstance(field, models.ForeignKey):
-                bc = ReadOnlyModelBundle.get_subclass(klass=field.rel.to)
-            elif isinstance(field, (models.ManyToManyField, GenericRelation)):
-                bc = QuerySetBundle.get_subclass(value_type=field.rel.to)
-            elif isinstance(field, (ManyRelatedObjectsDescriptor,
-            ForeignRelatedObjectsDescriptor)):
-                bc = QuerySetBundle.get_subclass(value_type=field.related.model)
-            elif isinstance(field, models.DateTimeField):
-                bc = DateTimeBundle
-            elif isinstance(field, models.DateField):
-                bc = DateBundle
-            # geodjango
-            elif isinstance(field, GEODJANGO_FIELDS):
-                if isinstance(field, PointField):
-                    bc = PointBundle
-                elif isinstance(field, LineStringField):
-                    bc = LineStringBundle
-                elif isinstance(field, PolygonField):
-                    bc = PolygonBundle
-                elif isinstance(field, MultiPointField):
-                    bc = MultiPointBundle
-                elif isinstance(field, MultiLineStringField):
-                    bc = MultiLineBundle
-                elif isinstance(field, MultiPolygonField):
-                    bc = MultiPolygonBundle
+            if isinstance(f, SIMPLE_FIELDS):
+                if isinstance(f, models.AutoField):
+                    klass = int
+                elif isinstance(f, (models.TextField, models.CharField)):
+                    klass = unicode
+                elif isinstance(f, models.IntegerField):
+                    klass = int
+                elif isinstance(f, models.DateTimeField):
+                    klass = datetime.datetime
+                elif isinstance(f, models.DateField):
+                    klass = datetime.date
+                v = ValueInfo(klass=klass, lookup_with=(ftype, klass))
+            elif isinstance(f, models.ForeignKey):
+                v = ValueInfo(klass=f.rel.to, lookup_with=(ftype, f.rel.to))
+            elif isinstance(f, QUERYSET_FIELDS):
+                if isinstance(f, RELATED_FIELDS):
+                    to = f.related.model
+                else:
+                    to = f.rel.to
+                v = ValueInfo(klass=QuerySet, schema={Bundle.KeyAny: to}, lookup_with=(ftype, QuerySet))
+            elif isinstance(f, GEODJANGO_FIELDS):
+                if isinstance(f, PointField):
+                    geom_type = Point
+                elif isinstance(f, LineStringField):
+                    geom_type = LineStringBundle
+                elif isinstance(f, PolygonField):
+                    geom_type = PolygonBundle
+                elif isinstance(f, MultiPointField):
+                    geom_type = MultiPointBundle
+                elif isinstance(f, MultiLineStringField):
+                    geom_type = MultiLineBundle
+                elif isinstance(f, MultiPolygonField):
+                    geom_type = MultiPolygonBundle
+                v = ValueInfo(klass=geom_type, lookup_with=(ftype, geom_type))
             else:
-                bc = field_type
+                v = ftype
 
-            schema[name] = bc
+            schema[name] = v
         return schema
 
 
@@ -295,19 +318,49 @@ class CRUModelBundle(ModelMixin, ObjectBundle):
 serialize = Cast({
     AllSubSetsOf(dict): MappingBundle,
     AllSubSetsOf(list): IterableBundle,
-    AllSubSetsOf(object): IdentityBundle,
+    AllSubSetsOf(int): IdentityBundle,
+    AllSubSetsOf(float): IdentityBundle,
+    AllSubSetsOf(basestring): IdentityBundle,
+    AllSubSetsOf(datetime.datetime): DateTimeBundle,
+    AllSubSetsOf(datetime.date): DateBundle,
+
     AllSubSetsOf(models.Model): ReadOnlyModelBundle,
+    AllSubSetsOf(QuerySet): QuerySetBundle,
+
+    Singleton(Point): PointBundle,
+    Singleton(LineString): LineStringBundle,
+    Singleton(LinearRing): LinearRingBundle,
+    Singleton(Polygon): PolygonBundle,
+    Singleton(MultiPoint): MultiPointBundle,
+    Singleton(MultiLineString): MultiLineStringBundle,
+    Singleton(MultiPolygon): MultiPolygonBundle,
 }, {
     AllSubSetsOf(dict): MappingBundle,
     AllSubSetsOf(list): IterableBundle,
     AllSubSetsOf(object): MappingBundle,
     AllSubSetsOf(QuerySet): IterableBundle,
+
+    AllSubSetsOf(GEOSGeometry): IterableBundle,
 })
 
 
 deserialize = Cast({
     AllSubSetsOf(dict): MappingBundle,
     AllSubSetsOf(list): IterableBundle,
-    AllSubSetsOf(object): IdentityBundle,
+    AllSubSetsOf(int): IdentityBundle,
+    AllSubSetsOf(float): IdentityBundle,
+    AllSubSetsOf(basestring): IdentityBundle,
+    AllSubSetsOf(datetime.datetime): DateTimeBundle,
+    AllSubSetsOf(datetime.date): DateBundle,
+
     AllSubSetsOf(models.Model): ReadOnlyModelBundle,
+    AllSubSetsOf(QuerySet): QuerySetBundle,
+
+    Singleton(Point): PointBundle,
+    Singleton(LineString): LineStringBundle,
+    Singleton(LinearRing): LinearRingBundle,
+    Singleton(Polygon): PolygonBundle,
+    Singleton(MultiPoint): MultiPointBundle,
+    Singleton(MultiLineString): MultiLineStringBundle,
+    Singleton(MultiPolygon): MultiPolygonBundle,
 })

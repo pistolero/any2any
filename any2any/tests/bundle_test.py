@@ -8,6 +8,15 @@ class Bundle_Test(object):
     Tests on Bundle
     """
     
+    def setUp(self):
+        class AnObject(object): pass
+        self.AnObject = AnObject
+        class SimpleBundle(Bundle):
+            @classmethod
+            def default_schema(cls):
+                return {}
+        self.SimpleBundle = SimpleBundle
+
     def get_subclass_test(self):
         MyBundle = Bundle.get_subclass(klass=int, bla=8)
         ok_(issubclass(MyBundle, Bundle))
@@ -23,6 +32,81 @@ class Bundle_Test(object):
         ok_(schema == {'a': int, 'b': str})
         schema = IterableBundle([1, 'b', 2.0]).get_actual_schema()
         ok_(schema == {0: int, 1: str, 2: float})
+
+    def get_schema_test(self):
+        """
+        Test Bundle.get_schema
+        """
+        # provided schema
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            schema = {'a': int, 'b': str}
+        ok_(ObjectWithSchema.get_schema() == {'a': int, 'b': str})
+        # with exclude
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            schema = {'a': int, 'b': str}
+            exclude = ['a']
+        ok_(ObjectWithSchema.get_schema() == {'b': str})
+        # default schema
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode, 'c': float})
+        # default schema + exclude
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            exclude = ['b', 'c', 'd']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float})
+        # default schema + schema
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            schema = {'a': unicode, 'd': str}
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
+        # default schema + schema + exclude
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            schema = {'a': unicode, 'd': str, 'e': int}
+            exclude = ['d', 'a', 'b']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'c': float, 'e': int})
+        # default schema + include
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            include = ['a', 'b']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode})
+        # default schema + schema + include
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            schema = {'d': str}
+            include = ['a', 'd']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'a': float, 'd': str})
+        # default schema + schema + exclude + include
+        class ObjectWithSchema(self.SimpleBundle):
+            klass = self.AnObject
+            schema = {'d': str, 'e': int}
+            include = ['a', 'b', 'e']
+            exclude = ['a']
+            @classmethod
+            def default_schema(self):
+                return {'a': float, 'b': unicode, 'c': float}
+        ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
 
 
 class IdentityBundle_Test(object):
@@ -128,81 +212,6 @@ class ObjectBundle_Test(object):
     def setUp(self):
         class AnObject(object): pass
         self.AnObject = AnObject
-
-    def get_schema_test(self):
-        """
-        Test ObjectBundle.get_schema
-        """
-        # provided schema
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'a': int, 'b': str}
-        ok_(ObjectWithSchema.get_schema() == {'a': int, 'b': str})
-        # with exclude
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'a': int, 'b': str}
-            exclude = ['a']
-        ok_(ObjectWithSchema.get_schema() == {'b': str})
-        # default schema
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode, 'c': float})
-        # default schema + exclude
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            exclude = ['b', 'c', 'd']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float})
-        # default schema + extra_schema
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'a': unicode, 'd': str}
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
-        # default schema + extra_schema + exclude
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'a': unicode, 'd': str, 'e': int}
-            exclude = ['d', 'a', 'b']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'c': float, 'e': int})
-        # default schema + include
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            include = ['a', 'b']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode})
-        # default schema + extra_schema + include
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'d': str}
-            include = ['a', 'd']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float, 'd': str})
-        # default schema + extra_schema + exclude + include
-        class ObjectWithSchema(ObjectBundle):
-            klass = self.AnObject
-            extra_schema = {'d': str, 'e': int}
-            include = ['a', 'b', 'e']
-            exclude = ['a']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
 
     def getattr_test(self):
         """

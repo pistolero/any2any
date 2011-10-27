@@ -11,6 +11,14 @@ class Bundle(object):
     class ValueUnknown(object): pass
 
     klass = ValueUnknown
+    schema = {}
+    """dict. ``{<attribute_name>: <attribute_type>}``. Allows to update the default schema, see :meth:`get_schema`."""
+
+    include = []
+    """list. The list of attributes to include in the schema see, :meth:`get_schema`."""
+
+    exclude = []
+    """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
 
     def __init__(self, obj):
         self.obj = obj
@@ -25,11 +33,27 @@ class Bundle(object):
         return schema
 
     @classmethod
+    def get_schema(cls):
+        """
+        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of an instance, taking into account (respectively) : `default_schema`, `schema`, `include` and `exclude`.
+        """
+        schema = cls.default_schema()
+        schema.update(cls.schema or {})
+        if cls.include:
+            [schema.setdefault(k, cls.ValueUnknown) for k in cls.include]
+            [schema.pop(k) for k in schema.keys() if k not in cls.include]
+        if cls.exclude:
+            [schema.pop(k, None) for k in cls.exclude]
+        for key, cls in schema.iteritems():
+            schema[key] = cls
+        return schema
+
+    @classmethod
     def get_subclass(cls, **attrs):
         return type(cls.__name__, (cls,), attrs)
-            
+
     @classmethod
-    def get_schema(cls):
+    def default_schema(cls):
         raise NotImplementedError()
 
     def iter(self):
@@ -37,7 +61,7 @@ class Bundle(object):
         raise NotImplementedError()
 
     @classmethod
-    def factory(cls, item_iter):
+    def factory(cls, items_iter):
         # TODO: name pack ?
         raise NotImplementedError()
 
@@ -52,9 +76,9 @@ class IdentityBundle(Bundle):
         yield self.KeyFinal, self.obj
 
     @classmethod
-    def factory(cls, item_iter):
+    def factory(cls, items_iter):
         try:
-            key, obj = item_iter.next()
+            key, obj = items_iter.next()
         except StopIteration:
             raise FactoryError("empty iterator received")
         return cls(obj)
@@ -65,7 +89,7 @@ class ContainerBundle(Bundle):
     value_type = Bundle.ValueUnknown
 
     @classmethod
-    def get_schema(cls):
+    def default_schema(cls):
         return {cls.KeyAny: cls.value_type}
 
 
@@ -77,8 +101,10 @@ class IterableBundle(ContainerBundle):
         return enumerate(self.obj)
 
     @classmethod
-    def factory(cls, item_iter):
-        obj = cls.klass((v for k, v in item_iter))
+    def factory(cls, items_iter):
+        # TODO: needs ordered dict to pass data between bundles
+        items_iter = sorted(items_iter, key=lambda i: i[0])
+        obj = cls.klass((v for k, v in items_iter))
         return cls(obj)
 
 
@@ -90,21 +116,13 @@ class MappingBundle(ContainerBundle):
         return ((k, self.obj[k]) for k in self.obj)
 
     @classmethod
-    def factory(cls, item_iter):
-        obj = cls.klass(item_iter)
+    def factory(cls, items_iter):
+        obj = cls.klass(items_iter)
         return cls(obj)
 
 
 class ObjectBundle(Bundle):
     """
-    Subclass `WrappedObject` to create a placeholder containing extra-information on a type. e.g. :
-
-        >>> class WrappedInt(WrappedObject):
-        ...
-        ...     klass = int
-        ...     greater_than = 0
-        ...
-
     A subclass of `WrappedObject` can also provide informations on the wrapped type's instances' :
 
         - attribute schema - :meth:`default_schema`
@@ -113,32 +131,6 @@ class ObjectBundle(Bundle):
     """
     
     klass = object
-    """type. The wrapped type."""
-
-    extra_schema = {}
-    """dict. ``{<attribute_name>: <attribute_type>}``. Allows to update the default schema, see :meth:`get_schema`."""
-
-    include = []
-    """list. The list of attributes to include in the schema see, :meth:`get_schema`."""
-
-    exclude = []
-    """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
-
-    @classmethod
-    def get_schema(cls):
-        """
-        Returns the full schema ``{<attribute_name>: <attribute_type>}`` of an instance, taking into account (respectively) : `default_schema`, `extra_schema`, `include` and `exclude`.
-        """
-        schema = cls.default_schema()
-        schema.update(cls.extra_schema)
-        if cls.include:
-            [schema.setdefault(k, NotImplemented) for k in cls.include]
-            [schema.pop(k) for k in schema.keys() if k not in cls.include]
-        if cls.exclude:
-            [schema.pop(k, None) for k in cls.exclude]
-        for key, cls in schema.iteritems():
-            schema[key] = cls
-        return schema
 
     def iter(self):
         for name in self.get_schema():
@@ -176,3 +168,18 @@ class ObjectBundle(Bundle):
             return getattr(self, 'get_%s' % name)()
         else:
             return getattr(self.obj, name)
+
+
+class ValueInfo(object):
+
+    def __init__(self, klass, lookup_with=(), schema=None):
+        self.klass = klass
+        self.lookup_with = lookup_with
+        self.schema = schema
+
+    @property
+    def bundle_class_dict(self):
+        return {'klass': self.klass, 'schema': self.schema}
+
+    def get_lookup_classes(self):
+        return self.lookup_with or (self.klass,)

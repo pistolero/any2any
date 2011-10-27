@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from any2any.cast import Cast, CompiledSchema, SchemaNotValid, SchemasDontMatch, NoSuitableBundleClass
-from any2any.bundle import Bundle, IdentityBundle, MappingBundle, IterableBundle, ObjectBundle
+from any2any.bundle import Bundle, IdentityBundle, MappingBundle, IterableBundle, ObjectBundle, ValueInfo
 from any2any.utils import AllSubSetsOf, Singleton, ClassSet
 from nose.tools import assert_raises, ok_
 
@@ -111,8 +111,8 @@ class CompiledSchema_test(object):
         assert_raises(KeyError, compiled.get_out_class, 'a')
 
 
-class BaseStrBundle(IdentityBundle): pass
-class IntBundle(IdentityBundle): pass
+class BaseStrBundle(Bundle): pass
+class IntBundle(Bundle): pass
 
 
 class Cast_test(object):
@@ -120,32 +120,61 @@ class Cast_test(object):
     test Cast
     """
 
-    def get_bundle_class_test(self):
+    def pick_best_test(self):
         """
-        test Cast.get_bundle_class
+        test Cast._pick_best
         """
         bundle_class_map = {
             AllSubSetsOf(basestring): BaseStrBundle,
             AllSubSetsOf(object): IdentityBundle,
             Singleton(int): IntBundle,
         }
-        bundle_class = Cast.get_bundle_class(object, bundle_class_map)
+        bundle_class = Cast._pick_best(object, bundle_class_map)
         ok_(bundle_class is IdentityBundle)
 
-        bundle_class = Cast.get_bundle_class(float, bundle_class_map)
+        bundle_class = Cast._pick_best(float, bundle_class_map)
         ok_(bundle_class is IdentityBundle)
 
-        bundle_class = Cast.get_bundle_class(str, bundle_class_map)
+        bundle_class = Cast._pick_best(str, bundle_class_map)
         ok_(bundle_class is BaseStrBundle)
 
-        bundle_class = Cast.get_bundle_class(int, bundle_class_map)
+        bundle_class = Cast._pick_best(int, bundle_class_map)
         ok_(bundle_class is IntBundle)
 
-    def no_bundle_class_test(self):
+    def no_pick_test(self):
         """
-        test Cast.get_bundle_class with no suitable bundle class
+        test Cast._pick_best with no suitable bundle class
         """
-        assert_raises(NoSuitableBundleClass, Cast.get_bundle_class, str, {Singleton(int): IntBundle})
+        assert_raises(NoSuitableBundleClass, Cast._pick_best, str, {Singleton(int): IntBundle})
+
+    def get_bundle_class_test(self):
+        """
+        test Cast._get_bundle_class
+        """
+        cast = Cast({
+            AllSubSetsOf(basestring): BaseStrBundle,
+            AllSubSetsOf(list): IdentityBundle,
+            Singleton(int): IntBundle,
+        })
+        # With a bundle class
+        ok_(cast._get_bundle_class(BaseStrBundle) is BaseStrBundle)
+        # with a normal class
+        bundle_class = cast._get_bundle_class(int)
+        ok_(issubclass(bundle_class, IntBundle))
+        ok_(bundle_class.klass is int)
+        bundle_class = cast._get_bundle_class(str)
+        ok_(issubclass(bundle_class, BaseStrBundle))
+        ok_(bundle_class.klass is str)
+        # with a ValueInfo
+        value_info = ValueInfo(klass=int, schema={'a': str})
+        bundle_class = cast._get_bundle_class(value_info)
+        ok_(issubclass(bundle_class, IntBundle))
+        ok_(bundle_class.klass is int)
+        ok_(bundle_class.schema == {'a': str})
+        value_info = ValueInfo(klass=tuple, lookup_with=(float, basestring, list))
+        bundle_class = cast._get_bundle_class(value_info)
+        ok_(issubclass(bundle_class, BaseStrBundle))
+        ok_(bundle_class.klass is tuple)
 
     def call_test(self):
         """
@@ -165,6 +194,7 @@ class Cast_test(object):
 
 class Cast_complex_calls_test(object):
     """
+    Test casting complex objects
     """
 
     def setUp(self):

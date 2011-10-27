@@ -19,7 +19,7 @@ class AuthorBundle(CRUModelBundle):
 
 class BookBundle(CRUModelBundle):
     klass = Book
-    extra_schema = {'author': AuthorBundle}
+    schema = {'author': AuthorBundle}
 
 class UpdateOnlyGourmand(UpdateOnlyModelBundle):
     klass = Gourmand
@@ -29,7 +29,7 @@ class UpdateOnlyGourmandQuerySet(QuerySetBundle):
 
 class UpdateOnlyDish(UpdateOnlyModelBundle):
     klass = Dish
-    extra_schema = {'gourmand_set': UpdateOnlyGourmandQuerySet}
+    schema = {'gourmand_set': UpdateOnlyGourmandQuerySet}
 
 class DishBundle(CRUModelBundle):
     klass = Dish
@@ -42,18 +42,18 @@ class DishQuerySet(QuerySetBundle):
 
 class GourmandBundle(CRUModelBundle):
     klass = Gourmand
-    extra_schema = {'favourite_dishes': DishQuerySet}
+    schema = {'favourite_dishes': DishQuerySet}
 
 class UpdateOnlyGourmand(UpdateOnlyModelBundle):
     klass = Gourmand
-    extra_schema = {'favourite_dishes': UpdateOnlyDishQuerySet}
+    schema = {'favourite_dishes': UpdateOnlyDishQuerySet}
 
 class UpdateOnlyAuthor(UpdateOnlyModelBundle):
     klass = Author
 
 class UpdateOnlyBook(UpdateOnlyModelBundle):
     klass = Book
-    extra_schema = {'author': UpdateOnlyAuthor}
+    schema = {'author': UpdateOnlyAuthor}
 
 class UpdateOnlyJournalist(UpdateOnlyModelBundle):
     klass = Journalist
@@ -63,7 +63,7 @@ class UpdateOnlyJournalistQuerySet(QuerySetBundle):
 
 class UpdateOnlyJournal(UpdateOnlyModelBundle):
     klass = Journal
-    extra_schema = {'journalist_set': UpdateOnlyJournalistQuerySet}
+    schema = {'journalist_set': UpdateOnlyJournalistQuerySet}
 
 class UpdateOnlyColumnist(UpdateOnlyModelBundle):
     klass = Columnist
@@ -76,7 +76,7 @@ class ColumnistBundle(CRUModelBundle):
 class UpdateOnlyIssue(UpdateOnlyModelBundle):
     klass = Issue
 
-'''
+
 class ModelMixin_Test(object):
     """
     Test ModelMixin, base of all ModelBundles
@@ -102,39 +102,43 @@ class ModelMixin_Test(object):
         journal_fields = JournalBundle.default_schema()
         dish_fields = DishBundle.default_schema()
         ok_(set(columnist_fields) == set(['id', 'pk', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(columnist_fields['pk'], AutoField)
-        ok_(columnist_fields['id'], AutoField)
-        ok_(columnist_fields['lastname'], CharField)
-        ok_(columnist_fields['nickname'], CharField)
-        ok_(columnist_fields['journal'], ForeignKey)
+        ok_(columnist_fields['pk'].lookup_with[0] is AutoField)
+        ok_(columnist_fields['id'].lookup_with[0] is AutoField)
+        ok_(columnist_fields['lastname'].lookup_with[0] is CharField)
+        ok_(columnist_fields['nickname'].lookup_with[0] is CharField)
+        ok_(columnist_fields['journal'].lookup_with == (ForeignKey, Journal))
         ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(gourmand_fields['firstname'], CharField)
-        ok_(gourmand_fields['favourite_dishes'], ManyToManyField)
-        ok_(gourmand_fields['pseudo'], CharField)
+        ok_(gourmand_fields['firstname'].lookup_with[0] is CharField)
+        ok_(gourmand_fields['favourite_dishes'].lookup_with[0] is ManyToManyField)
+        ok_(gourmand_fields['favourite_dishes'].schema == {Bundle.KeyAny: Dish})
+        ok_(gourmand_fields['pseudo'].lookup_with[0] is CharField)
         ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
-        ok_(journal_fields['name'], CharField)
-        ok_(journal_fields['journalist_set'], ForeignRelatedObjectsDescriptor)
-        ok_(journal_fields['issue_set'], ForeignRelatedObjectsDescriptor)
+        ok_(journal_fields['name'].lookup_with[0] is CharField)
+        ok_(journal_fields['journalist_set'].lookup_with[0] is ForeignRelatedObjectsDescriptor)
+        ok_(journal_fields['journalist_set'].schema == {Bundle.KeyAny: Journalist})
+        ok_(journal_fields['issue_set'].lookup_with[0] is ForeignRelatedObjectsDescriptor)
+        ok_(journal_fields['issue_set'].schema == {Bundle.KeyAny: Issue})
         ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
-        ok_(dish_fields['name'], CharField)
-        ok_(dish_fields['gourmand_set'], ManyRelatedObjectsDescriptor)
+        ok_(dish_fields['name'].lookup_with[0] is CharField)
+        ok_(dish_fields['gourmand_set'].lookup_with[0] is ManyRelatedObjectsDescriptor)
+        ok_(dish_fields['gourmand_set'].schema == {Bundle.KeyAny: Gourmand})
         ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 
     def nk_test(self):
         """
         Test ModelMixin.extract_key
         """
-        class Columnist(ReadOnlyModelBundle):
+        class ColumnistBundle(ReadOnlyModelBundle):
             klass = Columnist
             key_schema = ('firstname', 'lastname')
-        ok_(Columnist.extract_key({
+        ok_(ColumnistBundle.extract_key({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': 806, 'name': "C'est pas sorcier"},
             'id': 7763,
             'column': 'truck',
         }) == {'firstname': 'Jamy', 'lastname': 'Gourmaud'})
-'''
+
 
 class BaseModel(object):
     
@@ -255,7 +259,7 @@ class ModelToDict_Test(BaseModel):
         class JournalBundle(CRUModelBundle):
             klass = Journal
             include = ['name', 'journalist_set']
-            extra_schema = {
+            schema = {
                 'journalist_set': QuerySetBundle.get_subclass(value_type=JournalistBundle)
             }
         ok_(serialize(self.journal, in_class=JournalBundle) == {
@@ -275,7 +279,7 @@ class ModelToDict_Test(BaseModel):
             klass = Dish
             exclude = ['id', 'pk']
             include_related = True
-            extra_schema = {'gourmand_set': QuerySetBundle.get_subclass(value_type=GourmandBundle)}
+            schema = {'gourmand_set': QuerySetBundle.get_subclass(value_type=GourmandBundle)}
         ok_(serialize(self.salmon, in_class=DishBundle) == {
             'gourmand_set': [
                 {'pseudo': u'Taz'},
@@ -293,7 +297,7 @@ class ModelToDict_Test(BaseModel):
         class IssueBundle(CRUModelBundle):
             klass = Issue
             include = ['journal', 'issue_date', 'last_char_datetime']
-            extra_schema = {
+            schema = {
                 'journal': JournalBundle
             }
         ok_(self.serialize(self.issue, in_class=IssueBundle) == {
@@ -512,8 +516,7 @@ class DictToModel_Test(BaseModel):
         ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 
-        
-'''
+
 class GeoDjango_Test(object):
     """
     Test serialize and deserialize GeoDjango's geometry objects.
@@ -648,4 +651,3 @@ class GeoDjango_Test(object):
             Polygon(LinearRing(Point(1, 2, 3), Point(2, 6, 8), Point(2, 6, 10), Point(1, 2, 3))),
             Polygon(LinearRing(Point(0, 0), Point(2, 6), Point(2.5, 6), Point(0, 0)))
         ))
-'''

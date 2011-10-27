@@ -1,25 +1,7 @@
-from django.db import models
-from django.http import QueryDict
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.generic import GenericForeignKey, GenericRelation
-from django.db.models.query import QuerySet
-from django.core.files.base import ContentFile
-from django.core.files import File
-
-from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
-PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField, GeometryCollectionField)
-from django.contrib.gis.geos import (Point, LineString,
-LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
-
-GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField, 
-    PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField,
-    GeometryCollectionField)
-
-QUERYSET_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor,
-    models.ManyToManyField, GenericRelation)
 
 from any2any.utils import classproperty
+from any2any.django.bundle import QUERYSET_FIELDS
 
 class ModelIntrospector(object):
     """

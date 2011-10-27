@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from bundle import Bundle, IdentityBundle
+from bundle import Bundle, IdentityBundle, ValueInfo
 from utils import AllSubSetsOf, Singleton, ClassSet
 
 
@@ -17,27 +17,16 @@ class Cast(object):
         # `inpt`'s class
         if in_class in [None, Bundle.ValueUnknown]:
             in_class = type(inpt)
-        if not issubclass(in_class, Bundle):
-            in_b_class = self.get_bundle_class(in_class, self.bundle_class_map)
-            in_b_class = in_b_class.get_subclass(klass=in_class)
-        else:
-            in_b_class = in_class
+        in_b_class = self._get_bundle_class(in_class)
         in_schema = in_b_class.get_schema()
         # `out_class` can be unknown, and it that case, we find a good fallback 
         if out_class in [None, Bundle.ValueUnknown]:
-            # If input is a final value, we'll just assume that ouput is also
-            if Bundle.KeyFinal in in_schema:
-                out_b_class = IdentityBundle
-            else:
-                out_b_class = self._get_fallback(in_class, out_class)
-        elif not issubclass(out_class, Bundle):
-            out_b_class = self.get_bundle_class(out_class, self.bundle_class_map)
-            out_b_class = out_b_class.get_subclass(klass=out_class)
+            out_b_class = self._get_fallback(in_b_class)
         else:
-            out_b_class = out_class
+            out_b_class = self._get_bundle_class(out_class)
         out_schema = out_b_class.get_schema()
-        # Compiling schemas : if it fails with the 2 schemas found, we try to be clever
-        # and guess the in_schema by bundling `inpt` and iterating over it.
+        # Compiling schemas : if it fails with the 2 schemas found,
+        # we bundle `inpt` with `in_b_class` and get the actual schema of `inpt`
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
@@ -61,25 +50,42 @@ class Cast(object):
     def log(self, inpt, in_b_class, in_schema, out_b_class, out_schema):
         print '%s\n%s-%s => %s-%s\n' % (inpt, in_b_class.__name__, in_schema, out_b_class.__name__, out_schema) 
 
-    def _get_fallback(self, in_class, out_class):
-        if issubclass(in_class, Bundle):
-            in_class = in_class.klass
+    def _get_fallback(self, in_bundle_class):
+        in_class = in_bundle_class.klass
+        # If input is a final value, we'll just assume that ouput is also
+        if Bundle.KeyFinal in in_bundle_class.get_schema():
+            return IdentityBundle
         # we try to get a bundle from the `fallback_map`
         try:
-            return self.get_bundle_class(in_class, self.fallback_map)
+            return self._pick_best(in_class, self.fallback_map)
         except NoSuitableBundleClass:
             pass
-        # Or we'll just try to build a bundle with `in_class`, so
-        # that operation would be an identity.
-        try:
-            out_b_class = self.get_bundle_class(in_class, self.bundle_class_map)
-        except NoSuitableBundleClass:
-            raise NoSuitableBundleClass("out_class is 'ValueUnknown', and no fallback could be found")
+        # Or we'll just use `in_bundle_class`, so that operation is an identity.
+        return in_bundle_class
+        # TODO: shouldn't this rather be an error ?
+        # raise NoSuitableBundleClass("out_class is 'ValueUnknown', and no fallback could be found")
+
+    def _get_bundle_class(self, klass):
+        if isinstance(klass, type) and issubclass(klass, Bundle):
+            return klass
+        elif isinstance(klass, ValueInfo):
+            exc = None
+            for k in klass.get_lookup_classes():
+                try:
+                    bundle_class = self._pick_best(k, self.bundle_class_map)
+                except NoSuitableBundleClass as exc:
+                    pass
+                else:
+                    break
+            else:
+                if exc: raise exc
+            return bundle_class.get_subclass(**klass.bundle_class_dict)
         else:
-            return out_b_class.get_subclass(klass=in_class)
+            bundle_class = self._pick_best(klass, self.bundle_class_map)
+            return bundle_class.get_subclass(klass=klass)
 
     @classmethod
-    def get_bundle_class(cls, klass, bundle_class_map):
+    def _pick_best(cls, klass, bundle_class_map):
         class_sets = set(filter(lambda cs: klass <= cs, bundle_class_map))
         # Eliminate supersets
         for cs1 in class_sets.copy():
