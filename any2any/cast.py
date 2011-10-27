@@ -19,6 +19,7 @@ class Cast(object):
             in_class = type(inpt)
         if not issubclass(in_class, Bundle):
             in_b_class = self.get_bundle_class(in_class, self.bundle_class_map)
+            in_b_class = in_b_class.get_subclass(klass=in_class)
         else:
             in_b_class = in_class
         in_schema = in_b_class.get_schema()

@@ -24,7 +24,8 @@ GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField,
 QUERYSET_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor,
     models.ManyToManyField, GenericRelation)
 
-from any2any.bundle import IterableBundle, ObjectBundle
+from any2any import *
+from any2any.utils import classproperty
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
 
@@ -79,9 +80,15 @@ class QuerySetBundle(IterableBundle):
     klass = QuerySet
     value_type = models.Model
 
+    def iter(self):
+        if hasattr(self.obj, 'all'):
+            return enumerate(self.obj.all())
+        else:
+            return enumerate(self.obj)
+
     @classmethod
     def factory(cls, items_iter):
-        obj = list((v for k, v in item_iter))
+        obj = list((v for k, v in items_iter))
         return cls(obj)
         
 
@@ -140,33 +147,32 @@ class ModelMixin(ModelIntrospector):
     @classmethod
     def create(cls, **items):
         key_dict = cls.extract_key(items)
-        return cls.model(**(key_dict or {'pk': None}))
+        return cls(cls.model(**(key_dict or {'pk': None})))
 
     @classmethod
     def retrieve(cls, **items):
         key_dict = cls.extract_key(items)
         if not key_dict:
             raise cls.model.DoesNotExist("no key could be extracted from the data")
-        return cls.model.objects.get(**key_dict)
+        return cls(cls.model.objects.get(**key_dict))
 
-    @classmethod
-    def update(cls, instance, **items):
+    def update(self, **items):
         deferred = {}
         for name, value in items.items():
-            if cls._is_qs(name):
+            if self._is_qs(name):
                 deferred[name] = value
             else:
-                cls.setattr(instance, name, value)
-        instance.save()# Because otherwise we cannot handle manytomany
+                self.setattr(name, value)
+        self.obj.save()# Because otherwise we cannot handle manytomany
         for name, value in deferred.items():
-            cls.setattr(instance, name, value)
-        return instance
+            self.setattr(name, value)
+        return self
 
     def setattr(self, name, value):
         if hasattr(self, 'set_%s' % name):
             getattr(self, 'set_%s' % name)(value)
         elif self._is_qs(name):
-            manager = getattr(instance, name)
+            manager = getattr(self.obj, name)
             # clear() only provided if the ForeignKey can have a value of null:
             if hasattr(manager, 'clear'):
                 manager.clear()
@@ -175,10 +181,10 @@ class ModelMixin(ModelIntrospector):
             else:
                 raise TypeError("cannot update if the related ForeignKey cannot be null")
         #elif self.get_class(name), models.FileField):# TODO
-        #    file_field = getattr(instance, name)
+        #    file_field = getattr(self.obj, name)
         #    file_field.save(value.name, value)
         else:
-            setattr(instance, name, value)
+            setattr(self.obj, name, value)
 
     @classmethod
     def _is_qs(cls, name):
@@ -235,7 +241,8 @@ class ReadOnlyModelBundle(ModelMixin, ObjectBundle):
     """
 
     @classmethod
-    def factory(cls, **items):
+    def factory(cls, items_iter):
+        items = dict(items_iter)
         try:
             return cls.retrieve(**items)
         except cls.model.DoesNotExist as e:
@@ -255,15 +262,16 @@ class UpdateOnlyModelBundle(ModelMixin, ObjectBundle):
     """
 
     @classmethod
-    def factory(cls, **items):
+    def factory(cls, items_iter):
+        items = dict(items_iter)
         try:
-            instance = cls.retrieve(**items)
+            bundle = cls.retrieve(**items)
         except cls.model.DoesNotExist as e:
             raise cls.model.DoesNotExist('The ModelBundle is update only and %s' % e)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
-        return cls.update(instance, **items)
+        return bundle.update(**items)
 
 
 class CRUModelBundle(ModelMixin, ObjectBundle):
@@ -272,13 +280,34 @@ class CRUModelBundle(ModelMixin, ObjectBundle):
     """
 
     @classmethod
-    def factory(cls, **items):
+    def factory(cls, items_iter):
+        items = dict(items_iter)
         try:
-            instance = cls.retrieve(**items)
+            bundle = cls.retrieve(**items)
         except cls.model.MultipleObjectsReturned:
             raise ValueError("'%s' is not unique for '%s'" %
             (cls.key_schema, cls.model))
         except cls.model.DoesNotExist:
-            instance = cls.create(**items)
-        return cls.update(instance, **items)
+            bundle = cls.create(**items)
+        return bundle.update(**items)
 
+
+serialize = Cast({
+    AllSubSetsOf(dict): MappingBundle,
+    AllSubSetsOf(list): IterableBundle,
+    AllSubSetsOf(object): IdentityBundle,
+    AllSubSetsOf(models.Model): ReadOnlyModelBundle,
+}, {
+    AllSubSetsOf(dict): MappingBundle,
+    AllSubSetsOf(list): IterableBundle,
+    AllSubSetsOf(object): MappingBundle,
+    AllSubSetsOf(QuerySet): IterableBundle,
+})
+
+
+deserialize = Cast({
+    AllSubSetsOf(dict): MappingBundle,
+    AllSubSetsOf(list): IterableBundle,
+    AllSubSetsOf(object): IdentityBundle,
+    AllSubSetsOf(models.Model): ReadOnlyModelBundle,
+})

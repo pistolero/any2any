@@ -7,10 +7,12 @@ from django.http import QueryDict
 from django.contrib.gis.geos import (Point, LineString,
 LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
 
+from any2any import *
 from any2any.django.bundle import *
 from models import *
 
 from nose.tools import assert_raises, ok_
+
 
 class AuthorBundle(CRUModelBundle):
     klass = Author
@@ -74,7 +76,7 @@ class ColumnistBundle(CRUModelBundle):
 class UpdateOnlyIssue(UpdateOnlyModelBundle):
     klass = Issue
 
-
+'''
 class ModelMixin_Test(object):
     """
     Test ModelMixin, base of all ModelBundles
@@ -132,7 +134,7 @@ class ModelMixin_Test(object):
             'id': 7763,
             'column': 'truck',
         }) == {'firstname': 'Jamy', 'lastname': 'Gourmaud'})
-
+'''
 
 class BaseModel(object):
     
@@ -158,8 +160,8 @@ class BaseModel(object):
         self.journalist.save()
         self.columnist.save()
 
-        self.serializer = DjangoSerializer()
-        self.deserializer = DjangoDeserializer()
+        self.serialize = serialize
+        self.deserialize = deserialize
 
     def tearDown(self):
         self.author.delete()
@@ -181,7 +183,7 @@ class ModelToDict_Test(BaseModel):
         """
         Simple test ModelToDict.call
         """
-        ok_(self.serializer(self.author) == {
+        ok_(self.serialize(self.author) == {
             'id': self.author.pk,
             'pk': self.author.pk,
             'firstname': 'John',
@@ -193,7 +195,7 @@ class ModelToDict_Test(BaseModel):
         """
         Test ModelToDict.call with a model with long inheritance chain.
         """
-        ok_(self.serializer(self.columnist) == {
+        ok_(self.serialize(self.columnist) == {
             'id': self.columnist.pk,
             'pk': self.columnist.pk,
             'firstname': 'Jamy',
@@ -207,7 +209,7 @@ class ModelToDict_Test(BaseModel):
         """
         Test ModelToDict.call with foreignkeys
         """
-        ok_(self.serializer(self.book) == {
+        ok_(self.serialize(self.book) == {
             'id': self.book.pk,
             'pk': self.book.pk,
             'title': 'Grapes of Wrath',
@@ -225,7 +227,7 @@ class ModelToDict_Test(BaseModel):
         """
         Test ModelToDict.call with many2many field.
         """
-        ok_(self.serializer(self.gourmand) == {
+        ok_(self.serialize(self.gourmand) == {
             'id': self.gourmand.pk, 'pk': self.gourmand.pk, 
             'pseudo': 'Taz', 'favourite_dishes': [],
             'firstname': 'T', 'lastname': 'Aznicniev'
@@ -233,7 +235,7 @@ class ModelToDict_Test(BaseModel):
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.favourite_dishes.add(self.foiegras)
         self.gourmand.save()
-        ok_(self.serializer(self.gourmand) == {
+        ok_(self.serialize(self.gourmand) == {
             'id': self.gourmand.pk, 'pk': self.gourmand.pk,
             'pseudo': 'Taz', 'firstname': 'T', 'lastname': 'Aznicniev',
             'favourite_dishes': [
@@ -253,13 +255,10 @@ class ModelToDict_Test(BaseModel):
         class JournalBundle(CRUModelBundle):
             klass = Journal
             include = ['name', 'journalist_set']
-        journalist_cast = ModelToDict(from_=JournalistBundle)
-        journal_cast = ModelToDict(from_=JournalBundle)
-        cast = DjangoSerializer(extra_mm_to_cast={
-            Mm(from_any=Journalist): journalist_cast,
-            Mm(from_any=Journal): journal_cast,
-        })
-        ok_(cast(self.journal) == {
+            extra_schema = {
+                'journalist_set': QuerySetBundle.get_subclass(value_type=JournalistBundle)
+            }
+        ok_(serialize(self.journal, in_class=JournalBundle) == {
             'journalist_set': [
                 {'lastname': u'Courant', 'firstname': u'Fred'},
                 {'lastname': u'Gourmaud', 'firstname': u'Jamy'}
@@ -276,13 +275,8 @@ class ModelToDict_Test(BaseModel):
             klass = Dish
             exclude = ['id', 'pk']
             include_related = True
-        gourmand_cast = ModelToDict(from_=GourmandBundle)
-        dish_cast = ModelToDict(from_=DishBundle)
-        cast = DjangoSerializer(extra_mm_to_cast={
-            Mm(from_any=Gourmand): gourmand_cast,
-            Mm(from_any=Dish): dish_cast,
-        })
-        ok_(cast(self.salmon) == {
+            extra_schema = {'gourmand_set': QuerySetBundle.get_subclass(value_type=GourmandBundle)}
+        ok_(serialize(self.salmon, in_class=DishBundle) == {
             'gourmand_set': [
                 {'pseudo': u'Taz'},
             ],
@@ -298,11 +292,11 @@ class ModelToDict_Test(BaseModel):
             include = ['name']
         class IssueBundle(CRUModelBundle):
             klass = Issue
-            include=['journal', 'issue_date', 'last_char_datetime']
-        journal_cast = ModelToDict(from_=JournalBundle)
-        issue_cast = ModelToDict(from_=IssueBundle, key_to_cast={'journal': journal_cast})
-        cast = DjangoSerializer(extra_mm_to_cast={Mm(from_any=Issue): issue_cast})
-        ok_(cast(self.issue) == {
+            include = ['journal', 'issue_date', 'last_char_datetime']
+            extra_schema = {
+                'journal': JournalBundle
+            }
+        ok_(self.serialize(self.issue, in_class=IssueBundle) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
             'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
@@ -318,7 +312,7 @@ class DictToModel_Test(BaseModel):
         Simple test DictToModel.call
         """
         authors_before = Author.objects.count()
-        james = self.deserializer({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, to=AuthorBundle)
+        james = self.deserialize({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, out_class=AuthorBundle)
         james = Author.objects.get(pk=james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
@@ -334,10 +328,10 @@ class DictToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.deserializer({
+        book = self.deserialize({
             'id': self.book.pk, 'title': 'In cold blood', 'comments': 'great great great',
             'author': {'id': self.author.pk, 'pk': self.author.pk, 'firstname': 'Truman', 'lastname': 'Capote'}, 
-        }, to=UpdateOnlyBook)
+        }, out_class=UpdateOnlyBook)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(pk=book.author.pk)
         # We check the fields
@@ -354,10 +348,10 @@ class DictToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.deserializer({
+        book = self.deserialize({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
-        }, to=BookBundle)
+        }, out_class=BookBundle)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -377,10 +371,10 @@ class DictToModel_Test(BaseModel):
         """
         authors_before = Author.objects.count()
         books_before = Book.objects.count()
-        book = self.deserializer({
+        book = self.deserialize({
             'id': 989, 'title': '1984', 'comments': 'great great great',
             'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
-        }, to=BookBundle)
+        }, out_class=BookBundle)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -402,14 +396,14 @@ class DictToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand = self.deserializer({
+        gourmand = self.deserialize({
             'id': self.gourmand.pk,
             'pseudo': 'Taaaaz',
             'favourite_dishes': [
                 {'id': self.salmon.pk, 'name': 'Pretty much'},
                 {'id': self.foiegras.pk, 'name': 'Anything'},
             ]
-        }, to=UpdateOnlyGourmand)
+        }, out_class=UpdateOnlyGourmand)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         salmon = Dish.objects.get(pk=self.salmon.pk)
         foiegras = Dish.objects.get(pk=self.foiegras.pk)
@@ -428,14 +422,14 @@ class DictToModel_Test(BaseModel):
         """
         g_before = Gourmand.objects.count()
         d_before = Dish.objects.count()
-        gourmand = self.deserializer({
+        gourmand = self.deserialize({
             'pseudo': 'Touz',
             'favourite_dishes': [
                 {'id': 888, 'name': 'Vitamine O'},
                 {'id': self.salmon.pk},
                 {'id': self.foiegras.pk},
             ]
-        }, to=GourmandBundle)
+        }, out_class=GourmandBundle)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         vitamineo = Dish.objects.get(pk=888)
         # We check the fields
@@ -451,25 +445,25 @@ class DictToModel_Test(BaseModel):
         Test DictToModel.call updating a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey - only works if fk can be null
-        journal = self.deserializer({
+        journal = self.deserialize({
             'id': self.journal.id,
             'journalist_set': [],
-        }, to=UpdateOnlyJournal)
+        }, out_class=UpdateOnlyJournal)
         ok_(set(journal.journalist_set.all()) == set())
-        journal = self.deserializer({
+        journal = self.deserialize({
             'id': self.journal.id,
             'journalist_set': [
                 {'id': self.journalist.id},
             ],
-        }, to=UpdateOnlyJournal)
+        }, out_class=UpdateOnlyJournal)
         ok_(set(journal.journalist_set.all()) == set([self.journalist]))
         # reverse m2m
-        salmon = self.deserializer({
+        salmon = self.deserialize({
             'id': self.salmon.id,
             'gourmand_set': [
                 {'id': self.gourmand.id},
             ]
-        }, to=UpdateOnlyDish)
+        }, out_class=UpdateOnlyDish)
         ok_(set(salmon.gourmand_set.all()) == set([self.gourmand]))
 
     def update_object_with_nk_test(self):
@@ -477,11 +471,11 @@ class DictToModel_Test(BaseModel):
         Test update an object with its natural key, natural key already existing.
         """
         columnist_before = Columnist.objects.count()
-        jamy = self.deserializer({
+        jamy = self.deserialize({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'column': 'truck'
-        }, to=UpdateOnlyColumnist)
+        }, out_class=UpdateOnlyColumnist)
         jamy = Columnist.objects.get(pk=jamy.pk)
         # We check the fields
         ok_(jamy.column == 'truck')
@@ -493,12 +487,12 @@ class DictToModel_Test(BaseModel):
         Test deserialize and create an object with its natural key.
         """
         columnist_before = Columnist.objects.count()
-        fred = self.deserializer({
+        fred = self.deserialize({
             'firstname': 'Frédéric',
             'lastname': 'Courant',
             'journal': {'id': self.journal.pk},
             'column': 'on the field',
-        }, to=ColumnistBundle)
+        }, out_class=ColumnistBundle)
         fred = Columnist.objects.get(pk=fred.pk)
         # We check the fields
         ok_(fred.column == 'on the field')
@@ -510,46 +504,41 @@ class DictToModel_Test(BaseModel):
         """
         Test deserializing date and datetime
         """
-        issue = self.deserializer({
+        issue = self.deserialize({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
             'last_char_datetime': {'year': 1864, 'month': 12, 'day': 31, 'hour': 1},
-        }, to=UpdateOnlyIssue)
+        }, out_class=UpdateOnlyIssue)
         ok_(issue.issue_date == datetime.date(year=1865, month=1, day=1))
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 
-    def file_field_test(self):
-        """
-        Test deserialize file field
-        """
-        self.file_model
         
-
+'''
 class GeoDjango_Test(object):
     """
     Test serialize and deserialize GeoDjango's geometry objects.
     """
 
     def setUp(self):
-        self.serializer = DjangoSerializer()
-        self.deserializer = DjangoDeserializer()
+        self.serialize = serialize
+        self.deserialize = deserialize
 
     def Point_serialize_test(self):
         """
         Test serialize Point
         """
         point = Point([1, 2, 3])
-        ok_(self.serializer(point) == [1.0, 2.0, 3.0])
+        ok_(self.serialize(point) == [1.0, 2.0, 3.0])
         point = Point([1, 2])
-        ok_(self.serializer(point) == [1.0, 2.0])
+        ok_(self.serialize(point) == [1.0, 2.0])
 
     def Point_deserialize_test(self):
         """
         Test deserialize Point
         """
-        point = self.deserializer([1, 2, 3], to=Point)
+        point = self.deserialize([1, 2, 3], out_class=Point)
         ok_([point.x, point.y, point.z] == [1.0, 2.0, 3.0])
-        point = self.deserializer([5.0, 2], to=Point)
+        point = self.deserialize([5.0, 2], out_class=Point)
         ok_([point.x, point.y, point.z] == [5.0, 2, None])
 
     def LineString_serialize_test(self):
@@ -557,20 +546,19 @@ class GeoDjango_Test(object):
         Test serialize LineString
         """
         line = LineString([[1, 2, 3], [2, 7.0, 9.0], [3.0, 9.0, -6.8]])
-        ok_(self.serializer(line) == [[1, 2, 3], [2, 7.0, 9.0], [3.0, 9.0, -6.8]])
+        ok_(self.serialize(line) == [[1, 2, 3], [2, 7.0, 9.0], [3.0, 9.0, -6.8]])
         line = LineString(Point(-1, 7.9, 3), Point(3.0, 9.0, -77))
-        ok_(self.serializer(line) == [[-1.0, 7.9, 3.0], [3.0, 9.0, -77.0]])
+        ok_(self.serialize(line) == [[-1.0, 7.9, 3.0], [3.0, 9.0, -77.0]])
 
     def LineString_deserialize_test(self):
         """
         Test deserialize LineString
         """
-        line = self.deserializer([[56.9, 2, 3], [2, 7.0, 8], [3.0, 9.0, -6.8], [156.9, 88, 0]], to=LineString)
+        line = self.deserialize([[56.9, 2, 3], [2, 7.0, 8], [3.0, 9.0, -6.8], [156.9, 88, 0]], out_class=LineString)
         ok_(line == LineString(Point(56.9, 2, 3), Point(2, 7.0, 8), Point(3.0, 9.0, -6.8), Point(156.9, 88, 0)))
         def build_point(pdict):
             return Point(pdict['x'], pdict['y'], pdict.get('z'))
-        deserializer = DjangoDeserializer(extra_mm_to_cast={Mm(to_any=Point): build_point})
-        line = deserializer([{'x': 5, 'y': -9.0}, {'x': 2, 'y': 7.0}], to=LineString)
+        line = deserialize([{'x': 5, 'y': -9.0}, {'x': 2, 'y': 7.0}], out_class=LineString)
         ok_(line == LineString(Point(5, -9.0), Point(2, 7.0)))
 
     def LinearRing_serialize_test(self):
@@ -578,13 +566,13 @@ class GeoDjango_Test(object):
         Test serialize LinearRing
         """
         line = LinearRing([[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]])
-        ok_(self.serializer(line) == [[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]])
+        ok_(self.serialize(line) == [[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]])
 
     def LinearRing_deserialize_test(self):
         """
         Test deserialize LinearRing
         """
-        line = self.deserializer([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]], to=LinearRing)
+        line = self.deserialize([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]], out_class=LinearRing)
         ok_(line == LinearRing([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]]))
 
     def Polygon_serialize_test(self):
@@ -592,13 +580,13 @@ class GeoDjango_Test(object):
         Test serialize Polygon
         """
         polygon = Polygon(LinearRing([[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]]))
-        ok_(self.serializer(polygon) == [[[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]]])
+        ok_(self.serialize(polygon) == [[[99.7, 6, 4.7], [6.5, 0, 0], [55, 9, 0], [99.7, 6, 4.7]]])
 
     def Polygon_deserialize_test(self):
         """
         Test deserialize Polygon
         """
-        line = self.deserializer([[[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]]], to=Polygon)
+        line = self.deserialize([[[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]]], out_class=Polygon)
         ok_(line == Polygon(LinearRing([[8.9, 0], [8, 0], [8.6, 0], [8.9, 0]])))
 
     def MultiPoint_serialize_test(self):
@@ -606,13 +594,13 @@ class GeoDjango_Test(object):
         Test serialize MultiPoint
         """
         mpoint = MultiPoint(Point(1, 2), Point(2, 6, 8))
-        ok_(self.serializer(mpoint) == [[1, 2], [2, 6, 8]])
+        ok_(self.serialize(mpoint) == [[1, 2], [2, 6, 8]])
 
     def MultiPoint_deserialize_test(self):
         """
         Test deserialize MultiPoint
         """
-        line = self.deserializer([[0, 0], [1, 2, 8], [8.6, 0]], to=MultiPoint)
+        line = self.deserialize([[0, 0], [1, 2, 8], [8.6, 0]], out_class=MultiPoint)
         ok_(line == MultiPoint(Point(0, 0), Point(1, 2, 8), Point(8.6, 0)))
 
     def MultiLineString_serialize_test(self):
@@ -623,13 +611,13 @@ class GeoDjango_Test(object):
             LineString(Point(1, 2, 3), Point(2, 6, 8)),
             LineString(Point(0, 0), Point(6.9, 8))
         )
-        ok_(self.serializer(mline) == [[[1, 2, 3], [2, 6, 8]], [[0, 0], [6.9, 8]]])
+        ok_(self.serialize(mline) == [[[1, 2, 3], [2, 6, 8]], [[0, 0], [6.9, 8]]])
 
     def MultiLineString_deserialize_test(self):
         """
         Test deserialize MultiLineString
         """
-        mline = self.deserializer([[[1, 2, 3], [2, 6, 8]], [[0, 0], [6.9, 8]]], to=MultiLineString)
+        mline = self.deserialize([[[1, 2, 3], [2, 6, 8]], [[0, 0], [6.9, 8]]], out_class=MultiLineString)
         ok_(mline == MultiLineString(
             LineString(Point(1, 2, 3), Point(2, 6, 8)),
             LineString(Point(0, 0), Point(6.9, 8))
@@ -643,7 +631,7 @@ class GeoDjango_Test(object):
             Polygon(LinearRing(Point(1, 2, 3), Point(2, 6, 8), Point(2, 6, 10), Point(1, 2, 3))),
             Polygon(LinearRing(Point(0, 0), Point(2, 6), Point(2.5, 6), Point(0, 0)))
         )
-        ok_(self.serializer(mpoly) == [
+        ok_(self.serialize(mpoly) == [
             [[[1, 2, 3], [2, 6, 8], [2, 6, 10], [1, 2, 3]]],
             [[[0, 0], [2, 6], [2.5, 6], [0, 0]]]
         ])
@@ -652,11 +640,12 @@ class GeoDjango_Test(object):
         """
         Test deserialize MultiPolygon
         """
-        mpoly = self.deserializer([
+        mpoly = self.deserialize([
             [[[1, 2, 3], [2, 6, 8], [2, 6, 10], [1, 2, 3]]],
             [[[0, 0], [2, 6], [2.5, 6], [0, 0]]]
-        ], to=MultiPolygon)
+        ], out_class=MultiPolygon)
         ok_(mpoly == MultiPolygon(
             Polygon(LinearRing(Point(1, 2, 3), Point(2, 6, 8), Point(2, 6, 10), Point(1, 2, 3))),
             Polygon(LinearRing(Point(0, 0), Point(2, 6), Point(2.5, 6), Point(0, 0)))
         ))
+'''
