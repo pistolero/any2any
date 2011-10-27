@@ -2,6 +2,7 @@
 from nose.tools import assert_raises, ok_
 from any2any.bundle import *
 
+
 class Bundle_Test(object):
     """
     Tests on Bundle
@@ -13,6 +14,15 @@ class Bundle_Test(object):
         ok_(not issubclass(Bundle, MyBundle))
         ok_(MyBundle.klass == int)
         ok_(MyBundle.bla == 8)
+
+    def get_actual_schema_test(self):
+        """
+        test Bundle.get_actual_schema
+        """
+        schema = MappingBundle({'a': 1, 'b': 'b'}).get_actual_schema()
+        ok_(schema == {'a': int, 'b': str})
+        schema = IterableBundle([1, 'b', 2.0]).get_actual_schema()
+        ok_(schema == {0: int, 1: str, 2: float})
 
 
 class IdentityBundle_Test(object):

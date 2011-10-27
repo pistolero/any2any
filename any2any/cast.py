@@ -40,7 +40,7 @@ class Cast(object):
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = self.get_actual_schema(inpt, in_b_class)
+            in_schema = in_b_class(inpt).get_actual_schema()
             compiled = CompiledSchema(in_schema, out_schema) 
         self.log(inpt, in_b_class, in_schema, out_b_class, out_schema)
         # realize the casting
@@ -91,13 +91,6 @@ class Cast(object):
             raise NoSuitableBundleClass('%s' % klass)
         return bundle_class_map[best_match]
 
-    @classmethod
-    def get_actual_schema(cls, obj, bundle_class):
-        schema = {}
-        bundle = bundle_class(obj)
-        for k, v in iter(bundle):
-            schema[k] = type(v)
-        return schema
 
 class SchemaError(TypeError): pass
 class SchemaNotValid(SchemaError): pass
@@ -125,11 +118,11 @@ class CompiledSchema(object):
                 raise SchemasDontMatch("both in_schema and out_schema must contain 'KeyFinal'")
         elif Bundle.KeyAny in out_schema:
             pass
-        elif set(out_schema) <= set(in_schema):
+        elif set(out_schema) >= set(in_schema):
             pass
         else:
-            raise SchemasDontMatch("in_schema doesn't provide '%s'" %
-            list(set(out_schema) - set(in_schema)))
+            raise SchemasDontMatch("out_schema doesn't contain '%s'" %
+            list(set(in_schema) - set(out_schema)))
 
     @classmethod
     def validate_schema(cls, schema):

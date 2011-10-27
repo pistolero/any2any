@@ -60,3 +60,9 @@ class Singleton(ClassSet):
     def __repr__(self):
         return u"'%s'" % self.klass.__name__
 
+
+def classproperty(func):
+    class _classproperty(property):
+        def __get__(self, cls, owner):
+            return self.fget.__get__(None, owner)()
+    return _classproperty(classmethod(func))

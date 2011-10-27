@@ -40,8 +40,8 @@ class CompiledSchema_test(object):
         """
         test validate_schemas_match with 2 valid schemas
         """
-        schema_in = {'a': int, 'b': str, 'c': float}
-        schema_out = {'a': int, 'c': int}
+        schema_in = {'a': int, 'c': int}
+        schema_out = {'a': int, 'b': str, 'c': float}
         ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
 
         schema_in = {'a': int, 'b': str, 'c': float}
@@ -84,11 +84,11 @@ class CompiledSchema_test(object):
         """
         test CompliedSchema.get_out_class
         """
-        schema_in = {'a': int, 'b': str}
-        schema_out = {'a': float}
+        schema_in = {'a': float}
+        schema_out = {'a': int, 'b': str}
         compiled = CompiledSchema(schema_in, schema_out)
-        ok_(compiled.get_out_class('a') is float)
-        assert_raises(KeyError, compiled.get_out_class, 'b')
+        ok_(compiled.get_out_class('a') is int)
+        assert_raises(KeyError, compiled.get_in_class, 'b')
         
         schema_in = {'a': int, 'b': str, 'c': float}
         schema_out = {Bundle.KeyAny: int}
@@ -146,15 +146,6 @@ class Cast_test(object):
         test Cast.get_bundle_class with no suitable bundle class
         """
         assert_raises(NoSuitableBundleClass, Cast.get_bundle_class, str, {Singleton(int): IntBundle})
-
-    def get_actual_schema_test(self):
-        """
-        test Cast.get_actual_schema
-        """        
-        schema = Cast.get_actual_schema({'a': 1, 'b': 'b'}, MappingBundle)
-        ok_(schema == {'a': int, 'b': str})
-        schema = Cast.get_actual_schema([1, 'b', 2.0], IterableBundle)
-        ok_(schema == {0: int, 1: str, 2: float})
 
     def call_test(self):
         """

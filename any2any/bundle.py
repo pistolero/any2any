@@ -17,6 +17,16 @@ class Bundle(object):
 
     def __iter__(self):
         return self.iter()
+
+    def get_actual_schema(self):
+        schema = {}
+        for k, v in iter(self):
+            schema[k] = type(v)
+        return schema
+
+    @classmethod
+    def get_subclass(cls, **attrs):
+        return type(cls.__name__, (cls,), attrs)
             
     @classmethod
     def get_schema(cls):
@@ -31,9 +41,6 @@ class Bundle(object):
         # TODO: name pack ?
         raise NotImplementedError()
 
-    @classmethod
-    def get_subclass(cls, **attrs):
-        return type(cls.__name__, (cls,), attrs)
 
 class IdentityBundle(Bundle):
 
