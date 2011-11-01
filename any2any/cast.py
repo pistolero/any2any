@@ -48,7 +48,8 @@ class Cast(object):
         return out_b_class.factory(generator()).obj
 
     def log(self, inpt, in_b_class, in_schema, out_b_class, out_schema):
-        print '%s\n%s-%s => %s-%s\n' % (inpt, in_b_class.__name__, in_schema, out_b_class.__name__, out_schema) 
+        pass
+        #print '%s\n%s-%s => %s-%s\n' % (inpt, in_b_class.__name__, in_schema, out_b_class.__name__, out_schema) 
 
     def _get_fallback(self, in_bundle_class):
         in_class = in_bundle_class.klass

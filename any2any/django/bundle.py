@@ -24,7 +24,8 @@ QUERYSET_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
     models.ManyToManyField, GenericRelation)
 RELATED_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor)
 SIMPLE_FIELDS = (models.CharField, models.TextField, models.IntegerField, models.DateTimeField,
-    models.DateField, models.AutoField)
+    models.DateField, models.AutoField, models.FileField, models.BooleanField)
+
 
 from any2any import *
 from any2any.bundle import ValueInfo
@@ -224,6 +225,10 @@ class ModelMixin(ModelIntrospector):
                     klass = datetime.datetime
                 elif isinstance(f, models.DateField):
                     klass = datetime.date
+                elif isinstance(f, models.FileField):
+                    klass = File
+                elif isinstance(f, models.BooleanField):
+                    klass = bool
                 v = ValueInfo(klass=klass, lookup_with=(ftype, klass))
             elif isinstance(f, models.ForeignKey):
                 v = ValueInfo(klass=f.rel.to, lookup_with=(ftype, f.rel.to))
@@ -248,7 +253,7 @@ class ModelMixin(ModelIntrospector):
                     geom_type = MultiPolygonBundle
                 v = ValueInfo(klass=geom_type, lookup_with=(ftype, geom_type))
             else:
-                v = ftype
+                v = ValueInfo(klass=str, lookup_with=(ftype, str)) # TODO: Not sure about that ...
 
             schema[name] = v
         return schema
@@ -320,12 +325,14 @@ serialize = Cast({
     AllSubSetsOf(list): IterableBundle,
     AllSubSetsOf(int): IdentityBundle,
     AllSubSetsOf(float): IdentityBundle,
+    AllSubSetsOf(bool): IdentityBundle,
     AllSubSetsOf(basestring): IdentityBundle,
     AllSubSetsOf(datetime.datetime): DateTimeBundle,
     AllSubSetsOf(datetime.date): DateBundle,
 
     AllSubSetsOf(models.Model): ReadOnlyModelBundle,
     AllSubSetsOf(QuerySet): QuerySetBundle,
+    AllSubSetsOf(File): IdentityBundle,
 
     Singleton(Point): PointBundle,
     Singleton(LineString): LineStringBundle,
@@ -349,12 +356,14 @@ deserialize = Cast({
     AllSubSetsOf(list): IterableBundle,
     AllSubSetsOf(int): IdentityBundle,
     AllSubSetsOf(float): IdentityBundle,
+    AllSubSetsOf(bool): IdentityBundle,
     AllSubSetsOf(basestring): IdentityBundle,
     AllSubSetsOf(datetime.datetime): DateTimeBundle,
     AllSubSetsOf(datetime.date): DateBundle,
 
     AllSubSetsOf(models.Model): ReadOnlyModelBundle,
     AllSubSetsOf(QuerySet): QuerySetBundle,
+    AllSubSetsOf(File): IdentityBundle,
 
     Singleton(Point): PointBundle,
     Singleton(LineString): LineStringBundle,
