@@ -62,3 +62,25 @@ class ClassSet_Test(object):
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
+    def pick_best_test(self):
+        """
+        test ValueInfo._pick_best
+        """
+        choice_map = {
+            AllSubSetsOf(basestring): 1,
+            AllSubSetsOf(object): 2,
+            Singleton(int): 3,
+        }
+        ok_(ClassSet.pick_best(object, choice_map) is 2)
+        ok_(ClassSet.pick_best(float, choice_map) is 2)
+        ok_(ClassSet.pick_best(str, choice_map) is 1)
+        ok_(ClassSet.pick_best(int, choice_map) is 3)
+
+    def no_pick_test(self):
+        """
+        test ValueInfo._pick_best with no suitable bundle class
+        """
+        choice_map = {Singleton(int): 1}
+        class Bla(Exception): pass
+        assert_raises(Bla, ClassSet.pick_best, str, choice_map, exc_type=Bla)
+

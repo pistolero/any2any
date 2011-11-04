@@ -1,6 +1,79 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
 from any2any.bundle import *
+from any2any.cast import *
+
+
+class BaseStrBundle(Bundle): pass
+class IntBundle(Bundle): pass
+class MyFloatBundle(Bundle):
+    klass = float
+
+
+class ValueInfo_test(object):
+
+    def klass_test(self):
+        """
+        test ValueInfo.klass
+        """
+        value_info = ValueInfo(MyFloatBundle)
+        ok_(value_info.klass == float)
+        value_info = ValueInfo(str)
+        ok_(value_info.klass == str)
+
+    def lookup_with_test(self):
+        """
+        test ValueInfo.lookup_with
+        """
+        value_info = ValueInfo(int)
+        ok_(value_info.lookup_with == (int,))
+        value_info = ValueInfo(str, lookup_with=(float, int))
+        ok_(value_info.lookup_with == (float, int))
+
+    def new_test(self):
+        """
+        Test constructor
+        """
+        ok_(ValueInfo(Bundle.ValueUnknown) is Bundle.ValueUnknown)
+        value_info = ValueInfo(int)
+        ok_(ValueInfo(value_info) is value_info)
+        ok_(not ValueInfo(int) is ValueInfo(int))
+        ok_(not ValueInfo(MyFloatBundle) is ValueInfo(MyFloatBundle))
+
+    def bundle_class_test(self):
+        """
+        test ValueInfo.bundle_class
+        """
+        bcm = {
+            AllSubSetsOf(basestring): BaseStrBundle,
+            AllSubSetsOf(list): IdentityBundle,
+            Singleton(int): IntBundle,
+        }
+        # With a bundle class
+        value_info = ValueInfo(BaseStrBundle)
+        value_info.bundle_class_map = bcm
+        ok_(issubclass(value_info.bundle_class, BaseStrBundle))
+        # with a normal class
+        value_info = ValueInfo(int)
+        value_info.bundle_class_map = bcm
+        ok_(issubclass(value_info.bundle_class, IntBundle))
+        ok_(value_info.bundle_class.klass is int)
+        value_info = ValueInfo(str, schema={'a': str})
+        value_info.bundle_class_map = bcm
+        ok_(issubclass(value_info.bundle_class, BaseStrBundle))
+        ok_(value_info.bundle_class.klass is str)
+        ok_(value_info.bundle_class.schema == {'a': str})
+        # with provided lookup
+        value_info = ValueInfo(tuple, lookup_with=(float, basestring, list))
+        value_info.bundle_class_map = bcm
+        ok_(issubclass(value_info.bundle_class, BaseStrBundle))
+        ok_(value_info.bundle_class.klass is tuple)
+
+    def schema_test(self):
+        """
+        test ValueInfo.schema
+        """
+        pass
 
 
 class Bundle_Test(object):

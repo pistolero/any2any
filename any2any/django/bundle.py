@@ -229,15 +229,15 @@ class ModelMixin(ModelIntrospector):
                     klass = File
                 elif isinstance(f, models.BooleanField):
                     klass = bool
-                v = ValueInfo(klass=klass, lookup_with=(ftype, klass))
+                v = ValueInfo(klass, lookup_with=(ftype, klass))
             elif isinstance(f, models.ForeignKey):
-                v = ValueInfo(klass=f.rel.to, lookup_with=(ftype, f.rel.to))
+                v = ValueInfo(f.rel.to, lookup_with=(ftype, f.rel.to))
             elif isinstance(f, QUERYSET_FIELDS):
                 if isinstance(f, RELATED_FIELDS):
                     to = f.related.model
                 else:
                     to = f.rel.to
-                v = ValueInfo(klass=QuerySet, schema={Bundle.KeyAny: to}, lookup_with=(ftype, QuerySet))
+                v = ValueInfo(QuerySet, schema={Bundle.KeyAny: to}, lookup_with=(ftype, QuerySet))
             elif isinstance(f, GEODJANGO_FIELDS):
                 if isinstance(f, PointField):
                     geom_type = Point
@@ -251,9 +251,9 @@ class ModelMixin(ModelIntrospector):
                     geom_type = MultiLineBundle
                 elif isinstance(f, MultiPolygonField):
                     geom_type = MultiPolygonBundle
-                v = ValueInfo(klass=geom_type, lookup_with=(ftype, geom_type))
+                v = ValueInfo(geom_type, lookup_with=(ftype, geom_type))
             else:
-                v = ValueInfo(klass=str, lookup_with=(ftype, str)) # TODO: Not sure about that ...
+                v = ValueInfo(str, lookup_with=(ftype, str)) # TODO: Not sure about that ...
 
             schema[name] = v
         return schema

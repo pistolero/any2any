@@ -11,7 +11,7 @@ class ClassSet(object):
         return not self == other
 
     def __gt__(self, other):
-        other = self.default_to_singleton(other)
+        other = self._default_to_singleton(other)
         return not self == other and other < self
 
     def __le__(self, other):
@@ -20,11 +20,25 @@ class ClassSet(object):
     def __ge__(self, other):
         return self > other or self == other
 
-    def default_to_singleton(self, klass):
+    def _default_to_singleton(self, klass):
         if not isinstance(klass, ClassSet):
             return Singleton(klass)
         else:
             return klass
+
+    @staticmethod
+    def pick_best(klass, choice_map, exc_type=ValueError):
+        class_sets = set(filter(lambda cs: klass <= cs, choice_map))
+        # Eliminate supersets
+        for cs1 in class_sets.copy():
+            for cs2 in class_sets.copy():
+                if cs1 <= cs2 and not cs1 is cs2:
+                    class_sets.discard(cs2)
+        try:
+            best_match = list(class_sets)[0]
+        except IndexError:
+            raise exc_type("couldn't find a match for %s" % klass)
+        return choice_map[best_match]
 
 
 class AllSubSetsOf(ClassSet):
@@ -48,7 +62,7 @@ class AllSubSetsOf(ClassSet):
 class Singleton(ClassSet):
 
     def __eq__(self, other):
-        other = self.default_to_singleton(other)
+        other = self._default_to_singleton(other)
         return self.klass == other.klass
 
     def __lt__(self, other):

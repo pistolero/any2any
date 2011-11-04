@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from utils import ClassSet
 
 
 class FactoryError(TypeError): pass
@@ -170,16 +171,88 @@ class ObjectBundle(Bundle):
             return getattr(self.obj, name)
 
 
+class NoSuitableBundleClass(Exception): pass
+
+
 class ValueInfo(object):
 
-    def __init__(self, klass, lookup_with=(), schema=None):
-        self.klass = klass
-        self.lookup_with = lookup_with
-        self.schema = schema
+    def __new__(cls, val, *args, **kwargs):
+        if cls._should_bypass(val):
+            return val
+        else:
+            return super(ValueInfo, cls).__new__(cls, val, *args, **kwargs)
+
+    def __init__(self, class_or_bundle_class, lookup_with=(), schema=None, access='rw'):
+        if self._should_bypass(class_or_bundle_class):
+            return
+        elif issubclass(class_or_bundle_class, Bundle):
+            self._raw_bundle_class = class_or_bundle_class
+        else:
+            self._klass = class_or_bundle_class
+        self._schema = schema
+        self._lookup_with = lookup_with
+        if not (set(access) & set('rw')) == set(access):
+            raise ValueError("'access' can contain only chars 'r' and 'w'")
+        self.access = access
+        self._bundle_class_map = {}
 
     @property
-    def bundle_class_dict(self):
-        return {'klass': self.klass, 'schema': self.schema}
+    def schema(self):
+        return self.bundle_class.get_schema()
 
-    def get_lookup_classes(self):
-        return self.lookup_with or (self.klass,)
+    @property
+    def bundle_class(self):
+        # Finding a bundle class, if we don't have one yet
+        if not hasattr(self, '_bundle_class'):
+            if not hasattr(self, '_raw_bundle_class'):
+                exc = None
+                for k in self.lookup_with:
+                    try:
+                        bundle_class = ClassSet.pick_best(
+                            k, self.bundle_class_map,
+                            exc_type=NoSuitableBundleClass
+                        )
+                    except NoSuitableBundleClass as exc:
+                        pass
+                    else:
+                        exc = None
+                        break
+                if exc: raise exc
+            else:
+                bundle_class = self._raw_bundle_class
+            # customizing the bundle class
+            attrs = {}
+            hasattr(self, '_klass') and attrs.update({'klass': self._klass})
+            (self._schema is not None) and attrs.update({'schema': self._schema})
+            self._bundle_class = bundle_class.get_subclass(**attrs)
+        return self._bundle_class
+
+    @property
+    def bundle_class_map(self):
+        return self._bundle_class_map
+
+    @bundle_class_map.setter
+    def bundle_class_map(self, new_map):
+        if hasattr(self, '_bundle_class'):
+            del self._bundle_class
+        self._bundle_class_map = new_map
+
+    @property
+    def klass(self):
+        if hasattr(self, '_klass'):
+            return self._klass
+        else:
+            return self.bundle_class.klass
+
+    @property
+    def lookup_with(self):
+        return self._lookup_with or (self.klass,)
+
+    @staticmethod
+    def _should_bypass(val):
+        if val is Bundle.ValueUnknown:
+            return True
+        elif isinstance(val, ValueInfo):
+            return True
+        return False
+

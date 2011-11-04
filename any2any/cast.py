@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from bundle import Bundle, IdentityBundle, ValueInfo
+import copy
+
+from bundle import Bundle, IdentityBundle, ValueInfo, NoSuitableBundleClass
 from utils import AllSubSetsOf, Singleton, ClassSet
-
-
-class NoSuitableBundleClass(Exception): pass
 
 
 class Cast(object):
@@ -17,25 +16,24 @@ class Cast(object):
         # `inpt`'s class
         if in_class in [None, Bundle.ValueUnknown]:
             in_class = type(inpt)
-        in_b_class = self._get_bundle_class(in_class)
-        in_schema = in_b_class.get_schema()
+        in_value_info = ValueInfo(in_class)
+        in_value_info.bundle_class_map = self.bundle_class_map
         # `out_class` can be unknown, and it that case, we find a good fallback 
         if out_class in [None, Bundle.ValueUnknown]:
-            out_b_class = self._get_fallback(in_b_class)
+            out_value_info = self._get_fallback(in_value_info)
         else:
-            out_b_class = self._get_bundle_class(out_class)
-        out_schema = out_b_class.get_schema()
+            out_value_info = ValueInfo(out_class)
+        out_value_info.bundle_class_map = self.bundle_class_map
         # Compiling schemas : if it fails with the 2 schemas found,
-        # we bundle `inpt` with `in_b_class` and get the actual schema of `inpt`
+        # we use the actual schema of `inpt`
         try:
-            compiled = CompiledSchema(in_schema, out_schema)
+            compiled = CompiledSchema(in_value_info.schema, out_value_info.schema)
         except SchemasDontMatch:
-            in_schema = in_b_class(inpt).get_actual_schema()
-            compiled = CompiledSchema(in_schema, out_schema) 
-        self.log(inpt, in_b_class, in_schema, out_b_class, out_schema)
+            in_schema = in_value_info.bundle_class(inpt).get_actual_schema()
+            compiled = CompiledSchema(in_schema, out_value_info.schema)
         # realize the casting
         def generator():
-            for key, value in in_b_class(inpt):
+            for key, value in in_value_info.bundle_class(inpt):
                 if key is Bundle.KeyFinal:
                     casted_value = value
                 else:
@@ -45,59 +43,30 @@ class Cast(object):
                         in_class=compiled.get_in_class(key)
                     )
                 yield key, casted_value
-        return out_b_class.factory(generator()).obj
+        return out_value_info.bundle_class.factory(generator()).obj
 
-    def log(self, inpt, in_b_class, in_schema, out_b_class, out_schema):
+    def log(self, inpt, in_value_info, in_schema, out_value_info, out_schema):
         pass
-        #print '%s\n%s-%s => %s-%s\n' % (inpt, in_b_class.__name__, in_schema, out_b_class.__name__, out_schema) 
+        #print '%s\n%s-%s => %s-%s\n' % (inpt, in_value_info.__name__, in_schema, out_value_info.__name__, out_schema) 
 
-    def _get_fallback(self, in_bundle_class):
-        in_class = in_bundle_class.klass
+    def _get_fallback(self, in_value_info):
+        in_value_info.bundle_class_map = self.bundle_class_map
         # If input is a final value, we'll just assume that ouput is also
-        if Bundle.KeyFinal in in_bundle_class.get_schema():
-            return IdentityBundle
+        if Bundle.KeyFinal in in_value_info.schema:
+            return in_value_info
         # we try to get a bundle from the `fallback_map`
         try:
-            return self._pick_best(in_class, self.fallback_map)
+            bundle_class = ClassSet.pick_best(
+                in_value_info.klass,
+                self.fallback_map,
+                exc_type=NoSuitableBundleClass
+            )
         except NoSuitableBundleClass:
             pass
-        # Or we'll just use `in_bundle_class`, so that operation is an identity.
-        return in_bundle_class
-        # TODO: shouldn't this rather be an error ?
-        # raise NoSuitableBundleClass("out_class is 'ValueUnknown', and no fallback could be found")
-
-    def _get_bundle_class(self, klass):
-        if isinstance(klass, type) and issubclass(klass, Bundle):
-            return klass
-        elif isinstance(klass, ValueInfo):
-            exc = None
-            for k in klass.get_lookup_classes():
-                try:
-                    bundle_class = self._pick_best(k, self.bundle_class_map)
-                except NoSuitableBundleClass as exc:
-                    pass
-                else:
-                    break
-            else:
-                if exc: raise exc
-            return bundle_class.get_subclass(**klass.bundle_class_dict)
         else:
-            bundle_class = self._pick_best(klass, self.bundle_class_map)
-            return bundle_class.get_subclass(klass=klass)
-
-    @classmethod
-    def _pick_best(cls, klass, bundle_class_map):
-        class_sets = set(filter(lambda cs: klass <= cs, bundle_class_map))
-        # Eliminate supersets
-        for cs1 in class_sets.copy():
-            for cs2 in class_sets.copy():
-                if cs1 <= cs2 and not cs1 is cs2:
-                    class_sets.discard(cs2)
-        try:
-            best_match = list(class_sets)[0]
-        except IndexError:
-            raise NoSuitableBundleClass('%s' % klass)
-        return bundle_class_map[best_match]
+            return ValueInfo(bundle_class)
+        # Or we'll just use `in_value_info`, so that operation is an identity.
+        return in_value_info # TODO: shouldn't this rather be an error ?
 
 
 class SchemaError(TypeError): pass
