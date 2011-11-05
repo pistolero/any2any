@@ -43,7 +43,7 @@ class Cast(object):
                         in_class=compiled.get_in_class(key)
                     )
                 yield key, casted_value
-        return out_value_info.bundle_class.factory(generator()).obj
+        return out_value_info.bundle_class.build(generator()).obj
 
     def log(self, inpt, in_value_info, in_schema, out_value_info, out_schema):
         pass

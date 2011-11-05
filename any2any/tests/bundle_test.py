@@ -181,6 +181,63 @@ class Bundle_Test(object):
                 return {'a': float, 'b': unicode, 'c': float}
         ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
 
+    def is_readable_test(self):
+        """
+        Test Bundle.is_readable
+        """
+        ok_(self.SimpleBundle.is_readable('keykeyLaLa'))
+        ok_(self.SimpleBundle.is_readable(1))
+        MySimpleBundle = self.SimpleBundle.get_subclass(readable=[1, 'a'])
+        ok_(MySimpleBundle.is_readable(1))
+        ok_(MySimpleBundle.is_readable('a'))
+        ok_(not MySimpleBundle.is_readable(2))
+        ok_(not MySimpleBundle.is_readable('b'))
+
+    def is_writable_test(self):
+        """
+        Test Bundle.is_writable
+        """
+        ok_(self.SimpleBundle.is_writable('ohoho'))
+        ok_(self.SimpleBundle.is_writable(22))
+        MySimpleBundle = self.SimpleBundle.get_subclass(writable=['bb', 2.0])
+        ok_(MySimpleBundle.is_writable('bb'))
+        ok_(MySimpleBundle.is_writable(2.0))
+        ok_(not MySimpleBundle.is_writable(22))
+        ok_(not MySimpleBundle.is_writable('ohoho'))
+
+    def iter_test(self):
+        """
+        Test Bundle.__iter__
+        """
+        class MySimpleBundle(self.SimpleBundle):
+            def iter(self):
+                yield 1, 'a'
+                yield 2, 'b'
+                yield 3, 'c'
+        MySimpleBundle1 = MySimpleBundle.get_subclass(readable=[1, 3])
+        MySimpleBundle2 = MySimpleBundle.get_subclass(readable=[2])
+        ok_(list(MySimpleBundle(None)) == [(1, 'a'), (2, 'b'), (3, 'c')])
+        ok_(list(MySimpleBundle1(None)) == [(1, 'a'), (3, 'c')])
+        ok_(list(MySimpleBundle2(None)) == [(2, 'b'),])
+
+    def build_test(self):
+        """
+        Test Bundle.build
+        """
+        class MySimpleBundle(self.SimpleBundle):
+            @classmethod
+            def factory(cls, items_iter):
+                return cls(dict(items_iter))
+        MySimpleBundle1 = MySimpleBundle.get_subclass(writable=[1, 3])
+        MySimpleBundle2 = MySimpleBundle.get_subclass(writable=[2])
+        items_list = [(1, 'a'), (2, 'b'), (3, 'c')]
+        bundle = MySimpleBundle.build(iter(items_list))
+        ok_(bundle.obj == {1: 'a', 2: 'b', 3: 'c'})
+        bundle = MySimpleBundle1.build(iter(items_list))
+        ok_(bundle.obj == {1: 'a', 3: 'c'})
+        bundle = MySimpleBundle2.build(iter(items_list))
+        ok_(bundle.obj == {2: 'b'})
+        
 
 class IdentityBundle_Test(object):
     """

@@ -21,17 +21,25 @@ class Bundle(object):
     exclude = []
     """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
 
+    readable = None
+
+    writable = None
+
     def __init__(self, obj):
         self.obj = obj
 
     def __iter__(self):
-        return self.iter()
+        for key, value in self.iter():
+            if self.is_readable(key):
+                yield key, value 
 
-    def get_actual_schema(self):
-        schema = {}
-        for k, v in iter(self):
-            schema[k] = type(v)
-        return schema
+    @classmethod
+    def build(cls, items_iter):
+        def generator():
+            for key, value in items_iter:
+                if cls.is_writable(key):
+                    yield key, value
+        return cls.factory(generator())
 
     @classmethod
     def get_schema(cls):
@@ -52,6 +60,26 @@ class Bundle(object):
     @classmethod
     def get_subclass(cls, **attrs):
         return type(cls.__name__, (cls,), attrs)
+
+    @classmethod
+    def is_readable(cls, key):
+        if cls.readable is None or key in cls.readable:
+            return True
+        else:
+            return False
+
+    @classmethod
+    def is_writable(cls, key):
+        if cls.writable is None or key in cls.writable:
+            return True
+        else:
+            return False
+
+    def get_actual_schema(self):
+        schema = {}
+        for k, v in iter(self):
+            schema[k] = type(v)
+        return schema
 
     @classmethod
     def default_schema(cls):
