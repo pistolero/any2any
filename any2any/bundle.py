@@ -56,24 +56,32 @@ class Bundle(object):
         return schema
 
     @classmethod
+    def get_access(cls):
+        access = cls.default_access()
+        access.update(cls.access)
+        return access
+
+    @classmethod
     def get_subclass(cls, **attrs):
         return type(cls.__name__, (cls,), attrs)
 
     @classmethod
     def is_readable(cls, key):
-        if key in cls.access:
-            return 'r' in cls.access[key]
-        elif cls.KeyAny in cls.access:
-            return 'r' in cls.access[cls.KeyAny]
+        access = cls.get_access()
+        if key in access:
+            return 'r' in access[key]
+        elif cls.KeyAny in access:
+            return 'r' in access[cls.KeyAny]
         else:
             return False
 
     @classmethod
     def is_writable(cls, key):
-        if key in cls.access:
-            return 'w' in cls.access[key]
-        elif cls.KeyAny in cls.access:
-            return 'w' in cls.access[cls.KeyAny]
+        access = cls.get_access()
+        if key in access:
+            return 'w' in access[key]
+        elif cls.KeyAny in access:
+            return 'w' in access[cls.KeyAny]
         else:
             return False
 
@@ -82,6 +90,10 @@ class Bundle(object):
         for k, v in iter(self):
             schema[k] = type(v)
         return schema
+
+    @classmethod
+    def default_access(cls):
+        return {cls.KeyAny: 'rw'}
 
     @classmethod
     def default_schema(cls):
