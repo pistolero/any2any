@@ -21,9 +21,7 @@ class Bundle(object):
     exclude = []
     """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
 
-    readable = None
-
-    writable = None
+    access = {KeyAny: 'rw'}
 
     def __init__(self, obj):
         self.obj = obj
@@ -63,15 +61,19 @@ class Bundle(object):
 
     @classmethod
     def is_readable(cls, key):
-        if cls.readable is None or key in cls.readable:
-            return True
+        if key in cls.access:
+            return 'r' in cls.access[key]
+        elif cls.KeyAny in cls.access:
+            return 'r' in cls.access[cls.KeyAny]
         else:
             return False
 
     @classmethod
     def is_writable(cls, key):
-        if cls.writable is None or key in cls.writable:
-            return True
+        if key in cls.access:
+            return 'w' in cls.access[key]
+        elif cls.KeyAny in cls.access:
+            return 'w' in cls.access[cls.KeyAny]
         else:
             return False
 
@@ -163,7 +165,8 @@ class ObjectBundle(Bundle):
 
     def iter(self):
         for name in self.get_schema():
-            yield name, self.getattr(name)
+            if self.is_readable(name):
+                yield name, self.getattr(name)
     
     @classmethod
     def factory(cls, items_iter):
