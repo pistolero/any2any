@@ -4,8 +4,6 @@ from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 from django.db.models.manager import Manager
 from django.http import QueryDict
-from django.contrib.gis.geos import (Point, LineString,
-LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
 
 from any2any import *
 from any2any.django.bundle import *
@@ -517,6 +515,10 @@ class DictToModel_Test(BaseModel):
         ok_(issue.last_char_datetime == datetime.datetime(year=1864, month=12, day=31, hour=1))
 
 
+'''
+from django.contrib.gis.geos import (Point, LineString,
+LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
+
 class GeoDjango_Test(object):
     """
     Test serialize and deserialize GeoDjango's geometry objects.
@@ -651,3 +653,4 @@ class GeoDjango_Test(object):
             Polygon(LinearRing(Point(1, 2, 3), Point(2, 6, 8), Point(2, 6, 10), Point(1, 2, 3))),
             Polygon(LinearRing(Point(0, 0), Point(2, 6), Point(2.5, 6), Point(0, 0)))
         ))
+'''

@@ -216,6 +216,9 @@ class Bundle_Test(object):
                 yield 1, 'a'
                 yield 2, 'b'
                 yield 3, 'c'
+            @classmethod
+            def default_access(cls):
+                return {}
         MySimpleBundle1 = MySimpleBundle.get_subclass(access={1: 'r', 3: 'r'})
         MySimpleBundle2 = MySimpleBundle.get_subclass(access={2: 'r'})
         ok_(list(MySimpleBundle(None)) == [(1, 'a'), (2, 'b'), (3, 'c')])
@@ -230,6 +233,9 @@ class Bundle_Test(object):
             @classmethod
             def factory(cls, items_iter):
                 return cls(dict(items_iter))
+            @classmethod
+            def default_access(cls):
+                return {}
         MySimpleBundle1 = MySimpleBundle.get_subclass(access={1: 'w', 3: 'w'})
         MySimpleBundle2 = MySimpleBundle.get_subclass(access={2: 'w'})
         items_list = [(1, 'a'), (2, 'b'), (3, 'c')]

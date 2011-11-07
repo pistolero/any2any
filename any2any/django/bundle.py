@@ -12,14 +12,7 @@ from django.db.models.query import QuerySet
 from django.core.files.base import ContentFile
 from django.core.files import File
 
-from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
-PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField, GeometryCollectionField)
-from django.contrib.gis.geos import (GEOSGeometry, Point, LineString,
-LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
 
-GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField, 
-    PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField,
-    GeometryCollectionField)
 QUERYSET_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor,
     models.ManyToManyField, GenericRelation)
 RELATED_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor)
@@ -32,60 +25,6 @@ from any2any.bundle import ValueInfo
 from any2any.utils import classproperty
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
-
-# GeoDjango
-#======================================
-class GEOSGeometryBundle(IterableBundle):
-
-    @classmethod
-    def factory(cls, items_iter):
-        # Necessary, because constructor of some GEOSGeometry objects don't 
-        # accept a list as argument.
-        # TODO: needs ordered dict to pass data between bundles
-        items_iter = sorted(items_iter, key=lambda i: i[0])
-        obj = cls.klass(*(v for k, v in items_iter))
-        return cls(obj)
-
-class PointBundle(GEOSGeometryBundle):
-
-    klass = Point
-    value_type = float
-
-
-class LineStringBundle(GEOSGeometryBundle):
-
-    klass = LineString
-    value_type = Point
-
-
-class LinearRingBundle(GEOSGeometryBundle):
-
-    klass = LinearRing
-    value_type = Point
-
-
-class PolygonBundle(GEOSGeometryBundle):
-
-    klass = Polygon
-    value_type = LinearRing
-
-
-class MultiPointBundle(GEOSGeometryBundle):
-
-    klass = MultiPoint
-    value_type = Point
-    
-
-class MultiLineStringBundle(GEOSGeometryBundle):
-
-    klass = MultiLineString
-    value_type = LineString
-
-
-class MultiPolygonBundle(GEOSGeometryBundle):
-
-    klass = MultiPolygon
-    value_type = Polygon
 
 
 # ModelBundle
@@ -133,13 +72,19 @@ class ModelMixin(ModelIntrospector):
     def model(cls):
         return cls.klass
 
+    @classproperty
+    def queryset(cls):
+        return cls.model.objects
+
     @classmethod
     def default_schema(cls):
         if not hasattr(cls, '_default_schema'):
             schema = {}
-            schema.update(cls._build_schema({'pk': cls.pk_field}))
-            schema.update(cls._build_schema(cls.fields_dict))
-            schema.update(cls._build_schema(cls.related_dict))
+            schema['pk'] = cls._wrap(cls.pk_field)
+            for name, field in cls.fields_dict.items():                
+                schema[name] = cls._wrap(field)
+            for name, field in cls.related_dict.items():                
+                schema[name] = cls._wrap(field)
             cls._default_schema = schema
         return cls._default_schema
 
@@ -169,7 +114,7 @@ class ModelMixin(ModelIntrospector):
         key_dict = cls.extract_key(items)
         if not key_dict:
             raise cls.model.DoesNotExist("no key could be extracted from the data")
-        return cls(cls.model.objects.get(**key_dict))
+        return cls(cls.queryset.get(**key_dict))
 
     def update(self, **items):
         deferred = {}
@@ -207,56 +152,34 @@ class ModelMixin(ModelIntrospector):
         return issubclass(klass, QuerySet)
 
     @classmethod
-    def _build_schema(cls, fields_dict):
-        # Takes a dict ``{<field_name>: <fields>}``, and returns a dict
-        # ``{<field_name>: <class>}``.
-        schema = {}
-        for name, f in fields_dict.items():
-            ftype = type(f)
-
-            if isinstance(f, SIMPLE_FIELDS):
-                if isinstance(f, models.AutoField):
-                    klass = int
-                elif isinstance(f, (models.TextField, models.CharField)):
-                    klass = unicode
-                elif isinstance(f, models.IntegerField):
-                    klass = int
-                elif isinstance(f, models.DateTimeField):
-                    klass = datetime.datetime
-                elif isinstance(f, models.DateField):
-                    klass = datetime.date
-                elif isinstance(f, models.FileField):
-                    klass = File
-                elif isinstance(f, models.BooleanField):
-                    klass = bool
-                v = ValueInfo(klass, lookup_with=(ftype, klass))
-            elif isinstance(f, models.ForeignKey):
-                v = ValueInfo(f.rel.to, lookup_with=(ftype, f.rel.to))
-            elif isinstance(f, QUERYSET_FIELDS):
-                if isinstance(f, RELATED_FIELDS):
-                    to = f.related.model
-                else:
-                    to = f.rel.to
-                v = ValueInfo(QuerySet, schema={Bundle.KeyAny: to}, lookup_with=(ftype, QuerySet))
-            elif isinstance(f, GEODJANGO_FIELDS):
-                if isinstance(f, PointField):
-                    geom_type = Point
-                elif isinstance(f, LineStringField):
-                    geom_type = LineStringBundle
-                elif isinstance(f, PolygonField):
-                    geom_type = PolygonBundle
-                elif isinstance(f, MultiPointField):
-                    geom_type = MultiPointBundle
-                elif isinstance(f, MultiLineStringField):
-                    geom_type = MultiLineBundle
-                elif isinstance(f, MultiPolygonField):
-                    geom_type = MultiPolygonBundle
-                v = ValueInfo(geom_type, lookup_with=(ftype, geom_type))
+    def _wrap(cls, f):
+        ftype = type(f)
+        if isinstance(f, SIMPLE_FIELDS):
+            if isinstance(f, models.AutoField):
+                klass = int
+            elif isinstance(f, (models.TextField, models.CharField)):
+                klass = unicode
+            elif isinstance(f, models.IntegerField):
+                klass = int
+            elif isinstance(f, models.DateTimeField):
+                klass = datetime.datetime
+            elif isinstance(f, models.DateField):
+                klass = datetime.date
+            elif isinstance(f, models.FileField):
+                klass = File
+            elif isinstance(f, models.BooleanField):
+                klass = bool
+            return ValueInfo(klass, lookup_with=(ftype, klass))
+        elif isinstance(f, models.ForeignKey):
+            return ValueInfo(f.rel.to, lookup_with=(ftype, f.rel.to))
+        elif isinstance(f, QUERYSET_FIELDS):
+            if isinstance(f, RELATED_FIELDS):
+                to = f.related.model
             else:
-                v = ValueInfo(str, lookup_with=(ftype, str)) # TODO: Not sure about that ...
-
-            schema[name] = v
-        return schema
+                to = f.rel.to
+            return ValueInfo(QuerySet, schema={Bundle.KeyAny: to}, lookup_with=(ftype, QuerySet))
+        else:
+            return ValueInfo(str, lookup_with=(ftype, str)) # TODO: Not sure about that ...
 
 
 class ReadOnlyModelBundle(ModelMixin, ObjectBundle):
@@ -267,6 +190,12 @@ class ReadOnlyModelBundle(ModelMixin, ObjectBundle):
         >>> obj.a_field != 'new_value'
         True
     """
+
+    def iter(self):
+        if not self.obj is None: # TODO: quick fix for the fact that FK can be null
+            return super(ReadOnlyModelBundle, self).iter()
+        else:
+            raise StopIteration
 
     @classmethod
     def factory(cls, items_iter):
@@ -289,6 +218,12 @@ class UpdateOnlyModelBundle(ModelMixin, ObjectBundle):
         True
     """
 
+    def iter(self):
+        if not self.obj is None: # TODO: quick fix for the fact that FK can be null
+            return super(UpdateOnlyModelBundle, self).iter()
+        else:
+            raise StopIteration
+
     @classmethod
     def factory(cls, items_iter):
         items = dict(items_iter)
@@ -306,6 +241,12 @@ class CRUModelBundle(ModelMixin, ObjectBundle):
     """
     A subclass of :class:`daccasts.ObjectBundle` for django models. Allows to retrieve/create and update objects.
     """
+
+    def iter(self):
+        if not self.obj is None: # TODO: quick fix for the fact that FK can be null
+            return super(CRUModelBundle, self).iter()
+        else:
+            raise StopIteration
 
     @classmethod
     def factory(cls, items_iter):
@@ -333,21 +274,11 @@ serialize = Cast({
     AllSubSetsOf(models.Model): ReadOnlyModelBundle,
     AllSubSetsOf(QuerySet): QuerySetBundle,
     AllSubSetsOf(File): IdentityBundle,
-
-    Singleton(Point): PointBundle,
-    Singleton(LineString): LineStringBundle,
-    Singleton(LinearRing): LinearRingBundle,
-    Singleton(Polygon): PolygonBundle,
-    Singleton(MultiPoint): MultiPointBundle,
-    Singleton(MultiLineString): MultiLineStringBundle,
-    Singleton(MultiPolygon): MultiPolygonBundle,
 }, {
     AllSubSetsOf(dict): MappingBundle,
     AllSubSetsOf(list): IterableBundle,
     AllSubSetsOf(object): MappingBundle,
     AllSubSetsOf(QuerySet): IterableBundle,
-
-    AllSubSetsOf(GEOSGeometry): IterableBundle,
 })
 
 
@@ -364,12 +295,4 @@ deserialize = Cast({
     AllSubSetsOf(models.Model): ReadOnlyModelBundle,
     AllSubSetsOf(QuerySet): QuerySetBundle,
     AllSubSetsOf(File): IdentityBundle,
-
-    Singleton(Point): PointBundle,
-    Singleton(LineString): LineStringBundle,
-    Singleton(LinearRing): LinearRingBundle,
-    Singleton(Polygon): PolygonBundle,
-    Singleton(MultiPoint): MultiPointBundle,
-    Singleton(MultiLineString): MultiLineStringBundle,
-    Singleton(MultiPolygon): MultiPolygonBundle,
 })
