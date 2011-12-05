@@ -12,8 +12,6 @@ class Cast(object):
         self.fallback_map = fallback_map
 
     def __call__(self, inpt, in_class=None, out_class=None):
-        if inpt == {u'type': u'personal', u'name': u'coucou'}:
-            import pdb; pdb.set_trace()
         # `in_class` is always known, because we at least have the 
         # `inpt`'s class
         if in_class in [None, Bundle.ValueUnknown]:
