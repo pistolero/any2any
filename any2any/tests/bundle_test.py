@@ -4,9 +4,21 @@ from any2any.bundle import *
 from any2any.cast import *
 
 
-class BaseStrBundle(Bundle): pass
-class IntBundle(Bundle): pass
-class MyFloatBundle(Bundle):
+class BundleImplement(Bundle):
+    @classmethod
+    def default_schema(cls):
+        return {}
+
+    def iter(self):
+        return iter()
+
+    @classmethod
+    def factory(cls, items_iter):
+        pass
+
+class BaseStrBundle(BundleImplement): pass
+class IntBundle(BundleImplement): pass
+class MyFloatBundle(BundleImplement):
     klass = float
 
 
@@ -17,7 +29,7 @@ class ValueInfo_test(object):
         test ValueInfo.klass
         """
         value_info = ValueInfo(MyFloatBundle)
-        ok_(value_info.klass == float)
+        ok_(value_info.klass is None)
         value_info = ValueInfo(str)
         ok_(value_info.klass == str)
 
@@ -51,29 +63,23 @@ class ValueInfo_test(object):
         }
         # With a bundle class
         value_info = ValueInfo(BaseStrBundle)
-        value_info.bundle_class_map = bcm
-        ok_(issubclass(value_info.bundle_class, BaseStrBundle))
+        bc = value_info.get_bundle_class(bcm)
+        ok_(issubclass(bc, BaseStrBundle))
         # with a normal class
         value_info = ValueInfo(int)
-        value_info.bundle_class_map = bcm
-        ok_(issubclass(value_info.bundle_class, IntBundle))
-        ok_(value_info.bundle_class.klass is int)
+        bc = value_info.get_bundle_class(bcm)
+        ok_(issubclass(bc, IntBundle))
+        ok_(bc.klass is int)
         value_info = ValueInfo(str, schema={'a': str})
-        value_info.bundle_class_map = bcm
-        ok_(issubclass(value_info.bundle_class, BaseStrBundle))
-        ok_(value_info.bundle_class.klass is str)
-        ok_(value_info.bundle_class.schema == {'a': str})
+        bc = value_info.get_bundle_class(bcm)
+        ok_(issubclass(bc, BaseStrBundle))
+        ok_(bc.klass is str)
+        ok_(bc.get_schema() == {'a': str})
         # with provided lookup
         value_info = ValueInfo(tuple, lookup_with=(float, basestring, list))
-        value_info.bundle_class_map = bcm
-        ok_(issubclass(value_info.bundle_class, BaseStrBundle))
-        ok_(value_info.bundle_class.klass is tuple)
-
-    def schema_test(self):
-        """
-        test ValueInfo.schema
-        """
-        pass
+        bc = value_info.get_bundle_class(bcm)
+        ok_(issubclass(bc, BaseStrBundle))
+        ok_(bc.klass is tuple)
 
 
 class Bundle_Test(object):

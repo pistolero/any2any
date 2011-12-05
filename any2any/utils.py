@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import collections
+
 
 class ClassSet(object):
     # Set of classes, allowing to easily calculate inclusions
@@ -73,6 +75,15 @@ class Singleton(ClassSet):
 
     def __repr__(self):
         return u"'%s'" % self.klass.__name__
+
+
+class ClassSetDict(dict):
+
+    def subset_get(self, klass, default=None):
+        try:
+            return ClassSet.pick_best(klass, choice_map, exc_type=KeyError)
+        except KeyError: # TODO: KeyError not a good exception choice
+            return default
 
 
 def classproperty(func):

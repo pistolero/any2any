@@ -17,23 +17,23 @@ class Cast(object):
         if in_class in [None, Bundle.ValueUnknown]:
             in_class = type(inpt)
         in_value_info = ValueInfo(in_class)
-        in_value_info.bundle_class_map = self.bundle_class_map
+        in_bundle_class = in_value_info.get_bundle_class(self.bundle_class_map)
         # `out_class` can be unknown, and it that case, we find a good fallback 
         if out_class in [None, Bundle.ValueUnknown]:
-            out_value_info = self._get_fallback(in_value_info)
+            out_value_info = ValueInfo(self._get_fallback(in_bundle_class))
         else:
             out_value_info = ValueInfo(out_class)
-        out_value_info.bundle_class_map = self.bundle_class_map
+        out_bundle_class = out_value_info.get_bundle_class(self.bundle_class_map)
         # Compiling schemas : if it fails with the 2 schemas found,
         # we use the actual schema of `inpt`
         try:
-            compiled = CompiledSchema(in_value_info.schema, out_value_info.schema)
+            compiled = CompiledSchema(in_bundle_class.get_schema(), out_bundle_class.get_schema())
         except SchemasDontMatch:
-            in_schema = in_value_info.bundle_class(inpt).get_actual_schema()
-            compiled = CompiledSchema(in_schema, out_value_info.schema)
+            in_schema = in_bundle_class(inpt).get_actual_schema()
+            compiled = CompiledSchema(in_schema, out_bundle_class.get_schema())
         # realize the casting
         def generator():
-            for key, value in in_value_info.bundle_class(inpt):
+            for key, value in in_bundle_class(inpt):
                 if key is Bundle.KeyFinal:
                     casted_value = value
                 else:
@@ -43,30 +43,29 @@ class Cast(object):
                         in_class=compiled.get_in_class(key)
                     )
                 yield key, casted_value
-        return out_value_info.bundle_class.build(generator()).obj
+        return out_bundle_class.build(generator()).obj
 
     def log(self, inpt, in_value_info, in_schema, out_value_info, out_schema):
         pass
         #print '%s\n%s-%s => %s-%s\n' % (inpt, in_value_info.__name__, in_schema, out_value_info.__name__, out_schema) 
 
-    def _get_fallback(self, in_value_info):
-        in_value_info.bundle_class_map = self.bundle_class_map
+    def _get_fallback(self, in_bundle_class):
         # If input is a final value, we'll just assume that ouput is also
-        if Bundle.KeyFinal in in_value_info.schema:
-            return in_value_info
-        # we try to get a bundle from the `fallback_map`
+        if Bundle.KeyFinal in in_bundle_class.get_schema():
+            return in_bundle_class
+        # we try to get a bundle class from the `fallback_map`
         try:
             bundle_class = ClassSet.pick_best(
-                in_value_info.klass,
+                in_bundle_class.klass,
                 self.fallback_map,
                 exc_type=NoSuitableBundleClass
             )
         except NoSuitableBundleClass:
             pass
         else:
-            return ValueInfo(bundle_class)
-        # Or we'll just use `in_value_info`, so that operation is an identity.
-        return in_value_info # TODO: shouldn't this rather be an error ?
+            return bundle_class
+        # Or we'll just use `in_bundle_class`, so that operation is an identity.
+        return in_bundle_class # TODO: shouldn't this rather be an error ?
 
 
 class SchemaError(TypeError): pass

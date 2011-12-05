@@ -138,17 +138,17 @@ class Cast_test(object):
             Singleton(int): IntBundle,
         })
         # With KeyFinal in schema
-        value_info = ValueInfo(IntBundle, schema={Bundle.KeyFinal: int})
-        bc = cast._get_fallback(value_info).bundle_class
-        ok_(issubclass(bc, IntBundle))
+        in_bc = IntBundle.get_subclass(schema={Bundle.KeyFinal: int})
+        out_bc = cast._get_fallback(in_bc)
+        ok_(issubclass(out_bc, IntBundle))
         # Get from the fallback map
-        value_info = ValueInfo(IntBundle.get_subclass(klass=int))
-        bc = cast._get_fallback(value_info).bundle_class
-        ok_(issubclass(bc, IntBundle))
+        in_bc = IntBundle.get_subclass(klass=int)
+        out_bc = cast._get_fallback(in_bc)
+        ok_(issubclass(out_bc, IntBundle))
         # default
-        value_info = ValueInfo(float)
-        fb = cast._get_fallback(value_info)
-        ok_(value_info.klass is fb.klass)
+        in_bc = IntBundle.get_subclass(schema={'haha': int})
+        out_bc = cast._get_fallback(in_bc)
+        ok_(out_bc.get_schema() == {'haha': int})
 
     def call_test(self):
         """
