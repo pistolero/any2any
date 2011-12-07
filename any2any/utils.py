@@ -28,20 +28,6 @@ class ClassSet(object):
         else:
             return klass
 
-    @staticmethod
-    def pick_best(klass, choice_map, exc_type=ValueError):
-        class_sets = set(filter(lambda cs: klass <= cs, choice_map))
-        # Eliminate supersets
-        for cs1 in class_sets.copy():
-            for cs2 in class_sets.copy():
-                if cs1 <= cs2 and not cs1 is cs2:
-                    class_sets.discard(cs2)
-        try:
-            best_match = list(class_sets)[0]
-        except IndexError:
-            raise exc_type("couldn't find a match for %s" % klass)
-        return choice_map[best_match]
-
 
 class AllSubSetsOf(ClassSet):
 
@@ -60,6 +46,9 @@ class AllSubSetsOf(ClassSet):
     def __repr__(self):
         return u"Any '%s'" % self.klass.__name__
 
+    def __hash__(self):
+        return hash('set') + hash(self.klass)
+
 
 class Singleton(ClassSet):
 
@@ -76,14 +65,27 @@ class Singleton(ClassSet):
     def __repr__(self):
         return u"'%s'" % self.klass.__name__
 
+    def __hash__(self):
+        return hash('singleton') + hash(self.klass)
+
 
 class ClassSetDict(dict):
 
-    def subset_get(self, klass, default=None):
+    def subsetget(self, klass, default=None):
+        class_sets = set(filter(lambda cs: klass <= cs, self))
+        # Eliminate supersets
+        for cs1 in class_sets.copy():
+            for cs2 in class_sets.copy():
+                if cs1 <= cs2 and not cs1 is cs2:
+                    class_sets.discard(cs2)
         try:
-            return ClassSet.pick_best(klass, choice_map, exc_type=KeyError)
-        except KeyError: # TODO: KeyError not a good exception choice
+            best_match = list(class_sets)[0]
+        except IndexError:
             return default
+        return self[best_match]
+
+    def __repr__(self):
+        return 'ClassSetDict(%s)' % self
 
 
 def classproperty(func):
@@ -91,3 +93,44 @@ def classproperty(func):
         def __get__(self, cls, owner):
             return self.fget.__get__(None, owner)()
     return _classproperty(classmethod(func))
+
+
+class SmartDict(collections.MutableMapping):
+
+    class KeyAny(object): pass
+    class KeyFinal(object): pass
+    class ValueUnknown(object): pass
+
+    def __init__(self, *args, **kwargs):
+        self.dict = dict(*args, **kwargs)
+
+    def __getitem__(self, key):
+        try:
+            return self.dict[key]
+        except KeyError as e:
+            if not key is self.KeyFinal: 
+                try:
+                    return self.dict[self.KeyAny]
+                except KeyError:
+                    raise e
+            else:
+                raise e
+
+    def __setitem__(self, key, value):
+        self.dict[key] = value
+    
+    def __delitem__(self, key):
+        del self.dict[key]
+
+    def __len__(self):
+        return len(self.dict)
+
+    def __iter__(self):
+        return iter(self.dict)
+
+    def __contains__(self, key):
+        return (key in self.dict or 
+            (self.KeyAny in self.dict and not key is self.KeyFinal))
+
+    def __repr__(self):
+        return 'SmartDict(%s)' % self.dict

@@ -35,7 +35,7 @@ SIMPLE_FIELDS = (models.CharField, models.TextField, models.IntegerField, models
 
 from any2any import *
 from any2any.bundle import ValueInfo
-from any2any.utils import classproperty
+from any2any.utils import classproperty, SmartDict
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
 
@@ -239,15 +239,23 @@ class ModelMixin(ModelIntrospector):
                 klass = File
             elif isinstance(f, models.BooleanField):
                 klass = bool
-            return ValueInfo(klass, lookup_with=(ftype, klass))
+            return ValueInfo(klass, lookup_with={
+                AllSubSetsOf(object): (ftype, klass),
+                Singleton(types.NoneType): types.NoneType
+            })
         elif isinstance(f, models.ForeignKey):
-            return ValueInfo(f.rel.to, lookup_with=(ftype, f.rel.to))
+            return ValueInfo(f.rel.to, lookup_with={
+                AllSubSetsOf(object): (ftype, f.rel.to),
+                Singleton(types.NoneType): types.NoneType
+            })
         elif isinstance(f, QUERYSET_FIELDS):
             if isinstance(f, RELATED_FIELDS):
                 to = f.related.model
             else:
                 to = f.rel.to
-            return ValueInfo(QuerySet, schema={Bundle.KeyAny: to}, lookup_with=(ftype, QuerySet))
+            return ValueInfo(QuerySet, schema={SmartDict.KeyAny: to}, lookup_with={
+                AllSubSetsOf(object): (ftype, QuerySet)
+            })
         elif USES_GEODJANGO and isinstance(f, GEODJANGO_FIELDS):
             if isinstance(f, PointField):
                 geom_type = Point
@@ -261,9 +269,13 @@ class ModelMixin(ModelIntrospector):
                 geom_type = MultiLineBundle
             elif isinstance(f, MultiPolygonField):
                 geom_type = MultiPolygonBundle
-            return ValueInfo(geom_type, lookup_with=(ftype, geom_type))
+            return ValueInfo(geom_type, lookup_with={
+                AllSubSetsOf(object): (ftype, geom_type)
+            })
         else:
-            return ValueInfo(str, lookup_with=(ftype, str)) # TODO: Not sure about that ...
+            return ValueInfo(str, lookup_with={
+                AllSubSetsOf(object): (ftype, str)
+            }) # TODO: Not sure about that ...
 
 
 class ReadOnlyModelBundle(ModelMixin, ObjectBundle):

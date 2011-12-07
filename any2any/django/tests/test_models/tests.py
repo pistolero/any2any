@@ -99,27 +99,29 @@ class ModelMixin_Test(object):
         wsausage_fields = WritingSausageBundle.default_schema()
         journal_fields = JournalBundle.default_schema()
         dish_fields = DishBundle.default_schema()
+        def get_lu(vi):
+            return vi.lookup_with[AllSubSetsOf(object)]
         ok_(set(columnist_fields) == set(['id', 'pk', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(columnist_fields['pk'].lookup_with[0] is AutoField)
-        ok_(columnist_fields['id'].lookup_with[0] is AutoField)
-        ok_(columnist_fields['lastname'].lookup_with[0] is CharField)
-        ok_(columnist_fields['nickname'].lookup_with[0] is CharField)
-        ok_(columnist_fields['journal'].lookup_with == (ForeignKey, Journal))
+        ok_(get_lu(columnist_fields['pk'])[0] is AutoField)
+        ok_(get_lu(columnist_fields['id'])[0] is AutoField)
+        ok_(get_lu(columnist_fields['lastname'])[0] is CharField)
+        ok_(get_lu(columnist_fields['nickname'])[0] is CharField)
+        ok_(get_lu(columnist_fields['journal']) == (ForeignKey, Journal))
         ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(gourmand_fields['firstname'].lookup_with[0] is CharField)
-        ok_(gourmand_fields['favourite_dishes'].lookup_with[0] is ManyToManyField)
-        ok_(gourmand_fields['favourite_dishes']._schema == {Bundle.KeyAny: Dish})
-        ok_(gourmand_fields['pseudo'].lookup_with[0] is CharField)
+        ok_(get_lu(gourmand_fields['firstname'])[0] is CharField)
+        ok_(get_lu(gourmand_fields['favourite_dishes'])[0] is ManyToManyField)
+        ok_(gourmand_fields['favourite_dishes']._schema == {SmartDict.KeyAny: Dish})
+        ok_(get_lu(gourmand_fields['pseudo'])[0] is CharField)
         ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
-        ok_(journal_fields['name'].lookup_with[0] is CharField)
-        ok_(journal_fields['journalist_set'].lookup_with[0] is ForeignRelatedObjectsDescriptor)
-        ok_(journal_fields['journalist_set']._schema == {Bundle.KeyAny: Journalist})
-        ok_(journal_fields['issue_set'].lookup_with[0] is ForeignRelatedObjectsDescriptor)
-        ok_(journal_fields['issue_set']._schema == {Bundle.KeyAny: Issue})
+        ok_(get_lu(journal_fields['name'])[0] is CharField)
+        ok_(get_lu(journal_fields['journalist_set'])[0] is ForeignRelatedObjectsDescriptor)
+        ok_(journal_fields['journalist_set']._schema == {SmartDict.KeyAny: Journalist})
+        ok_(get_lu(journal_fields['issue_set'])[0] is ForeignRelatedObjectsDescriptor)
+        ok_(journal_fields['issue_set']._schema == {SmartDict.KeyAny: Issue})
         ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
-        ok_(dish_fields['name'].lookup_with[0] is CharField)
-        ok_(dish_fields['gourmand_set'].lookup_with[0] is ManyRelatedObjectsDescriptor)
-        ok_(dish_fields['gourmand_set']._schema == {Bundle.KeyAny: Gourmand})
+        ok_(get_lu(dish_fields['name'])[0] is CharField)
+        ok_(get_lu(dish_fields['gourmand_set'])[0] is ManyRelatedObjectsDescriptor)
+        ok_(dish_fields['gourmand_set']._schema == {SmartDict.KeyAny: Gourmand})
         ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 
     def nk_test(self):
@@ -303,6 +305,14 @@ class ModelToDict_Test(BaseModel):
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
             'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
         })
+
+    def none_field_test(self):
+        """
+        Test serializing with a field that has a value of None instead of the expected
+        """
+        self.journalist.journal = None
+        ok_(self.serialize(self.journalist) == {})
+
 
 class DictToModel_Test(BaseModel):
     """

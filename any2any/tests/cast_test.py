@@ -14,8 +14,8 @@ class CompiledSchema_test(object):
         """
         test validate_schema with valid schemas.
         """
-        ok_(CompiledSchema.validate_schema({Bundle.KeyAny: str}) is None)
-        ok_(CompiledSchema.validate_schema({Bundle.KeyFinal: int}) is None)
+        ok_(CompiledSchema.validate_schema({SmartDict.KeyAny: str}) is None)
+        ok_(CompiledSchema.validate_schema({SmartDict.KeyFinal: int}) is None)
         ok_(CompiledSchema.validate_schema({0: int, 1: str, 'a': basestring}) is None)
 
     def unvalid_schemas_test(self):
@@ -23,17 +23,17 @@ class CompiledSchema_test(object):
         test validate_schema with unvalid schemas.
         """
         assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
-            Bundle.KeyAny: str,
+            SmartDict.KeyAny: str,
             1: int
         })
         assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
-            Bundle.KeyFinal: str,
+            SmartDict.KeyFinal: str,
             'a': str,
             'bb': float
         })
         assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
-            Bundle.KeyFinal: str,
-            Bundle.KeyAny: int
+            SmartDict.KeyFinal: str,
+            SmartDict.KeyAny: int
         })
 
     def validate_schemas_match_test(self):
@@ -45,15 +45,15 @@ class CompiledSchema_test(object):
         ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
 
         schema_in = {'a': int, 'b': str, 'c': float}
-        schema_out = {Bundle.KeyAny: int}
+        schema_out = {SmartDict.KeyAny: int}
         ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
 
-        schema_in = {Bundle.KeyAny: int}
-        schema_out = {Bundle.KeyAny: float}
+        schema_in = {SmartDict.KeyAny: int}
+        schema_out = {SmartDict.KeyAny: float}
         ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
 
-        schema_in = {Bundle.KeyFinal: str}
-        schema_out = {Bundle.KeyFinal: unicode}
+        schema_in = {SmartDict.KeyFinal: str}
+        schema_out = {SmartDict.KeyFinal: unicode}
         ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
 
     def instantiate_error_test(self):
@@ -64,51 +64,21 @@ class CompiledSchema_test(object):
         schema_out = {1: str, 2: int}
         assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
         
-        schema_in = {Bundle.KeyFinal: int}
+        schema_in = {SmartDict.KeyFinal: int}
         schema_out = {1: str}
         assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
-        schema_in = {Bundle.KeyAny: int}
+        schema_in = {SmartDict.KeyAny: int}
         schema_out = {'a': int, 'b': str}
         assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
-        schema_in = {Bundle.KeyAny: int}
+        schema_in = {SmartDict.KeyAny: int}
         schema_out = {'a': int, 'b': str}
         assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
-        schema_in = {Bundle.KeyFinal: int}
-        schema_out = {Bundle.KeyAny: int}
+        schema_in = {SmartDict.KeyFinal: int}
+        schema_out = {SmartDict.KeyAny: int}
         assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
-
-    def get_out_class_test(self):
-        """
-        test CompliedSchema.get_out_class
-        """
-        schema_in = {'a': float}
-        schema_out = {'a': int, 'b': str}
-        compiled = CompiledSchema(schema_in, schema_out)
-        ok_(compiled.get_out_class('a') is int)
-        assert_raises(KeyError, compiled.get_in_class, 'b')
-        
-        schema_in = {'a': int, 'b': str, 'c': float}
-        schema_out = {Bundle.KeyAny: int}
-        compiled = CompiledSchema(schema_in, schema_out)
-        ok_(compiled.get_out_class('a') is int)
-        ok_(compiled.get_out_class('b') is int)
-        ok_(compiled.get_out_class('c') is int)
-        ok_(compiled.get_out_class(987) is int)
-
-        schema_in = {Bundle.KeyAny: int}
-        schema_out = {Bundle.KeyAny: float}
-        compiled = CompiledSchema(schema_in, schema_out)
-        ok_(compiled.get_out_class('wxd') is float)
-        ok_(compiled.get_out_class(7) is float)
-
-        schema_in = {Bundle.KeyFinal: str}
-        schema_out = {Bundle.KeyFinal: unicode}
-        compiled = CompiledSchema(schema_in, schema_out)
-        ok_(compiled.get_out_class(Bundle.KeyFinal) is unicode)
-        assert_raises(KeyError, compiled.get_out_class, 'a')
 
 
 class MyBundle(Bundle):
@@ -138,7 +108,7 @@ class Cast_test(object):
             Singleton(int): IntBundle,
         })
         # With KeyFinal in schema
-        in_bc = IntBundle.get_subclass(schema={Bundle.KeyFinal: int})
+        in_bc = IntBundle.get_subclass(schema={SmartDict.KeyFinal: int})
         out_bc = cast._get_fallback(in_bc)
         ok_(issubclass(out_bc, IntBundle))
         # Get from the fallback map

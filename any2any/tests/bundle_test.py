@@ -2,6 +2,7 @@
 from nose.tools import assert_raises, ok_
 from any2any.bundle import *
 from any2any.cast import *
+from any2any.utils import SmartDict
 
 
 class BundleImplement(Bundle):
@@ -24,37 +25,30 @@ class MyFloatBundle(BundleImplement):
 
 class ValueInfo_test(object):
 
-    def klass_test(self):
-        """
-        test ValueInfo.klass
-        """
-        value_info = ValueInfo(MyFloatBundle)
-        ok_(value_info.klass is None)
-        value_info = ValueInfo(str)
-        ok_(value_info.klass == str)
-
     def lookup_with_test(self):
         """
         test ValueInfo.lookup_with
         """
+        csd = ClassSetDict({AllSubSetsOf(object): (int,)})
         value_info = ValueInfo(int)
-        ok_(value_info.lookup_with == (int,))
-        value_info = ValueInfo(str, lookup_with=(float, int))
-        ok_(value_info.lookup_with == (float, int))
+        ok_(value_info.lookup_with == csd)
+        csd = ClassSetDict({AllSubSetsOf(object): (float, int)})
+        value_info = ValueInfo(str, lookup_with=csd)
+        ok_(value_info.lookup_with == csd)
 
     def new_test(self):
         """
         Test constructor
         """
-        ok_(ValueInfo(Bundle.ValueUnknown) is Bundle.ValueUnknown)
+        ok_(ValueInfo(SmartDict.ValueUnknown) is SmartDict.ValueUnknown)
         value_info = ValueInfo(int)
         ok_(ValueInfo(value_info) is value_info)
         ok_(not ValueInfo(int) is ValueInfo(int))
         ok_(not ValueInfo(MyFloatBundle) is ValueInfo(MyFloatBundle))
 
-    def bundle_class_test(self):
+    def get_bundle_class_test(self):
         """
-        test ValueInfo.bundle_class
+        test ValueInfo.get_bundle_class
         """
         bcm = {
             AllSubSetsOf(basestring): BaseStrBundle,
@@ -63,22 +57,33 @@ class ValueInfo_test(object):
         }
         # With a bundle class
         value_info = ValueInfo(BaseStrBundle)
-        bc = value_info.get_bundle_class(bcm)
+        bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
         # with a normal class
         value_info = ValueInfo(int)
-        bc = value_info.get_bundle_class(bcm)
+        bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, IntBundle))
         ok_(bc.klass is int)
         value_info = ValueInfo(str, schema={'a': str})
-        bc = value_info.get_bundle_class(bcm)
+        bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
         ok_(bc.klass is str)
         ok_(bc.get_schema() == {'a': str})
         # with provided lookup
-        value_info = ValueInfo(tuple, lookup_with=(float, basestring, list))
-        bc = value_info.get_bundle_class(bcm)
+        value_info = ValueInfo(tuple, lookup_with={AllSubSetsOf(object): (float, basestring, list)})
+        bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
+        ok_(bc.klass is tuple)
+        # with provided complex lookup
+        value_info = ValueInfo(tuple, lookup_with={
+            AllSubSetsOf(object): (float, basestring),
+            AllSubSetsOf(int): list,
+        })
+        bc = value_info.get_bundle_class('bla', bcm)
+        ok_(issubclass(bc, BaseStrBundle))
+        ok_(bc.klass is tuple)
+        bc = value_info.get_bundle_class(1, bcm)
+        ok_(issubclass(bc, IdentityBundle))
         ok_(bc.klass is tuple)
 
 
@@ -194,7 +199,7 @@ class Bundle_Test(object):
         ok_(self.SimpleBundle.is_readable('keykeyLaLa'))
         ok_(self.SimpleBundle.is_readable(1))
         MySimpleBundle = self.SimpleBundle.get_subclass(access={
-            1: 'r', 'a': 'rw', 2: 'w', Bundle.KeyAny: 'w'})
+            1: 'r', 'a': 'rw', 2: 'w', SmartDict.KeyAny: 'w'})
         ok_(MySimpleBundle.is_readable(1))
         ok_(MySimpleBundle.is_readable('a'))
         ok_(not MySimpleBundle.is_readable(2))
@@ -207,7 +212,7 @@ class Bundle_Test(object):
         ok_(self.SimpleBundle.is_writable('ohoho'))
         ok_(self.SimpleBundle.is_writable(22))
         MySimpleBundle = self.SimpleBundle.get_subclass(access={
-            'bb': 'w', 2.0: 'rw', 22: 'r', Bundle.KeyAny: 'r'})
+            'bb': 'w', 2.0: 'rw', 22: 'r', SmartDict.KeyAny: 'r'})
         ok_(MySimpleBundle.is_writable('bb'))
         ok_(MySimpleBundle.is_writable(2.0))
         ok_(not MySimpleBundle.is_writable(22))
@@ -263,7 +268,7 @@ class IdentityBundle_Test(object):
         Test IdentityBundle.iter
         """
         bundle = IdentityBundle(1.89)
-        ok_(list(bundle) == [(Bundle.KeyFinal, 1.89)])
+        ok_(list(bundle) == [(SmartDict.KeyFinal, 1.89)])
 
     def factory_test(self):
         """
@@ -279,7 +284,7 @@ class IdentityBundle_Test(object):
         """
         class MyBundle(IdentityBundle):
             klass = int
-        ok_(MyBundle.get_schema() == {Bundle.KeyFinal: int})
+        ok_(MyBundle.get_schema() == {SmartDict.KeyFinal: int})
         
 
 class IterableBundle_Test(object):
@@ -313,7 +318,7 @@ class IterableBundle_Test(object):
         """
         class ListOfInt(IterableBundle):
             value_type = int
-        ok_(ListOfInt.get_schema() == {Bundle.KeyAny: int})
+        ok_(ListOfInt.get_schema() == {SmartDict.KeyAny: int})
 
 
 class MappingBundle_Test(object):
@@ -345,7 +350,7 @@ class MappingBundle_Test(object):
         """
         class MappingOfInt(MappingBundle):
             value_type = int
-        ok_(MappingOfInt.get_schema() == {Bundle.KeyAny: int})
+        ok_(MappingOfInt.get_schema() == {SmartDict.KeyAny: int})
 
 
 class ObjectBundle_Test(object):

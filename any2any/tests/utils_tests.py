@@ -62,25 +62,80 @@ class ClassSet_Test(object):
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
-    def pick_best_test(self):
+
+class ClassSetDict_Test(object):
+    """
+    Tests for the ClassSetDict class
+    """
+
+    def subsetget_test(self):
         """
-        test ValueInfo._pick_best
+        test ClassSetDict.subsetget
         """
         choice_map = {
             AllSubSetsOf(basestring): 1,
             AllSubSetsOf(object): 2,
             Singleton(int): 3,
         }
-        ok_(ClassSet.pick_best(object, choice_map) is 2)
-        ok_(ClassSet.pick_best(float, choice_map) is 2)
-        ok_(ClassSet.pick_best(str, choice_map) is 1)
-        ok_(ClassSet.pick_best(int, choice_map) is 3)
+        csd = ClassSetDict(choice_map)
+        ok_(csd.subsetget(object) is 2)
+        ok_(csd.subsetget(float) is 2)
+        ok_(csd.subsetget(str) is 1)
+        ok_(csd.subsetget(int) is 3)
 
     def no_pick_test(self):
         """
-        test ValueInfo._pick_best with no suitable bundle class
+        test ClassSetDict.subsetget with no suitable subset
         """
         choice_map = {Singleton(int): 1}
-        class Bla(Exception): pass
-        assert_raises(Bla, ClassSet.pick_best, str, choice_map, exc_type=Bla)
+        csd = ClassSetDict(choice_map)
+        ok_(csd.subsetget(str) is None)
+        ok_(csd.subsetget(str, 'blabla') is 'blabla')
 
+
+class SmartDict_test(object):
+    """
+    Tests for the SmartDict class
+    """
+
+    def getitem_test(self):
+        """
+        Test SmartDict.__getitem__
+        """
+        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
+        ok_(d['a'] == 2)
+        ok_(d['b'] == 3)
+        ok_(d['c'] == 1)
+        ok_(d['d'] == 1)
+
+    def getitem_keyerror_test(self):
+        """
+        Test SmartDict.__getitem__
+        """
+        d = SmartDict({'a': 1})
+        assert_raises(KeyError, d.__getitem__, 'b')
+        d = SmartDict({SmartDict.KeyAny: 1})
+        assert_raises(KeyError, d.__getitem__, SmartDict.KeyFinal)
+
+    def get_test(self):
+        """
+        Test SmartDict.get
+        """
+        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
+        ok_(d.get('a') == 2)
+        ok_(d.get('b') == 3)
+        ok_(d.get('c') == 1)
+        ok_(d.get('d') == 1)
+        d = SmartDict({'a': 1})
+        ok_(d.get('a') == 1)
+        ok_(d.get('b', 2) == 2)
+
+    def contains_test(self):
+        """
+        Test SmartDict.contains
+        """
+        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
+        ok_('a' in d)
+        ok_('b' in d)
+        ok_('c' in d)
+        ok_(not SmartDict.KeyFinal in d)

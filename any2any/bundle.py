@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from utils import ClassSet
+from utils import ClassSet, ClassSetDict, SmartDict, AllSubSetsOf
 
 
 class FactoryError(TypeError): pass
@@ -7,11 +7,7 @@ class FactoryError(TypeError): pass
 
 class Bundle(object):
 
-    class KeyFinal(object): pass
-    class KeyAny(object): pass
-    class ValueUnknown(object): pass
-
-    klass = ValueUnknown
+    klass = SmartDict.ValueUnknown
     schema = {}
     """dict. ``{<attribute_name>: <attribute_type>}``. Allows to update the default schema, see :meth:`get_schema`."""
 
@@ -21,7 +17,7 @@ class Bundle(object):
     exclude = []
     """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
 
-    access = {KeyAny: 'rw'}
+    access = {SmartDict.KeyAny: 'rw', SmartDict.KeyFinal: 'rw'}
 
     def __init__(self, obj):
         self.obj = obj
@@ -47,19 +43,19 @@ class Bundle(object):
         schema = cls.default_schema()
         schema.update(cls.schema or {})
         if cls.include:
-            [schema.setdefault(k, cls.ValueUnknown) for k in cls.include]
+            [schema.setdefault(k, SmartDict.ValueUnknown) for k in cls.include]
             [schema.pop(k) for k in schema.keys() if k not in cls.include]
         if cls.exclude:
             [schema.pop(k, None) for k in cls.exclude]
         for key, cls in schema.iteritems():
             schema[key] = cls
-        return schema
+        return SmartDict(schema)
 
     @classmethod
     def get_access(cls):
         access = cls.default_access()
         access.update(cls.access)
-        return access
+        return SmartDict(access)
 
     @classmethod
     def get_subclass(cls, **attrs):
@@ -68,32 +64,28 @@ class Bundle(object):
     @classmethod
     def is_readable(cls, key):
         access = cls.get_access()
-        if key in access:
+        try:
             return 'r' in access[key]
-        elif cls.KeyAny in access:
-            return 'r' in access[cls.KeyAny]
-        else:
+        except KeyError:
             return False
 
     @classmethod
     def is_writable(cls, key):
         access = cls.get_access()
-        if key in access:
+        try:
             return 'w' in access[key]
-        elif cls.KeyAny in access:
-            return 'w' in access[cls.KeyAny]
-        else:
+        except KeyError:
             return False
 
     def get_actual_schema(self):
         schema = {}
         for k, v in iter(self):
             schema[k] = type(v)
-        return schema
+        return SmartDict(schema)
 
     @classmethod
     def default_access(cls):
-        return {cls.KeyAny: 'rw'}
+        return {SmartDict.KeyAny: 'rw'}
 
     @classmethod
     def default_schema(cls):
@@ -113,10 +105,10 @@ class IdentityBundle(Bundle):
 
     @classmethod
     def get_schema(cls):
-        return {cls.KeyFinal: cls.klass}
+        return SmartDict({SmartDict.KeyFinal: cls.klass})
 
     def iter(self):
-        yield self.KeyFinal, self.obj
+        yield SmartDict.KeyFinal, self.obj
 
     @classmethod
     def factory(cls, items_iter):
@@ -129,11 +121,11 @@ class IdentityBundle(Bundle):
 
 class ContainerBundle(Bundle):
 
-    value_type = Bundle.ValueUnknown
+    value_type = SmartDict.ValueUnknown
 
     @classmethod
     def default_schema(cls):
-        return {cls.KeyAny: cls.value_type}
+        return {SmartDict.KeyAny: cls.value_type}
 
 
 class IterableBundle(ContainerBundle):
@@ -230,7 +222,7 @@ class ValueInfo(object):
         else:
             return super(ValueInfo, cls).__new__(cls, val, *args, **kwargs)
 
-    def __init__(self, class_or_bundle_class, lookup_with=(), schema=None, access='rw'):
+    def __init__(self, class_or_bundle_class, lookup_with={}, schema=None, access='rw'):
         if self._should_bypass(class_or_bundle_class):
             return
         elif issubclass(class_or_bundle_class, Bundle):
@@ -238,27 +230,28 @@ class ValueInfo(object):
         else:
             self._klass = class_or_bundle_class
         self._schema = schema
-        self._lookup_with = lookup_with
+        self._lookup_with = ClassSetDict(lookup_with.copy())
         if not (set(access) & set('rw')) == set(access):
             raise ValueError("'access' can contain only chars 'r' and 'w'")
         self.access = access
 
-    def get_bundle_class(self, bundle_class_map):
+    def get_bundle_class(self, inpt, bundle_class_map):
+        if not isinstance(bundle_class_map, ClassSetDict):
+            bundle_class_map = ClassSetDict(bundle_class_map)
         if not hasattr(self, '_raw_bundle_class'):
-            # Finding a bundle class, using `lookup_with` and `bundle_class_map`.
-            exc = None
-            for k in self.lookup_with:
-                try:
-                    bundle_class = ClassSet.pick_best(
-                        k, bundle_class_map,
-                        exc_type=NoSuitableBundleClass
-                    )
-                except NoSuitableBundleClass as exc:
-                    pass
-                else:
-                    exc = None
-                    break
-            if exc: raise exc
+            # Finding a bundle class : first we get the classes to lookup with
+            # according to inpt's type, then try to find a bundle class for any
+            # of those classes 
+            lookup_tuple = self.lookup_with.subsetget(type(inpt), ())
+            try:
+                iter(lookup_tuple)
+            except TypeError:
+                lookup_tuple = (lookup_tuple,)
+            for k in lookup_tuple:
+                bundle_class = bundle_class_map.subsetget(k)
+                if not bundle_class is None: break
+            else:
+                raise NoSuitableBundleClass()
         else:
             bundle_class = self._raw_bundle_class
         # customizing the bundle class
@@ -268,21 +261,14 @@ class ValueInfo(object):
         return bundle_class.get_subclass(**attrs)
 
     @property
-    def klass(self):
-        if hasattr(self, '_klass'):
-            return self._klass
-        else:
-            return
-
-    @property
     def lookup_with(self):
-        return self._lookup_with or (self.klass,)
+        return self._lookup_with or ClassSetDict({AllSubSetsOf(object): (self._klass,)})
 
     @staticmethod
     def _should_bypass(val):
         # We bypass the whole ValueInfo thing if the value is already
         # a bundle class, or is ValueUnknown.
-        if val is Bundle.ValueUnknown:
+        if val is SmartDict.ValueUnknown:
             return True
         elif isinstance(val, ValueInfo):
             return True
