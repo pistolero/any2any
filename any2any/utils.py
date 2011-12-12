@@ -47,7 +47,7 @@ class AllSubSetsOf(ClassSet):
         return u"Any '%s'" % self.klass.__name__
 
     def __hash__(self):
-        return hash('set') + hash(self.klass)
+        return hash(('set', self.klass))
 
 
 class Singleton(ClassSet):
@@ -66,7 +66,7 @@ class Singleton(ClassSet):
         return u"'%s'" % self.klass.__name__
 
     def __hash__(self):
-        return hash('singleton') + hash(self.klass)
+        return hash(('singleton', self.klass))
 
 
 class ClassSetDict(dict):
@@ -85,7 +85,7 @@ class ClassSetDict(dict):
         return self[best_match]
 
     def __repr__(self):
-        return 'ClassSetDict(%s)' % self
+        return 'ClassSetDict(%s)' % super(ClassSetDict, self).__repr__()
 
 
 def classproperty(func):
@@ -134,3 +134,9 @@ class SmartDict(collections.MutableMapping):
 
     def __repr__(self):
         return 'SmartDict(%s)' % self.dict
+
+    def _validate(self):
+        if (SmartDict.KeyFinal in schema) and len(schema) != 1:
+            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
+        elif (SmartDict.KeyAny in schema) and len(schema) != 1:
+            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyAny'")

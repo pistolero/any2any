@@ -364,6 +364,7 @@ serialize = Cast({
     AllSubSetsOf(float): IdentityBundle,
     AllSubSetsOf(bool): IdentityBundle,
     AllSubSetsOf(basestring): IdentityBundle,
+    AllSubSetsOf(types.NoneType): IdentityBundle,
     AllSubSetsOf(datetime.datetime): DateTimeBundle,
     AllSubSetsOf(datetime.date): DateBundle,
 
@@ -398,6 +399,7 @@ deserialize = Cast({
     AllSubSetsOf(float): IdentityBundle,
     AllSubSetsOf(bool): IdentityBundle,
     AllSubSetsOf(basestring): IdentityBundle,
+    AllSubSetsOf(types.NoneType): IdentityBundle,
     AllSubSetsOf(datetime.datetime): DateTimeBundle,
     AllSubSetsOf(datetime.date): DateBundle,
 

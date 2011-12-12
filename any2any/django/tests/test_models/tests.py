@@ -311,7 +311,11 @@ class ModelToDict_Test(BaseModel):
         Test serializing with a field that has a value of None instead of the expected
         """
         self.journalist.journal = None
-        ok_(self.serialize(self.journalist) == {})
+        ok_(self.serialize(self.journalist) == {
+            'pk': self.journalist.pk, 'id': self.journalist.id,
+            'lastname': u'Courant', 'firstname': u'Fred', 'nickname': '',
+            'journal': None
+        })
 
 
 class DictToModel_Test(BaseModel):
