@@ -287,12 +287,6 @@ class ReadOnlyModelBundle(ModelMixin, ObjectBundle):
         True
     """
 
-    def iter(self):
-        if not self.obj is None: # TODO: quick fix for the fact that FK can be null
-            return super(ReadOnlyModelBundle, self).iter()
-        else:
-            raise StopIteration
-
     @classmethod
     def factory(cls, items_iter):
         items = dict(items_iter)
@@ -314,12 +308,6 @@ class UpdateOnlyModelBundle(ModelMixin, ObjectBundle):
         True
     """
 
-    def iter(self):
-        if not self.obj is None: # TODO: quick fix for the fact that FK can be null
-            return super(UpdateOnlyModelBundle, self).iter()
-        else:
-            raise StopIteration
-
     @classmethod
     def factory(cls, items_iter):
         items = dict(items_iter)
@@ -337,12 +325,6 @@ class CRUModelBundle(ModelMixin, ObjectBundle):
     """
     A subclass of :class:`daccasts.ObjectBundle` for django models. Allows to retrieve/create and update objects.
     """
-
-    def iter(self):
-        if not self.obj is None: # TODO: quick fix for the fact that FK can be null
-            return super(CRUModelBundle, self).iter()
-        else:
-            raise StopIteration
 
     @classmethod
     def factory(cls, items_iter):
