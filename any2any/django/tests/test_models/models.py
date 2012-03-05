@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.db.models import (ForeignKey, CharField, Model, ManyToManyField,
-PositiveIntegerField, IntegerField, DateField, DateTimeField)
+PositiveIntegerField, IntegerField, DateField, DateTimeField, FileField)
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
@@ -51,3 +51,6 @@ class Bookmark(Model):
     content_type = ForeignKey(ContentType)
     object_id = PositiveIntegerField()
     to = generic.GenericForeignKey('content_type', 'object_id')
+
+class FileModel(Model):
+    the_file = FileField(upload_to="test_files")

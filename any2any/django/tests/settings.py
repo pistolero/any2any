@@ -21,7 +21,7 @@ DATABASES = {
 ROOT_URLCONF = 'tests.urls'
 
 INSTALLED_APPS = (
-    'djangostack_tests.test_models',
+    'tests.test_models',
     'django.contrib.contenttypes',
     'django_nose',
 )

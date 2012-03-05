@@ -2,26 +2,6 @@
 from any2any.utils import *
 from nose.tools import assert_raises, ok_
 
-class Animal(object): pass
-class Shark(Animal): pass
-class Human(object): pass
-class Salesman(Human): pass
-
-shark_to_human = Mm(Shark, Human)
-animal_to_salesman = Mm(Animal, Salesman)
-animal_to_human = Mm(Animal, Human)
-shark_to_salesman = Mm(Shark, Salesman)
-salesman_to_human = Mm(Salesman, Human)
-human_to_salesman = Mm(Human, Salesman)
-any_animal_to_any_human = Mm(from_any=Animal, to_any=Human)
-any_animal_to_salesman = Mm(from_any=Animal, to=Salesman)
-animal_to_any_human = Mm(Animal, to_any=Human)
-shark_to_any_human = Mm(Shark, to_any=Human)
-any_animal_to_human = Mm(from_any=Animal, to=Human)
-salesman_to_any_human = Mm(Salesman, to_any=Human)
-any_animal_to_shark = Mm(from_any=Animal, to=Shark)
-any_human_to_salesman = Mm(from_any=Human, to=Salesman)
-any_human_to_shark = Mm(from_any=Human, to=Shark)
 
 class ClassSet_Test(object):
     """
@@ -82,318 +62,80 @@ class ClassSet_Test(object):
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
-class Mm_Test(object):
-    """
-    Tests for the Mm class
-    """    
-    # There are 10 cases (excluding symetric cases):
-    # A) m1 = m2                                        -> None
-    #
-    # B) m1 C m2
-    #   m1.from < m2.from, m1.to < m2.to        -> m1 < m2
-    #   m1.from = m2.from, m1.to < m2.to        -> m1 < m2
-    #   m1.from < m2.from, m1.to = m2.to        -> m1 < m2
-    #
-    # C) m1 ? m2
-    #   a) m1.from > m2.from, m1.to < m2.to        -> None
-    #   b) m1.from ? m2.from, m1.to < m2.to        -> None
-    #   c) m1.from < m2.from, m1.to ? m2.to        -> None
-    #   d) m1.from ? m2.from, m1.to ? m2.to        -> None
-    #   e) m1.from ? m2.from, m1.to = m2.to        -> None
-    #   f) m1.from = m2.from, m1.to ? m2.to        -> None
 
-    def compare_test(self):
-        """
-        Test set comparison of metamorphoses. 
-        """
-        # A)
-        ok_(animal_to_salesman <= animal_to_salesman)
-        # B)
-        ok_(shark_to_salesman < any_animal_to_any_human)
-        ok_(shark_to_salesman <= any_animal_to_any_human)
-        ok_(animal_to_salesman < animal_to_any_human)
-        ok_(shark_to_salesman < any_animal_to_salesman)
-        # C)
-        ok_(not any_animal_to_any_human < shark_to_salesman)
-        ok_(not animal_to_salesman < animal_to_human)
-        ok_(not animal_to_human < shark_to_human)
-
-    def test_super_mms(self):
-        """
-        Test Mm.super_mms
-        """
-        # Both `any_animal_to_salesman` and `shark_to_any_human` are supersets of `shark_to_salesman`
-        ok_(set(shark_to_salesman.super_mms(
-            [any_animal_to_salesman, salesman_to_human, shark_to_any_human]
-        )) == set([any_animal_to_salesman, shark_to_any_human]))
-        # Both `any_animal_to_salesman` and `shark_to_salesman` are supersets of `shark_to_salesman`,
-        # but `any_animal_to_salesman` is superset of `shark_to_salesman`, therefore not needed.
-        ok_(shark_to_salesman.super_mms(
-            [any_animal_to_salesman, shark_to_salesman, salesman_to_human]
-        ) == [shark_to_salesman])
-        # No match
-        ok_(animal_to_salesman.super_mms([human_to_salesman]) == [])
-        
-class WrappedObject_Test(object):
+class ClassSetDict_Test(object):
     """
-    Tests for the WrappedObject class
+    Tests for the ClassSetDict class
     """
 
-    def setUp(self):
-        class AnObject(object): pass
-        self.AnObject = AnObject
+    def subsetget_test(self):
+        """
+        test ClassSetDict.subsetget
+        """
+        choice_map = {
+            AllSubSetsOf(basestring): 1,
+            AllSubSetsOf(object): 2,
+            Singleton(int): 3,
+        }
+        csd = ClassSetDict(choice_map)
+        ok_(csd.subsetget(object) is 2)
+        ok_(csd.subsetget(float) is 2)
+        ok_(csd.subsetget(str) is 1)
+        ok_(csd.subsetget(int) is 3)
 
-    def issubclass_test(self):
+    def no_pick_test(self):
         """
-        Test WrappedObject.issubclass
+        test ClassSetDict.subsetget with no suitable subset
         """
-        # built-in types
-        ok_(WrappedObject.issubclass(int, object))
-        ok_(not WrappedObject.issubclass(object, int))
-        ok_(WrappedObject.issubclass(object, object))
-        # WrappedObject + built-in type
-        class WrappedStr(WrappedObject):
-            klass = str
-        class WrappedWrappedStr(WrappedObject):
-            klass = WrappedStr
-        ok_(WrappedObject.issubclass(WrappedStr, str))
-        ok_(not WrappedObject.issubclass(str, WrappedStr))
-        ok_(WrappedObject.issubclass(WrappedStr, WrappedStr))
-        ok_(WrappedObject.issubclass(WrappedWrappedStr, WrappedStr))
-        # test with different superclass.
-        class WrappedInt1(WrappedObject):
-            klass = int
-            superclasses = (str,)
-        class Dumb(object): pass
-        class WrappedInt2(WrappedObject):
-            klass = int
-            superclasses = (Dumb, str,)
-        ok_(WrappedObject.issubclass(WrappedInt1, str))
-        ok_(WrappedObject.issubclass(WrappedInt2, str))
-        ok_(WrappedObject.issubclass(WrappedInt2, int))
-        ok_(WrappedObject.issubclass(WrappedInt2, Dumb))
-
-    def instantiate_test(self):
-        """
-        Test instantiate a WrappedObject
-        """
-        class WrappedStr(WrappedObject):
-            klass = str
-        class WrappedInt(WrappedObject):
-            klass = int
-        class WrappedWrappedStr(WrappedObject):
-            klass = WrappedStr
-
-        a_str = WrappedStr("blabla")
-        ok_(type(a_str) == str)
-        ok_(a_str == "blabla")
-
-        a_str = WrappedWrappedStr("bloblo")
-        ok_(type(a_str) == str)
-        ok_(a_str == "bloblo")
-
-        an_int = WrappedInt(198)
-        ok_(an_int == 198)
-        ok_(type(an_int) == int)
-
-    def get_schema_test(self):
-        """
-        Test WrappedObject.get_schema
-        """
-        # provided schema
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'a': int, 'b': str}
-        ok_(ObjectWithSchema.get_schema() == {'a': int, 'b': str})
-        # with exclude
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'a': int, 'b': str}
-            exclude = ['a']
-        ok_(ObjectWithSchema.get_schema() == {'b': str})
-        # default schema
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode, 'c': float})
-        # default schema + exclude
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            exclude = ['b', 'c', 'd']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float})
-        # default schema + extra_schema
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'a': unicode, 'd': str}
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': unicode, 'b': unicode, 'c': float, 'd': str})
-        # default schema + extra_schema + exclude
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'a': unicode, 'd': str, 'e': int}
-            exclude = ['d', 'a', 'b']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'c': float, 'e': int})
-        # default schema + include
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            include = ['a', 'b']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float, 'b': unicode})
-        # default schema + extra_schema + include
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'d': str}
-            include = ['a', 'd']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'a': float, 'd': str})
-        # default schema + extra_schema + exclude + include
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'d': str, 'e': int}
-            include = ['a', 'b', 'e']
-            exclude = ['a']
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_schema() == {'b': unicode, 'e': int})
-
-    def get_class_test(self):
-        """
-        Test WrappedObject.get_class
-        """
-        # provided schema
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            extra_schema = {'a': int, 'b': str}
-        ok_(ObjectWithSchema.get_class('a') == int)
-        ok_(ObjectWithSchema.get_class('b') == str)
-        assert_raises(KeyError, ObjectWithSchema.get_class, 'c')
-        # default schema
-        class ObjectWithSchema(WrappedObject):
-            klass = self.AnObject
-            @classmethod
-            def default_schema(self):
-                return {'a': float, 'b': unicode, 'c': float}
-        ok_(ObjectWithSchema.get_class('a') == float)
-        ok_(ObjectWithSchema.get_class('b') == unicode)
-        ok_(ObjectWithSchema.get_class('c') == float)
-        assert_raises(KeyError, ObjectWithSchema.get_class, 'd')
-
-    def getattr_test(self):
-        """
-        Test WrappedObject.getattr
-        """
-        class WrappedAnObject(WrappedObject):
-            klass = self.AnObject
-            @classmethod
-            def get_a(self, obj):
-                return 'blabla'
-        obj = self.AnObject()
-        obj.b = 'bloblo'
-        ok_(WrappedAnObject.getattr(obj, 'a') == 'blabla')
-        ok_(WrappedAnObject.getattr(obj, 'b') == 'bloblo')
-                
-    def setattr_test(self):
-        """
-        Test WrappedObject.setattr
-        """
-        class WrappedAnObject(WrappedObject):
-            klass=self.AnObject
-            @classmethod
-            def set_a(self, obj, value):
-                obj.a = 'bloblo'
-        obj = self.AnObject()
-        WrappedAnObject.setattr(obj, 'a', 'blibli')
-        WrappedAnObject.setattr(obj, 'b', 'blabla')
-        ok_(obj.a == 'bloblo')
-        ok_(obj.b == 'blabla')
+        choice_map = {Singleton(int): 1}
+        csd = ClassSetDict(choice_map)
+        ok_(csd.subsetget(str) is None)
+        ok_(csd.subsetget(str, 'blabla') is 'blabla')
 
 
-class Memoization_Test(object):
+class SmartDict_test(object):
     """
-    Tests for the memoization decorators 
+    Tests for the SmartDict class
     """
 
-    def setUp(self):
-        from any2any import Cast
-        class Identity(Cast):
-            def call(self, inpt):
-                return inpt
-
-        class TestMemCast(Identity):
-
-            @memoize(key=lambda args, kwargs: (args[1], kwargs['kwarg1']))
-            def method1(self, arg1, arg2, kwarg1=None):
-                return arg1
-
-            @memoize()
-            def method2(self, arg1, arg2, kwarg1=None):
-                import datetime
-                return datetime.datetime.now()
-
-            @memoize(key=lambda args, kwargs: type(args[1]))
-            def method3(self, arg1, arg2):
-                return arg1
-
-            @memoize()
-            def method4(self):
-                import datetime
-                return datetime.datetime.now()
-
-        self.cast = TestMemCast()
-
-    def memoize_test(self):
+    def getitem_test(self):
         """
-        Test memoize decorator
+        Test SmartDict.__getitem__
         """
-        ok_(self.cast.method1(1, 2, kwarg1=3) == 1)
-        ok_(self.cast.method1(55, 2, kwarg1=3) == 1)
-        ok_(self.cast.method1(55, 3, kwarg1=3) == 55)
-        ok_(self.cast.method1(66, 3, kwarg1=3) == 55)
-        self.cast.from_ = object
-        ok_(self.cast.method1(88, 2, kwarg1=3) == 88)
-        ok_(self.cast.method1(66, 3, kwarg1=3) == 66)
+        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
+        ok_(d['a'] == 2)
+        ok_(d['b'] == 3)
+        ok_(d['c'] == 1)
+        ok_(d['d'] == 1)
 
-        result = self.cast.method2(1, 2, kwarg1=3)
-        import time ; time.sleep(0.1)
-        ok_(self.cast.method2(1, 2, kwarg1=3) == result)
-        import time ; time.sleep(0.1)
-        ok_(not self.cast.method2(2, 2, kwarg1=3) == result)
+    def getitem_keyerror_test(self):
+        """
+        Test SmartDict.__getitem__
+        """
+        d = SmartDict({'a': 1})
+        assert_raises(KeyError, d.__getitem__, 'b')
+        d = SmartDict({SmartDict.KeyAny: 1})
+        assert_raises(KeyError, d.__getitem__, SmartDict.KeyFinal)
 
-        ok_(self.cast.method3(1, 2) == 1)
-        ok_(self.cast.method3(55, 7) == 1)
-        ok_(self.cast.method3(55, 'a') == 55)
-        ok_(self.cast.method3(66, 'yyy') == 55)
+    def get_test(self):
+        """
+        Test SmartDict.get
+        """
+        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
+        ok_(d.get('a') == 2)
+        ok_(d.get('b') == 3)
+        ok_(d.get('c') == 1)
+        ok_(d.get('d') == 1)
+        d = SmartDict({'a': 1})
+        ok_(d.get('a') == 1)
+        ok_(d.get('b', 2) == 2)
 
-        result = self.cast.method4()
-        import time ; time.sleep(0.1)
-        ok_(self.cast.method4() == result)
-
-
-class classproperty_test(object):
-    """
-    Test classproperty
-    """
-    def test(self):
-        class C(object):
-            _myprop = 99
-            @classproperty
-            def myprop(cls):
-                return cls._myprop
-        ok_(C.myprop == 99)
-        C._myprop = 78
-        ok_(C._myprop == 78)
+    def contains_test(self):
+        """
+        Test SmartDict.contains
+        """
+        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
+        ok_('a' in d)
+        ok_('b' in d)
+        ok_('c' in d)
+        ok_(not SmartDict.KeyFinal in d)
