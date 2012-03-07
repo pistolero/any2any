@@ -209,7 +209,7 @@ class ObjectBundle(Bundle):
 class NoSuitableBundleClass(Exception): pass
 
 
-class ValueInfo(object):
+class BundleInfo(object):
     """
     Kwargs:
 

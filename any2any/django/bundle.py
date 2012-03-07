@@ -34,7 +34,7 @@ SIMPLE_FIELDS = (models.CharField, models.TextField, models.IntegerField, models
 
 
 from any2any import *
-from any2any.bundle import ValueInfo
+from any2any.bundle import BundleInfo
 from any2any.utils import classproperty, SmartDict
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
@@ -239,12 +239,12 @@ class ModelMixin(ModelIntrospector):
                 klass = File
             elif isinstance(f, models.BooleanField):
                 klass = bool
-            return ValueInfo(klass, lookup_with={
+            return BundleInfo(klass, lookup_with={
                 AllSubSetsOf(object): (ftype, klass),
                 Singleton(types.NoneType): types.NoneType
             })
         elif isinstance(f, models.ForeignKey):
-            return ValueInfo(f.rel.to, lookup_with={
+            return BundleInfo(f.rel.to, lookup_with={
                 AllSubSetsOf(object): (ftype, f.rel.to),
                 Singleton(types.NoneType): types.NoneType
             })
@@ -253,7 +253,7 @@ class ModelMixin(ModelIntrospector):
                 to = f.related.model
             else:
                 to = f.rel.to
-            return ValueInfo(QuerySet, schema={SmartDict.KeyAny: to}, lookup_with={
+            return BundleInfo(QuerySet, schema={SmartDict.KeyAny: to}, lookup_with={
                 AllSubSetsOf(object): (ftype, QuerySet)
             })
         elif USES_GEODJANGO and isinstance(f, GEODJANGO_FIELDS):
@@ -269,11 +269,11 @@ class ModelMixin(ModelIntrospector):
                 geom_type = MultiLineBundle
             elif isinstance(f, MultiPolygonField):
                 geom_type = MultiPolygonBundle
-            return ValueInfo(geom_type, lookup_with={
+            return BundleInfo(geom_type, lookup_with={
                 AllSubSetsOf(object): (ftype, geom_type)
             })
         else:
-            return ValueInfo(str, lookup_with={
+            return BundleInfo(str, lookup_with={
                 AllSubSetsOf(object): (ftype, str)
             }) # TODO: Not sure about that ...
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 
-from bundle import Bundle, IdentityBundle, ValueInfo
+from bundle import Bundle, IdentityBundle, BundleInfo
 from utils import AllSubSetsOf, Singleton, ClassSet, ClassSetDict, SmartDict
 
 
@@ -16,17 +16,17 @@ class Cast(object):
         # `inpt`'s class
         if in_class in [None, SmartDict.ValueUnknown]:
             in_class = type(inpt)
-        if not isinstance(in_class, ValueInfo):
-            in_value_info = ValueInfo(in_class)
+        if not isinstance(in_class, BundleInfo):
+            in_value_info = BundleInfo(in_class)
         else:
             in_value_info = in_class
         in_bundle_class = in_value_info.get_bundle_class(inpt, self.bundle_class_map)
 
         # `out_class` can be unknown, and it that case, we find a good fallback 
         if out_class in [None, SmartDict.ValueUnknown]:
-            out_value_info = ValueInfo(self._get_fallback(in_bundle_class))
-        elif (not isinstance(out_class, ValueInfo)):
-            out_value_info = ValueInfo(out_class)
+            out_value_info = BundleInfo(self._get_fallback(in_bundle_class))
+        elif (not isinstance(out_class, BundleInfo)):
+            out_value_info = BundleInfo(out_class)
         else:
             out_value_info = out_class
         out_bundle_class = out_value_info.get_bundle_class(inpt, self.bundle_class_map)

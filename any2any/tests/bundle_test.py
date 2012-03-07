@@ -23,22 +23,22 @@ class MyFloatBundle(BundleImplement):
     klass = float
 
 
-class ValueInfo_test(object):
+class BundleInfo_test(object):
 
     def lookup_with_test(self):
         """
-        test ValueInfo.lookup_with
+        test BundleInfo.lookup_with
         """
         csd = ClassSetDict({AllSubSetsOf(object): (int,)})
-        value_info = ValueInfo(int)
+        value_info = BundleInfo(int)
         ok_(value_info.lookup_with == csd)
         csd = ClassSetDict({AllSubSetsOf(object): (float, int)})
-        value_info = ValueInfo(str, lookup_with=csd)
+        value_info = BundleInfo(str, lookup_with=csd)
         ok_(value_info.lookup_with == csd)
 
     def get_bundle_class_test(self):
         """
-        test ValueInfo.get_bundle_class
+        test BundleInfo.get_bundle_class
         """
         bcm = {
             AllSubSetsOf(basestring): BaseStrBundle,
@@ -46,26 +46,26 @@ class ValueInfo_test(object):
             Singleton(int): IntBundle,
         }
         # With a bundle class
-        value_info = ValueInfo(BaseStrBundle)
+        value_info = BundleInfo(BaseStrBundle)
         bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
         # with a normal class
-        value_info = ValueInfo(int)
+        value_info = BundleInfo(int)
         bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, IntBundle))
         ok_(bc.klass is int)
-        value_info = ValueInfo(str, schema={'a': str})
+        value_info = BundleInfo(str, schema={'a': str})
         bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
         ok_(bc.klass is str)
         ok_(bc.get_schema() == {'a': str})
         # with provided lookup
-        value_info = ValueInfo(tuple, lookup_with={AllSubSetsOf(object): (float, basestring, list)})
+        value_info = BundleInfo(tuple, lookup_with={AllSubSetsOf(object): (float, basestring, list)})
         bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
         ok_(bc.klass is tuple)
         # with provided complex lookup
-        value_info = ValueInfo(tuple, lookup_with={
+        value_info = BundleInfo(tuple, lookup_with={
             AllSubSetsOf(object): (float, basestring),
             AllSubSetsOf(int): list,
         })
