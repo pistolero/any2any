@@ -12,6 +12,17 @@ from models import *
 
 from nose.tools import assert_raises, ok_
 
+try:
+    from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
+    PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField, GeometryCollectionField)
+    from django.contrib.gis.geos import (GEOSGeometry, Point, LineString,
+    LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
+except ImportError:
+    USES_GEODJANGO = False
+else:
+    from any2any.django.geodjango import *
+    USES_GEODJANGO = True
+
 
 class AuthorBundle(CRUModelBundle):
     klass = Author

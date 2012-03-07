@@ -12,93 +12,19 @@ from django.db.models.query import QuerySet
 from django.core.files.base import ContentFile
 from django.core.files import File
 
-try:
-    from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
-    PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField, GeometryCollectionField)
-    from django.contrib.gis.geos import (GEOSGeometry, Point, LineString,
-    LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
-
-    GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField, 
-        PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField,
-        GeometryCollectionField)
-except ImportError:
-    USES_GEODJANGO = False
-else:
-    USES_GEODJANGO = True
-
 QUERYSET_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor,
     models.ManyToManyField, GenericRelation)
 RELATED_FIELDS = (ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor)
 SIMPLE_FIELDS = (models.CharField, models.TextField, models.IntegerField, models.DateTimeField,
     models.DateField, models.AutoField, models.FileField, models.BooleanField)
 
-
 from any2any import *
 from any2any.bundle import BundleInfo
-from any2any.utils import classproperty, SmartDict, ClassSet
+from any2any.utils import classproperty, SmartDict, ClassSet, ClassSetDict
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
 
 
-# GeoDjango
-#======================================
-if USES_GEODJANGO:
-    class GEOSGeometryBundle(IterableBundle):
-
-        @classmethod
-        def factory(cls, items_iter):
-            # Necessary, because constructor of some GEOSGeometry objects don't 
-            # accept a list as argument.
-            # TODO: needs ordered dict to pass data between bundles
-            items_iter = sorted(items_iter, key=lambda i: i[0])
-            obj = cls.klass(*(v for k, v in items_iter))
-            return cls(obj)
-
-
-    class PointBundle(GEOSGeometryBundle):
-
-        klass = Point
-        value_type = float
-
-
-    class LineStringBundle(GEOSGeometryBundle):
-
-        klass = LineString
-        value_type = Point
-
-
-    class LinearRingBundle(GEOSGeometryBundle):
-
-        klass = LinearRing
-        value_type = Point
-
-
-    class PolygonBundle(GEOSGeometryBundle):
-
-        klass = Polygon
-        value_type = LinearRing
-
-
-    class MultiPointBundle(GEOSGeometryBundle):
-
-        klass = MultiPoint
-        value_type = Point
-        
-
-    class MultiLineStringBundle(GEOSGeometryBundle):
-
-        klass = MultiLineString
-        value_type = LineString
-
-
-    class MultiPolygonBundle(GEOSGeometryBundle):
-
-        klass = MultiPolygon
-        value_type = Polygon
-
-
-# ModelBundle
-#======================================
 class QuerySetBundle(IterableBundle):
 
     klass = QuerySet
@@ -116,6 +42,38 @@ class QuerySetBundle(IterableBundle):
         return cls(obj)
         
 
+def wrap_simple_field(f):
+    if isinstance(f, models.AutoField):
+        klass = int
+    elif isinstance(f, (models.TextField, models.CharField)):
+        klass = unicode
+    elif isinstance(f, models.IntegerField):
+        klass = int
+    elif isinstance(f, models.DateTimeField):
+        klass = datetime.datetime
+    elif isinstance(f, models.DateField):
+        klass = datetime.date
+    elif isinstance(f, models.FileField):
+        klass = File
+    elif isinstance(f, models.BooleanField):
+        klass = bool
+    return BundleInfo([type(f), klass, types.NoneType, klass])
+
+
+def wrap_foreign_key(f):
+    # TODO: not great, because then we can have a bundle that doesn't know
+    # what kind of FK it represents
+    return BundleInfo([type(f), f.rel.to, types.NoneType, f.rel.to])
+
+
+def wrap_queryset_field(f):
+    if isinstance(f, RELATED_FIELDS):
+        to = f.related.model
+    else:
+        to = f.rel.to
+    return BundleInfo([type(f), QuerySet], schema={SmartDict.KeyAny: to})
+
+
 class ModelMixin(ModelIntrospector):
 
     key_schema = ('pk',)
@@ -123,6 +81,14 @@ class ModelMixin(ModelIntrospector):
 
     include_related = False
     """bool. If True, the schema will also include related ForeignKeys and related ManyToMany."""
+
+    # This is a trick to allow dynamically branching custom wrapping
+    # for non-standard field types like geodjango fields or mongoDB fields.  
+    _field_wrapping_functions = ClassSetDict({
+        ClassSet(SIMPLE_FIELDS): wrap_simple_field,
+        AllSubSetsOf(models.ForeignKey): wrap_foreign_key,
+        ClassSet(QUERYSET_FIELDS): wrap_queryset_field,
+    })
 
     @classmethod
     def factory(cls, items_iter):
@@ -223,52 +189,9 @@ class ModelMixin(ModelIntrospector):
 
     @classmethod
     def _wrap(cls, f):
-        ftype = type(f)
-
-        if isinstance(f, SIMPLE_FIELDS):
-            if isinstance(f, models.AutoField):
-                klass = int
-            elif isinstance(f, (models.TextField, models.CharField)):
-                klass = unicode
-            elif isinstance(f, models.IntegerField):
-                klass = int
-            elif isinstance(f, models.DateTimeField):
-                klass = datetime.datetime
-            elif isinstance(f, models.DateField):
-                klass = datetime.date
-            elif isinstance(f, models.FileField):
-                klass = File
-            elif isinstance(f, models.BooleanField):
-                klass = bool
-            return BundleInfo([ftype, klass, types.NoneType, klass])
-
-        elif isinstance(f, models.ForeignKey):
-            # TODO: not great, because then we can have a bundle that doesn't know
-            # what kind of FK it represents
-            return BundleInfo([ftype, f.rel.to, types.NoneType, f.rel.to])
-
-        elif isinstance(f, QUERYSET_FIELDS):
-            if isinstance(f, RELATED_FIELDS):
-                to = f.related.model
-            else:
-                to = f.rel.to
-            return BundleInfo([ftype, QuerySet], schema={SmartDict.KeyAny: to})
-
-        elif USES_GEODJANGO and isinstance(f, GEODJANGO_FIELDS):
-            if isinstance(f, PointField):
-                geom_type = Point
-            elif isinstance(f, LineStringField):
-                geom_type = LineStringBundle
-            elif isinstance(f, PolygonField):
-                geom_type = PolygonBundle
-            elif isinstance(f, MultiPointField):
-                geom_type = MultiPointBundle
-            elif isinstance(f, MultiLineStringField):
-                geom_type = MultiLineBundle
-            elif isinstance(f, MultiPolygonField):
-                geom_type = MultiPolygonBundle
-            return BundleInfo([ftype, geom_type])
-
+        func = cls._field_wrapping_functions.subsetget(type(f))
+        if func is not None:
+            return func(f)
         else:
             return BundleInfo([ftype, str]) # TODO: Not sure about that ...
 
@@ -355,19 +278,6 @@ serialize = Cast({
     AllSubSetsOf(QuerySet): IterableBundle,
 })
 
-if USES_GEODJANGO:
-    serialize.bundle_class_map.update({
-        Singleton(Point): PointBundle,
-        Singleton(LineString): LineStringBundle,
-        Singleton(LinearRing): LinearRingBundle,
-        Singleton(Polygon): PolygonBundle,
-        Singleton(MultiPoint): MultiPointBundle,
-        Singleton(MultiLineString): MultiLineStringBundle,
-        Singleton(MultiPolygon): MultiPolygonBundle
-    })
-    serialize.fallback_map.update({
-        AllSubSetsOf(GEOSGeometry): IterableBundle,
-    })
 
 deserialize = Cast({
     AllSubSetsOf(dict): MappingBundle,
@@ -384,14 +294,3 @@ deserialize = Cast({
     AllSubSetsOf(QuerySet): QuerySetBundle,
     AllSubSetsOf(File): IdentityBundle,
 })
-
-if USES_GEODJANGO:
-    deserialize.bundle_class_map.update({
-        Singleton(Point): PointBundle,
-        Singleton(LineString): LineStringBundle,
-        Singleton(LinearRing): LinearRingBundle,
-        Singleton(Polygon): PolygonBundle,
-        Singleton(MultiPoint): MultiPointBundle,
-        Singleton(MultiLineString): MultiLineStringBundle,
-        Singleton(MultiPolygon): MultiPolygonBundle,
-    })
