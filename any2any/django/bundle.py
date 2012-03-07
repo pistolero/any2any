@@ -224,6 +224,7 @@ class ModelMixin(ModelIntrospector):
     @classmethod
     def _wrap(cls, f):
         ftype = type(f)
+
         if isinstance(f, SIMPLE_FIELDS):
             if isinstance(f, models.AutoField):
                 klass = int
@@ -239,23 +240,20 @@ class ModelMixin(ModelIntrospector):
                 klass = File
             elif isinstance(f, models.BooleanField):
                 klass = bool
-            return BundleInfo(klass, lookup_with={
-                AllSubSetsOf(object): (ftype, klass),
-                Singleton(types.NoneType): types.NoneType
-            })
+            return BundleInfo([ftype, klass, types.NoneType, klass])
+
         elif isinstance(f, models.ForeignKey):
-            return BundleInfo(f.rel.to, lookup_with={
-                AllSubSetsOf(object): (ftype, f.rel.to),
-                Singleton(types.NoneType): types.NoneType
-            })
+            # TODO: not great, because then we can have a bundle that doesn't know
+            # what kind of FK it represents
+            return BundleInfo([ftype, f.rel.to, types.NoneType, f.rel.to])
+
         elif isinstance(f, QUERYSET_FIELDS):
             if isinstance(f, RELATED_FIELDS):
                 to = f.related.model
             else:
                 to = f.rel.to
-            return BundleInfo(QuerySet, schema={SmartDict.KeyAny: to}, lookup_with={
-                AllSubSetsOf(object): (ftype, QuerySet)
-            })
+            return BundleInfo([ftype, QuerySet], schema={SmartDict.KeyAny: to})
+
         elif USES_GEODJANGO and isinstance(f, GEODJANGO_FIELDS):
             if isinstance(f, PointField):
                 geom_type = Point
@@ -269,13 +267,10 @@ class ModelMixin(ModelIntrospector):
                 geom_type = MultiLineBundle
             elif isinstance(f, MultiPolygonField):
                 geom_type = MultiPolygonBundle
-            return BundleInfo(geom_type, lookup_with={
-                AllSubSetsOf(object): (ftype, geom_type)
-            })
+            return BundleInfo([ftype, geom_type])
+
         else:
-            return BundleInfo(str, lookup_with={
-                AllSubSetsOf(object): (ftype, str)
-            }) # TODO: Not sure about that ...
+            return BundleInfo([ftype, str]) # TODO: Not sure about that ...
 
 
 class ReadOnlyModelBundle(ModelMixin, ObjectBundle):

@@ -2,6 +2,7 @@
 
 from django.db.models import AutoField, CharField, ForeignKey, Model
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
+from django.db.models.fields import Field
 from django.db.models.manager import Manager
 from django.http import QueryDict
 
@@ -99,28 +100,32 @@ class ModelMixin_Test(object):
         wsausage_fields = WritingSausageBundle.default_schema()
         journal_fields = JournalBundle.default_schema()
         dish_fields = DishBundle.default_schema()
-        def get_lu(vi):
-            return vi.lookup_with[AllSubSetsOf(object)]
+
+        def get_field_type(vi):
+            TYPES = (Field, ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor, ForeignKey)
+            typ = filter(lambda v: issubclass(v, TYPES), vi._lookup_with.values())
+            if typ: return typ[0]
+
         ok_(set(columnist_fields) == set(['id', 'pk', 'lastname', 'firstname', 'journal', 'column', 'nickname']))
-        ok_(get_lu(columnist_fields['pk'])[0] is AutoField)
-        ok_(get_lu(columnist_fields['id'])[0] is AutoField)
-        ok_(get_lu(columnist_fields['lastname'])[0] is CharField)
-        ok_(get_lu(columnist_fields['nickname'])[0] is CharField)
-        ok_(get_lu(columnist_fields['journal']) == (ForeignKey, Journal))
+        ok_(get_field_type(columnist_fields['pk']) is AutoField)
+        ok_(get_field_type(columnist_fields['id']) is AutoField)
+        ok_(get_field_type(columnist_fields['lastname']) is CharField)
+        ok_(get_field_type(columnist_fields['nickname']) is CharField)
+        ok_(get_field_type(columnist_fields['journal']) is ForeignKey)
         ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
-        ok_(get_lu(gourmand_fields['firstname'])[0] is CharField)
-        ok_(get_lu(gourmand_fields['favourite_dishes'])[0] is ManyToManyField)
+        ok_(get_field_type(gourmand_fields['firstname']) is CharField)
+        ok_(get_field_type(gourmand_fields['favourite_dishes']) is ManyToManyField)
         ok_(gourmand_fields['favourite_dishes']._schema == {SmartDict.KeyAny: Dish})
-        ok_(get_lu(gourmand_fields['pseudo'])[0] is CharField)
+        ok_(get_field_type(gourmand_fields['pseudo']) is CharField)
         ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
-        ok_(get_lu(journal_fields['name'])[0] is CharField)
-        ok_(get_lu(journal_fields['journalist_set'])[0] is ForeignRelatedObjectsDescriptor)
+        ok_(get_field_type(journal_fields['name']) is CharField)
+        ok_(get_field_type(journal_fields['journalist_set']) is ForeignRelatedObjectsDescriptor)
         ok_(journal_fields['journalist_set']._schema == {SmartDict.KeyAny: Journalist})
-        ok_(get_lu(journal_fields['issue_set'])[0] is ForeignRelatedObjectsDescriptor)
+        ok_(get_field_type(journal_fields['issue_set']) is ForeignRelatedObjectsDescriptor)
         ok_(journal_fields['issue_set']._schema == {SmartDict.KeyAny: Issue})
         ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
-        ok_(get_lu(dish_fields['name'])[0] is CharField)
-        ok_(get_lu(dish_fields['gourmand_set'])[0] is ManyRelatedObjectsDescriptor)
+        ok_(get_field_type(dish_fields['name']) is CharField)
+        ok_(get_field_type(dish_fields['gourmand_set']) is ManyRelatedObjectsDescriptor)
         ok_(dish_fields['gourmand_set']._schema == {SmartDict.KeyAny: Gourmand})
         ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 

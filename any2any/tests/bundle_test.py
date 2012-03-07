@@ -25,17 +25,6 @@ class MyFloatBundle(BundleImplement):
 
 class BundleInfo_test(object):
 
-    def lookup_with_test(self):
-        """
-        test BundleInfo.lookup_with
-        """
-        csd = ClassSetDict({AllSubSetsOf(object): (int,)})
-        value_info = BundleInfo(int)
-        ok_(value_info.lookup_with == csd)
-        csd = ClassSetDict({AllSubSetsOf(object): (float, int)})
-        value_info = BundleInfo(str, lookup_with=csd)
-        ok_(value_info.lookup_with == csd)
-
     def get_bundle_class_test(self):
         """
         test BundleInfo.get_bundle_class
@@ -49,6 +38,7 @@ class BundleInfo_test(object):
         value_info = BundleInfo(BaseStrBundle)
         bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, BaseStrBundle))
+
         # with a normal class
         value_info = BundleInfo(int)
         bc = value_info.get_bundle_class(1, bcm)
@@ -59,22 +49,15 @@ class BundleInfo_test(object):
         ok_(issubclass(bc, BaseStrBundle))
         ok_(bc.klass is str)
         ok_(bc.get_schema() == {'a': str})
-        # with provided lookup
-        value_info = BundleInfo(tuple, lookup_with={AllSubSetsOf(object): (float, basestring, list)})
-        bc = value_info.get_bundle_class(1, bcm)
-        ok_(issubclass(bc, BaseStrBundle))
-        ok_(bc.klass is tuple)
-        # with provided complex lookup
-        value_info = BundleInfo(tuple, lookup_with={
-            AllSubSetsOf(object): (float, basestring),
-            AllSubSetsOf(int): list,
-        })
+
+        # with a list
+        value_info = BundleInfo([float, basestring, list])
         bc = value_info.get_bundle_class('bla', bcm)
         ok_(issubclass(bc, BaseStrBundle))
-        ok_(bc.klass is tuple)
+        ok_(bc.klass is basestring)
         bc = value_info.get_bundle_class(1, bcm)
         ok_(issubclass(bc, IdentityBundle))
-        ok_(bc.klass is tuple)
+        ok_(bc.klass is list)
 
 
 class Bundle_Test(object):

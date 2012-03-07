@@ -210,49 +210,48 @@ class NoSuitableBundleClass(Exception): pass
 
 
 class BundleInfo(object):
-    """
-    Kwargs:
 
-        lookup_with(tuple). A tuple of classes used for looking-up a suitable bundle. 
-    """
-
-    def __init__(self, class_or_bundle_class, lookup_with={}, schema=None, access='rw'):
-        if issubclass(class_or_bundle_class, Bundle):
-            self._raw_bundle_class = class_or_bundle_class
-        else:
-            self._klass = class_or_bundle_class
+    def __init__(self, wished, schema=None, access='rw'):
+        # Dealing with various kwargs        
         self._schema = schema
-        self._lookup_with = ClassSetDict(lookup_with.copy())
         if not (set(access) & set('rw')) == set(access):
             raise ValueError("'access' can contain only chars 'r' and 'w'")
         self.access = access
 
+        # Dealing with `wished`, which can be of many different types
+        self._lookup_with = ClassSetDict()
+        if isinstance(wished, (list, tuple)):
+            for klass in wished:
+                self._lookup_with[AllSubSetsOf(klass)] = klass
+            # We use the last class of the list as a fallback
+            if not AllSubSetsOf(object) in self._lookup_with:
+                self._lookup_with[AllSubSetsOf(object)] = wished[-1]
+        elif isinstance(wished, type) and issubclass(wished, Bundle):
+            self._raw_bundle_class = wished
+        elif isinstance(wished, type):
+            self._lookup_with[AllSubSetsOf(object)] = wished
+        else:
+            raise ValueError("invalid wish %s" % wished)
+
     def get_bundle_class(self, inpt, bundle_class_map):
         if not isinstance(bundle_class_map, ClassSetDict):
             bundle_class_map = ClassSetDict(bundle_class_map)
+
+        # attrs for customizing the bundle class
+        attrs = {}
+
         if not hasattr(self, '_raw_bundle_class'):
             # Finding a bundle class : first we get the classes to lookup with
             # according to inpt's type, then try to find a bundle class for any
             # of those classes 
-            lookup_tuple = self.lookup_with.subsetget(type(inpt), ())
-            try:
-                iter(lookup_tuple)
-            except TypeError:
-                lookup_tuple = (lookup_tuple,)
-            for k in lookup_tuple:
-                bundle_class = bundle_class_map.subsetget(k)
-                if not bundle_class is None: break
-            else:
+            klass = self._lookup_with.subsetget(type(inpt))
+            bundle_class = bundle_class_map.subsetget(klass)
+            if bundle_class is None:
                 raise NoSuitableBundleClass()
+            attrs['klass'] = klass
         else:
             bundle_class = self._raw_bundle_class
-        # customizing the bundle class
-        attrs = {}
-        hasattr(self, '_klass') and attrs.update({'klass': self._klass})
-        (self._schema is not None) and attrs.update({'schema': self._schema})
-        return bundle_class.get_subclass(**attrs)
 
-    @property
-    def lookup_with(self):
-        return self._lookup_with or ClassSetDict({AllSubSetsOf(object): (self._klass,)})
+        if (self._schema is not None): attrs.update({'schema': self._schema})
+        return bundle_class.get_subclass(**attrs)
 
