@@ -2,7 +2,7 @@
 import copy
 
 from bundle import Bundle, IdentityBundle, BundleInfo
-from utils import AllSubSetsOf, Singleton, ClassSet, ClassSetDict, SmartDict
+from utils import AllSubSetsOf, Singleton, ClassSetDict, SmartDict
 
 
 class Cast(object):

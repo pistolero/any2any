@@ -35,7 +35,7 @@ SIMPLE_FIELDS = (models.CharField, models.TextField, models.IntegerField, models
 
 from any2any import *
 from any2any.bundle import BundleInfo
-from any2any.utils import classproperty, SmartDict
+from any2any.utils import classproperty, SmartDict, ClassSet
 from any2any.stdlib.bundle import DateTimeBundle, DateBundle
 from any2any.django.utils import ModelIntrospector
 

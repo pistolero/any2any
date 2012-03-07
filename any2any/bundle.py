@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from utils import ClassSet, ClassSetDict, SmartDict, AllSubSetsOf
+from utils import ClassSetDict, SmartDict, AllSubSetsOf
 
 
 class FactoryError(TypeError): pass

@@ -2,12 +2,9 @@
 import collections
 
 
-class ClassSet(object):
+class BaseClassSet(object):
     # Set of classes, allowing to easily calculate inclusions
     # with comparison operators : `a < B` <=> "A strictly included in B"
-
-    def __init__(self, klass):
-        self.klass = klass
 
     def __ne__(self, other):
         return not self == other
@@ -23,50 +20,89 @@ class ClassSet(object):
         return self > other or self == other
 
     def _default_to_singleton(self, klass):
-        if not isinstance(klass, ClassSet):
+        if not isinstance(klass, BaseClassSet):
             return Singleton(klass)
         else:
             return klass
 
 
-class AllSubSetsOf(ClassSet):
+class ClassSet(BaseClassSet):
+
+    def __init__(self, classes):
+        self._classes = set(classes)
+
+    def __eq__(self, other):
+        if isinstance(other, ClassSet):
+            return self._classes == other._classes
+        elif len(self._classes) == 1 and isinstance(other, Singleton):
+            return list(self._classes)[0] == other._klass
+        else:
+            return False
+
+    def __lt__(self, other):
+        if isinstance(other, ClassSet):
+            return self._classes < other._classes and not other == self
+        else:
+            return False
+
+    def __repr__(self):
+        return u"{%s}" % ', '.join([c.__name__ for c in self._classes])
+
+    def __hash__(self):
+        return hash(('%s' % self.__class__.__name__, tuple(self._classes)))
+
+
+class AllSubSetsOf(BaseClassSet):
+
+    def __init__(self, klass):
+        self._klass = klass
 
     def __eq__(self, other):
         if isinstance(other, AllSubSetsOf):
-            return self.klass == other.klass
+            return self._klass == other._klass
         else:
             return False
 
     def __lt__(self, other):
         if isinstance(other, AllSubSetsOf):
-            return issubclass(self.klass, other.klass) and not other == self
+            return issubclass(self._klass, other._klass) and not other == self
         else:
             return False
 
     def __repr__(self):
-        return u"Any '%s'" % self.klass.__name__
+        return u"Any '%s'" % self._klass.__name__
 
     def __hash__(self):
-        return hash(('set', self.klass))
+        return hash(('%s' % self.__class__.__name__, self._klass))
 
 
-class Singleton(ClassSet):
+class Singleton(BaseClassSet):
+
+    def __init__(self, klass):
+        self._klass = klass
 
     def __eq__(self, other):
         other = self._default_to_singleton(other)
-        return self.klass == other.klass
+        if isinstance(other, Singleton):
+            return self._klass == other._klass
+        elif isinstance(other, ClassSet):
+            return other == self
+        else:
+            return False
 
     def __lt__(self, other):
         if isinstance(other, AllSubSetsOf):
-            return issubclass(self.klass, other.klass)
+            return issubclass(self._klass, other._klass)
+        elif isinstance(other, ClassSet):
+            return self._klass in other._classes and not ClassSet([self._klass]) == other
         else:
             return False
 
     def __repr__(self):
-        return u"'%s'" % self.klass.__name__
+        return u"{%s}" % self._klass.__name__
 
     def __hash__(self):
-        return hash(('singleton', self.klass))
+        return hash(('%s' % self.__class__.__name__, self._klass))
 
 
 class ClassSetDict(dict):

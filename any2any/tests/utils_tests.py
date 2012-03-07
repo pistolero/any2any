@@ -21,6 +21,9 @@ class ClassSet_Test(object):
         ok_(Singleton(object) == object)
         ok_(not AllSubSetsOf(object) == object)
 
+        ok_(Singleton(int) == ClassSet([int]))
+        ok_(not Singleton(int) == ClassSet([str, int]))
+
     def lt_test(self):
         """
         Test ClassSet.__lt__
@@ -28,6 +31,7 @@ class ClassSet_Test(object):
         ok_(Singleton(object) < AllSubSetsOf(object)) # {object} is included in subclasses of object
         ok_(Singleton(int) < AllSubSetsOf(object)) # {int} is included in subclasses of object
         ok_(AllSubSetsOf(int) < AllSubSetsOf(object)) # subclasses of int are included in subclasses of object
+        ok_(Singleton(int) < ClassSet([int, float]))
 
         ok_(not AllSubSetsOf(object) < AllSubSetsOf(object)) # because ==
         ok_(not Singleton(int) < Singleton(object)) # because other is singleton
@@ -37,6 +41,8 @@ class ClassSet_Test(object):
         ok_(not Singleton(str) < object)
         ok_(not Singleton(object) < object)
         ok_(not AllSubSetsOf(object) < object)
+
+        ok_(not Singleton(int) < ClassSet([int]))
 
     def comp_test(self):
         """
