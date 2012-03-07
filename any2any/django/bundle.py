@@ -193,7 +193,7 @@ class ModelMixin(ModelIntrospector):
         if func is not None:
             return func(f)
         else:
-            return BundleInfo([ftype, str]) # TODO: Not sure about that ...
+            return SmartDict.ValueUnknown # TODO: Not sure about that ...
 
 
 class ReadOnlyModelBundle(ModelMixin, ObjectBundle):
