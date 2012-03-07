@@ -36,16 +36,6 @@ class ValueInfo_test(object):
         value_info = ValueInfo(str, lookup_with=csd)
         ok_(value_info.lookup_with == csd)
 
-    def new_test(self):
-        """
-        Test constructor
-        """
-        ok_(ValueInfo(SmartDict.ValueUnknown) is SmartDict.ValueUnknown)
-        value_info = ValueInfo(int)
-        ok_(ValueInfo(value_info) is value_info)
-        ok_(not ValueInfo(int) is ValueInfo(int))
-        ok_(not ValueInfo(MyFloatBundle) is ValueInfo(MyFloatBundle))
-
     def get_bundle_class_test(self):
         """
         test ValueInfo.get_bundle_class

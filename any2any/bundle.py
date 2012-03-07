@@ -215,17 +215,9 @@ class ValueInfo(object):
 
         lookup_with(tuple). A tuple of classes used for looking-up a suitable bundle. 
     """
-    
-    def __new__(cls, val, *args, **kwargs):
-        if cls._should_bypass(val):
-            return val
-        else:
-            return super(ValueInfo, cls).__new__(cls, val, *args, **kwargs)
 
     def __init__(self, class_or_bundle_class, lookup_with={}, schema=None, access='rw'):
-        if self._should_bypass(class_or_bundle_class):
-            return
-        elif issubclass(class_or_bundle_class, Bundle):
+        if issubclass(class_or_bundle_class, Bundle):
             self._raw_bundle_class = class_or_bundle_class
         else:
             self._klass = class_or_bundle_class
@@ -263,14 +255,4 @@ class ValueInfo(object):
     @property
     def lookup_with(self):
         return self._lookup_with or ClassSetDict({AllSubSetsOf(object): (self._klass,)})
-
-    @staticmethod
-    def _should_bypass(val):
-        # We bypass the whole ValueInfo thing if the value is already
-        # a bundle class, or is ValueUnknown.
-        if val is SmartDict.ValueUnknown:
-            return True
-        elif isinstance(val, ValueInfo):
-            return True
-        return False
 

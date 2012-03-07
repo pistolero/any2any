@@ -16,14 +16,21 @@ class Cast(object):
         # `inpt`'s class
         if in_class in [None, SmartDict.ValueUnknown]:
             in_class = type(inpt)
-        in_value_info = ValueInfo(in_class)
+        if not isinstance(in_class, ValueInfo):
+            in_value_info = ValueInfo(in_class)
+        else:
+            in_value_info = in_class
         in_bundle_class = in_value_info.get_bundle_class(inpt, self.bundle_class_map)
+
         # `out_class` can be unknown, and it that case, we find a good fallback 
         if out_class in [None, SmartDict.ValueUnknown]:
             out_value_info = ValueInfo(self._get_fallback(in_bundle_class))
-        else:
+        elif (not isinstance(out_class, ValueInfo)):
             out_value_info = ValueInfo(out_class)
+        else:
+            out_value_info = out_class
         out_bundle_class = out_value_info.get_bundle_class(inpt, self.bundle_class_map)
+
         # Compiling schemas : if it fails with the 2 schemas found,
         # we use the actual schema of `inpt`
         out_schema = out_bundle_class.get_schema()
@@ -33,6 +40,7 @@ class Cast(object):
         except SchemasDontMatch:
             in_schema = in_bundle_class(inpt).get_actual_schema()
             compiled = CompiledSchema(in_schema, out_schema)
+
         # realize the casting
         def generator():
             for key, value in in_bundle_class(inpt):
@@ -55,10 +63,12 @@ class Cast(object):
         # If input is a final value, we'll just assume that ouput is also
         if SmartDict.KeyFinal in in_bundle_class.get_schema():
             return in_bundle_class
+
         # we try to get a bundle class from the `fallback_map`
         bundle_class = self.fallback_map.subsetget(in_bundle_class.klass)
         if not bundle_class is None:
             return bundle_class
+
         # Or we'll just use `in_bundle_class`, so that operation is an identity.
         return in_bundle_class # TODO: shouldn't this rather be an error ?
 
