@@ -169,8 +169,7 @@ class ObjectBundle(Bundle):
 
     def iter(self):
         for name in self.get_schema():
-            if self.is_readable(name):
-                yield name, self.getattr(name)
+            yield name, self.getattr(name)
     
     @classmethod
     def factory(cls, items_iter):
@@ -194,7 +193,7 @@ class ObjectBundle(Bundle):
         if hasattr(self, 'set_%s' % name):
             getattr(self, 'set_%s' % name)(value)
         else:
-            setattr(self.obj, name, value)
+            self.default_setattr(name, value)
 
     def getattr(self, name):
         """
@@ -203,7 +202,13 @@ class ObjectBundle(Bundle):
         if hasattr(self, 'get_%s' % name):
             return getattr(self, 'get_%s' % name)()
         else:
-            return getattr(self.obj, name)
+            return self.default_getattr(name)
+
+    def default_getattr(self, name):
+        return getattr(self.obj, name)
+
+    def default_setattr(self, name, value):
+        setattr(self.obj, name, value)
 
 
 class NoSuitableBundleClass(Exception): pass

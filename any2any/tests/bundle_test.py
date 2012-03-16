@@ -354,7 +354,7 @@ class ObjectBundle_Test(object):
         Test ObjectBundle.setattr
         """
         class AnObjectBundle(ObjectBundle):
-            klass=self.AnObject
+            klass = self.AnObject
             def set_a(self, value):
                 self.obj.a = 'bloblo'
         obj = self.AnObject()

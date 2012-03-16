@@ -104,6 +104,4 @@ class CompiledSchema(object):
     def validate_schema(cls, schema):
         if (SmartDict.KeyFinal in schema) and len(schema) != 1:
             raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
-        elif (SmartDict.KeyAny in schema) and len(schema) != 1:
-            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyAny'")
 

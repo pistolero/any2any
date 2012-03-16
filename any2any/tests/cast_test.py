@@ -15,6 +15,7 @@ class CompiledSchema_test(object):
         test validate_schema with valid schemas.
         """
         ok_(CompiledSchema.validate_schema({SmartDict.KeyAny: str}) is None)
+        ok_(CompiledSchema.validate_schema({SmartDict.KeyAny: str, 1: int}) is None)
         ok_(CompiledSchema.validate_schema({SmartDict.KeyFinal: int}) is None)
         ok_(CompiledSchema.validate_schema({0: int, 1: str, 'a': basestring}) is None)
 
@@ -22,10 +23,6 @@ class CompiledSchema_test(object):
         """
         test validate_schema with unvalid schemas.
         """
-        assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
-            SmartDict.KeyAny: str,
-            1: int
-        })
         assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
             SmartDict.KeyFinal: str,
             'a': str,
@@ -317,3 +314,40 @@ class Cast_complex_calls_test(object):
         for book in truman.books:
             ok_(isinstance(book, self.Book))
         ok_(truman.books[0].title == 'In cold blood')
+
+
+class Cast_ObjectBundle_dict_tests(object):
+    """
+    Test working with ObjectBundle for dict data.
+    """
+
+    def setUp(self):
+        class DictObjectBundle(ObjectBundle):
+            klass = dict
+            schema = {SmartDict.KeyAny: SmartDict.ValueUnknown, 'aa': str}
+            def iter(self):
+                for name in ['aa']:
+                    yield name, self.getattr(name)
+                for k, v in self.obj.items():
+                    yield k, v
+            def get_aa(self):
+                return 'bloblo'
+
+        self.DictObjectBundle = DictObjectBundle
+        self.cast = Cast({
+            AllSubSetsOf(dict): MappingBundle,
+            AllSubSetsOf(object): IdentityBundle,
+        })
+
+    def iter_test(self):
+        d = {'a': 1, 'b': 2}
+        bundle = self.DictObjectBundle(d)
+        ok_(dict(bundle) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+
+    def cast_test(self):
+        d = {'a': 1, 'b': 2}
+        bundle = self.DictObjectBundle(d)
+        ok_(dict(bundle) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+
+        data = self.cast(d, in_class=self.DictObjectBundle, out_class=dict)
+        ok_(data == {'a': 1, 'b': 2, 'aa': 'bloblo'})
