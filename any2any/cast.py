@@ -41,19 +41,13 @@ class Cast(object):
             in_schema = in_bundle_class(inpt).get_actual_schema()
             compiled = CompiledSchema(in_schema, out_schema)
 
-        # realize the casting
-        def generator():
-            for key, value in in_bundle_class(inpt):
-                if key is SmartDict.KeyFinal:
-                    casted_value = value
-                else:
-                    # recursive call      
-                    casted_value = self(value,
-                        out_class=out_schema[key],
-                        in_class=in_schema[key]
-                    )
-                yield key, casted_value
-        return out_bundle_class.build(generator()).obj
+        # Generator iterating on the casted items, and which will be used
+        # to build the casted object.
+        # It calls the casting recursively if the schema has any nesting.
+        generator = _Generator(self, iter(in_bundle_class(inpt)), in_schema, out_schema)
+
+        # Finally, we build the casted object.
+        return out_bundle_class.build(generator).obj
 
     def log(self, inpt, in_value_info, in_schema, out_value_info, out_schema):
         pass
@@ -71,6 +65,30 @@ class Cast(object):
 
         # Or we'll just use `in_bundle_class`, so that operation is an identity.
         return in_bundle_class # TODO: shouldn't this rather be an error ?
+
+
+class _Generator(object):
+
+    def __init__(self, cast, items_iter, in_schema, out_schema):
+        self.cast = cast
+        self.items_iter = items_iter
+        self.in_schema = in_schema
+        self.out_schema = out_schema
+
+    def __iter__(self):
+        return self
+        
+    def next(self):
+        key, value = self.items_iter.next()
+        self.last_key = key
+        if key is SmartDict.KeyFinal:
+            casted_value = value
+        else:
+            casted_value = self.cast(value,
+                out_class=self.out_schema[key],
+                in_class=self.in_schema[key]
+            )
+        return key, casted_value
 
 
 class SchemaError(TypeError): pass

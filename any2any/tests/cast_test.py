@@ -91,9 +91,6 @@ class MyFloatBundle(MyBundle):
 
 
 class Cast_test(object):
-    """
-    test Cast
-    """
 
     def get_fallback_test(self):
         """
@@ -324,7 +321,7 @@ class Cast_ObjectBundle_dict_tests(object):
     def setUp(self):
         class DictObjectBundle(ObjectBundle):
             klass = dict
-            schema = {SmartDict.KeyAny: SmartDict.ValueUnknown, 'aa': str}
+            schema = {SmartDict.KeyAny: SmartDict.ValueUnknown}
             def iter(self):
                 for name in ['aa']:
                     yield name, self.getattr(name)
@@ -351,3 +348,4 @@ class Cast_ObjectBundle_dict_tests(object):
 
         data = self.cast(d, in_class=self.DictObjectBundle, out_class=dict)
         ok_(data == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+
