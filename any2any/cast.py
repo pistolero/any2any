@@ -10,8 +10,12 @@ class Cast(object):
     def __init__(self, bundle_class_map, fallback_map={}):
         self.bundle_class_map = ClassSetDict(bundle_class_map)
         self.fallback_map = ClassSetDict(fallback_map)
+        self._depth_counter = 0
+        self.debug = False
 
     def __call__(self, inpt, in_class=None, out_class=None):
+        self._depth_counter += 1
+
         # `in_class` is always known, because we at least have the 
         # `inpt`'s class
         if in_class in [None, SmartDict.ValueUnknown]:
@@ -47,11 +51,14 @@ class Cast(object):
         generator = _Generator(self, iter(in_bundle_class(inpt)), in_schema, out_schema)
 
         # Finally, we build the casted object.
-        return out_bundle_class.build(generator).obj
+        self.log('%s <= %s' % (in_bundle_class, inpt))
+        casted = out_bundle_class.build(generator).obj
+        self.log('%s => %s' % (out_bundle_class, casted))
+        self._depth_counter -= 1
+        return casted
 
-    def log(self, inpt, in_value_info, in_schema, out_value_info, out_schema):
-        pass
-        #print '%s\n%s-%s => %s-%s\n' % (inpt, in_value_info.__name__, in_schema, out_value_info.__name__, out_schema) 
+    def log(self, msg):
+        if self.debug: print '\t' * self._depth_counter, msg
 
     def _get_fallback(self, in_bundle_class):
         # If input is a final value, we'll just assume that ouput is also
@@ -81,6 +88,7 @@ class _Generator(object):
     def next(self):
         key, value = self.items_iter.next()
         self.last_key = key
+        self.cast.log('[ %s ]' % key)
         if key is SmartDict.KeyFinal:
             casted_value = value
         else:
