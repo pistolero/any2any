@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_raises, ok_
+from unittest import TestCase
+
 from any2any.bundle import *
 from any2any.cast import *
 from any2any.utils import SmartDict
@@ -23,7 +25,7 @@ class MyFloatBundle(BundleImplement):
     klass = float
 
 
-class BundleInfo_test(object):
+class BundleInfo_test(TestCase):
 
     def get_bundle_class_test(self):
         """
@@ -60,7 +62,7 @@ class BundleInfo_test(object):
         ok_(bc.klass is list)
 
 
-class Bundle_Test(object):
+class Bundle_Test(TestCase):
     """
     Tests on Bundle
     """
@@ -205,9 +207,12 @@ class Bundle_Test(object):
                 return {}
         MySimpleBundle1 = MySimpleBundle.get_subclass(access={1: 'r', 3: 'r'})
         MySimpleBundle2 = MySimpleBundle.get_subclass(access={2: 'r'})
-        ok_(list(MySimpleBundle(None)) == [(1, 'a'), (2, 'b'), (3, 'c')])
-        ok_(list(MySimpleBundle1(None)) == [(1, 'a'), (3, 'c')])
-        ok_(list(MySimpleBundle2(None)) == [(2, 'b'),])
+        MySimpleBundle3 = MySimpleBundle.get_subclass(access={SmartDict.KeyAny: 'r'})
+
+        self.assertEqual(list(MySimpleBundle(None)), [])
+        self.assertEqual(list(MySimpleBundle1(None)), [(1, 'a'), (3, 'c')])
+        self.assertEqual(list(MySimpleBundle2(None)), [(2, 'b'),])
+        self.assertEqual(list(MySimpleBundle3(None)), [(1, 'a'), (2, 'b'), (3, 'c')])
 
     def build_test(self):
         """
@@ -222,16 +227,23 @@ class Bundle_Test(object):
                 return {}
         MySimpleBundle1 = MySimpleBundle.get_subclass(access={1: 'w', 3: 'w'})
         MySimpleBundle2 = MySimpleBundle.get_subclass(access={2: 'w'})
+        MySimpleBundle3 = MySimpleBundle.get_subclass(access={SmartDict.KeyAny: 'w'})
         items_list = [(1, 'a'), (2, 'b'), (3, 'c')]
+
         bundle = MySimpleBundle.build(iter(items_list))
-        ok_(bundle.obj == {1: 'a', 2: 'b', 3: 'c'})
+        self.assertEqual(bundle.obj, {})
+
         bundle = MySimpleBundle1.build(iter(items_list))
-        ok_(bundle.obj == {1: 'a', 3: 'c'})
+        self.assertEqual(bundle.obj, {1: 'a', 3: 'c'})
+
         bundle = MySimpleBundle2.build(iter(items_list))
-        ok_(bundle.obj == {2: 'b'})
+        self.assertEqual(bundle.obj, {2: 'b'})
+
+        bundle = MySimpleBundle3.build(iter(items_list))
+        self.assertEqual(bundle.obj, {1: 'a', 2: 'b', 3: 'c'})
         
 
-class IdentityBundle_Test(object):
+class IdentityBundle_Test(TestCase):
     """
     Simple tests on IdentityBundle
     """
@@ -260,7 +272,7 @@ class IdentityBundle_Test(object):
         ok_(MyBundle.get_schema() == {SmartDict.KeyFinal: int})
         
 
-class IterableBundle_Test(object):
+class IterableBundle_Test(TestCase):
     """
     Simple tests on IterableBundle
     """
@@ -294,7 +306,7 @@ class IterableBundle_Test(object):
         ok_(ListOfInt.get_schema() == {SmartDict.KeyAny: int})
 
 
-class MappingBundle_Test(object):
+class MappingBundle_Test(TestCase):
     """
     Simple tests on MappingBundle
     """
@@ -326,7 +338,7 @@ class MappingBundle_Test(object):
         ok_(MappingOfInt.get_schema() == {SmartDict.KeyAny: int})
 
 
-class ObjectBundle_Test(object):
+class ObjectBundle_Test(TestCase):
     """
     Tests for the ObjectBundle class
     """

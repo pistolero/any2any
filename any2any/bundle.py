@@ -17,7 +17,8 @@ class Bundle(object):
     exclude = []
     """list. The list of attributes to exclude from the schema see, :meth:`get_schema`."""
 
-    access = {SmartDict.KeyAny: 'rw', SmartDict.KeyFinal: 'rw'}
+    access = {}
+    
 
     def __init__(self, obj):
         self.obj = obj
@@ -85,7 +86,7 @@ class Bundle(object):
 
     @classmethod
     def default_access(cls):
-        return {SmartDict.KeyAny: 'rw'}
+        return {SmartDict.KeyAny: 'rw', SmartDict.KeyFinal: 'rw'}
 
     @classmethod
     def default_schema(cls):
