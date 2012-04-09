@@ -42,13 +42,13 @@ class Cast(object):
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = SmartDict(in_node_class(inpt).get_actual_schema())
+            in_schema = SmartDict(in_node_class.new(inpt).get_actual_schema())
             compiled = CompiledSchema(in_schema, out_schema)
 
         # Generator iterating on the casted items, and which will be used
         # to load the casted object.
         # It calls the casting recursively if the schema has any nesting.
-        generator = _Generator(self, in_node_class(inpt).dump(), in_schema, out_schema)
+        generator = _Generator(self, in_node_class.new(inpt).dump(), in_schema, out_schema)
 
         # Finally, we load the casted object.
         self.log('%s <= %s' % (in_node_class, inpt))

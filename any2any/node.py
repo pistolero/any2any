@@ -6,11 +6,18 @@ class FactoryError(TypeError): pass
 
 
 class Node(object):
+    """
+    Base class for all node classes. 
+    """
 
     klass = SmartDict.ValueUnknown
 
     def __init__(self, obj):
         self.obj = obj
+
+    @classmethod
+    def new(cls, obj):
+        return cls(obj)
 
     def dump(self):
         raise NotImplementedError()
@@ -45,7 +52,7 @@ class IdentityNode(Node):
 
     @classmethod
     def schema_dump(cls):
-        return SmartDict({SmartDict.KeyFinal: cls.klass})
+        return {SmartDict.KeyFinal: cls.klass}
 
     @classmethod
     def load(cls, items_iter):
@@ -53,11 +60,11 @@ class IdentityNode(Node):
             key, obj = items_iter.next()
         except StopIteration:
             raise FactoryError("empty iterator received")
-        return cls(obj)
+        return cls.new(obj)
 
     @classmethod
     def schema_load(cls):
-        return SmartDict({SmartDict.KeyFinal: cls.klass})
+        return {SmartDict.KeyFinal: cls.klass}
 
 
 class ContainerNode(Node):
@@ -85,7 +92,7 @@ class IterableNode(ContainerNode):
         # TODO: needs ordered dict to pass data between nodes
         items_iter = sorted(items_iter, key=lambda i: i[0])
         obj = cls.klass((v for k, v in items_iter))
-        return cls(obj)
+        return cls.new(obj)
 
 
 class MappingNode(ContainerNode):
@@ -98,7 +105,7 @@ class MappingNode(ContainerNode):
     @classmethod
     def load(cls, items_iter):
         obj = cls.klass(items_iter)
-        return cls(obj)
+        return cls.new(obj)
 
 
 class ObjectNode(Node):
@@ -125,7 +132,7 @@ class ObjectNode(Node):
         Creates and returns a new instance of the wrapped type.
         """
         obj = cls.klass(**dict(items_iter))
-        return cls(obj)
+        return cls.new(obj)
 
     @classmethod
     def schema_load(cls):
