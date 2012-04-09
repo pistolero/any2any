@@ -7,14 +7,13 @@ class FactoryError(TypeError): pass
 
 class Node(object):
     """
-    Base class for all node classes.
+    Base for all node classes.
+    Subclasses must implement :
 
-    Subclasses must implement methods :
-
-        - :meth:`Node.dump`
-        - :meth:`Node.schema_dump`
-        - :meth:`Node.load`
-        - :meth:`Node.schema_load` 
+        - :meth:`dump`
+        - :meth:`schema_dump`
+        - :meth:`load`
+        - :meth:`schema_load` 
     """
 
     klass = SmartDict.ValueUnknown
@@ -175,7 +174,8 @@ class ObjectNode(Node):
 
     def setattr(self, name, value):
         """
-        Sets the attribute `name` of the node's object, with `value`. If the calling node has a method `set_<name>`, this method will be used instead.
+        Sets the attribute `name` of the node's object, with `value`.
+        If the calling node has a method `set_<name>`, this method will be used instead.
         """
         if hasattr(self, 'set_%s' % name):
             getattr(self, 'set_%s' % name)(value)
@@ -184,7 +184,8 @@ class ObjectNode(Node):
 
     def getattr(self, name):
         """
-        Gets the attribute `name` from the node's object. If the calling node has a method `get_<name>`, this method will be used instead.
+        Gets the attribute `name` from the node's object.
+        If the calling node has a method `get_<name>`, this method will be used instead.
         """
         if hasattr(self, 'get_%s' % name):
             return getattr(self, 'get_%s' % name)()
@@ -204,7 +205,7 @@ class NoSuitableNodeClass(Exception): pass
 class NodeInfo(object):
 
     def __init__(self, wished, **kwargs):
-        # Those will be used for building the node class        
+        # Those will be used for building the final node class        
         self.kwargs = kwargs
 
         # Dealing with `wished`, which can be of many different types

@@ -177,7 +177,7 @@ htmlhelp_basename = 'any2anydoc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'any2any.tex', u'any2any Documentation',
-   u'Sebastien Piquemal', 'manual'),
+   u'Sébastien Piquemal', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
