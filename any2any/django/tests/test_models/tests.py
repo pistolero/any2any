@@ -5,12 +5,13 @@ from django.db.models.fields.related import ManyRelatedObjectsDescriptor, Foreig
 from django.db.models.fields import Field
 from django.db.models.manager import Manager
 from django.http import QueryDict
-
-from any2any import *
-from any2any.django.bundle import *
-from models import *
+from django.test import TestCase
 
 from nose.tools import assert_raises, ok_
+
+from any2any import *
+from any2any.django.node import *
+from models import *
 
 try:
     from django.contrib.gis.db.models import (GeometryField, PointField, LineStringField, 
@@ -24,93 +25,119 @@ else:
     USES_GEODJANGO = True
 
 
-class AuthorBundle(CRUModelBundle):
+class AuthorNode(CRUModelNode):
     klass = Author
 
-class BookBundle(CRUModelBundle):
+class BookNode(CRUModelNode):
     klass = Book
-    schema = {'author': AuthorBundle}
+    @classmethod
+    def common_schema(cls):
+        schema = super(BookNode, cls).common_schema()
+        schema.update({'author': AuthorNode})
+        return schema
 
-class UpdateOnlyGourmand(UpdateOnlyModelBundle):
+class UpdateOnlyGourmand(UpdateOnlyModelNode):
     klass = Gourmand
 
-class UpdateOnlyGourmandQuerySet(QuerySetBundle):
+class UpdateOnlyGourmandQuerySet(QuerySetNode):
     value_type = UpdateOnlyGourmand
 
-class UpdateOnlyDish(UpdateOnlyModelBundle):
+class UpdateOnlyDish(UpdateOnlyModelNode):
     klass = Dish
-    schema = {'gourmand_set': UpdateOnlyGourmandQuerySet}
+    @classmethod
+    def common_schema(cls):
+        schema = super(UpdateOnlyDish, cls).common_schema()
+        schema.update({'gourmand_set': UpdateOnlyGourmandQuerySet})
+        return schema
 
-class DishBundle(CRUModelBundle):
+class DishNode(CRUModelNode):
     klass = Dish
 
-class UpdateOnlyDishQuerySet(QuerySetBundle):
+class UpdateOnlyDishQuerySet(QuerySetNode):
     value_type = UpdateOnlyDish
 
-class DishQuerySet(QuerySetBundle):
-    value_type = DishBundle
+class DishQuerySet(QuerySetNode):
+    value_type = DishNode
 
-class GourmandBundle(CRUModelBundle):
+class GourmandNode(CRUModelNode):
     klass = Gourmand
-    schema = {'favourite_dishes': DishQuerySet}
+    @classmethod
+    def common_schema(cls):
+        schema = super(GourmandNode, cls).common_schema()
+        schema.update({'favourite_dishes': DishQuerySet})
+        return schema
 
-class UpdateOnlyGourmand(UpdateOnlyModelBundle):
+class UpdateOnlyGourmand(UpdateOnlyModelNode):
     klass = Gourmand
-    schema = {'favourite_dishes': UpdateOnlyDishQuerySet}
+    @classmethod
+    def common_schema(cls):
+        schema = super(UpdateOnlyGourmand, cls).common_schema()
+        schema.update({'favourite_dishes': UpdateOnlyDishQuerySet})
+        return schema
 
-class UpdateOnlyAuthor(UpdateOnlyModelBundle):
+class UpdateOnlyAuthor(UpdateOnlyModelNode):
     klass = Author
 
-class UpdateOnlyBook(UpdateOnlyModelBundle):
+class UpdateOnlyBook(UpdateOnlyModelNode):
     klass = Book
-    schema = {'author': UpdateOnlyAuthor}
+    @classmethod
+    def common_schema(cls):
+        schema = super(UpdateOnlyBook, cls).common_schema()
+        schema.update({'author': UpdateOnlyAuthor})
+        return schema
 
-class UpdateOnlyJournalist(UpdateOnlyModelBundle):
+class UpdateOnlyJournalist(UpdateOnlyModelNode):
     klass = Journalist
 
-class UpdateOnlyJournalistQuerySet(QuerySetBundle):
+class UpdateOnlyJournalistQuerySet(QuerySetNode):
     value_type = UpdateOnlyJournalist
 
-class UpdateOnlyJournal(UpdateOnlyModelBundle):
+class UpdateOnlyJournal(UpdateOnlyModelNode):
     klass = Journal
-    schema = {'journalist_set': UpdateOnlyJournalistQuerySet}
+    @classmethod
+    def common_schema(cls):
+        schema = super(UpdateOnlyJournal, cls).common_schema()
+        schema.update({'journalist_set': UpdateOnlyJournalistQuerySet})
+        return schema
 
-class UpdateOnlyColumnist(UpdateOnlyModelBundle):
+class UpdateOnlyColumnist(UpdateOnlyModelNode):
     klass = Columnist
     key_schema = ('firstname', 'lastname')
 
-class ColumnistBundle(CRUModelBundle):
+class ColumnistNode(CRUModelNode):
     klass = Columnist
     key_schema = ('firstname', 'lastname')
 
-class UpdateOnlyIssue(UpdateOnlyModelBundle):
+class UpdateOnlyIssue(UpdateOnlyModelNode):
     klass = Issue
 
 
-class ModelMixin_Test(object):
+class ModelMixin_Test(TestCase):
     """
-    Test ModelMixin, base of all ModelBundles
+    Test ModelMixin, base of all ModelNodes
     """
 
-    def fields_test(self):
-        """
-        Test ModelMixin.default_schema
-        """
-        class ColumnistBundle(ReadOnlyModelBundle):
+    def common_schema_test(self):
+        class ColumnistNode(ReadOnlyModelNode):
             klass = Columnist
-        class GourmandBundle(ReadOnlyModelBundle):
+            include_related = True
+        class GourmandNode(ReadOnlyModelNode):
             klass = Gourmand
-        class WritingSausageBundle(ReadOnlyModelBundle):
+            include_related = True
+        class WritingSausageNode(ReadOnlyModelNode):
             klass = WritingSausage
-        class JournalBundle(ReadOnlyModelBundle):
+            include_related = True
+        class JournalNode(ReadOnlyModelNode):
             klass = Journal
-        class DishBundle(ReadOnlyModelBundle):
+            include_related = True
+        class DishNode(ReadOnlyModelNode):
             klass = Dish
-        columnist_fields = ColumnistBundle.default_schema()
-        gourmand_fields = GourmandBundle.default_schema()
-        wsausage_fields = WritingSausageBundle.default_schema()
-        journal_fields = JournalBundle.default_schema()
-        dish_fields = DishBundle.default_schema()
+            include_related = True
+        columnist_fields = ColumnistNode.common_schema()
+        gourmand_fields = GourmandNode.common_schema()
+        wsausage_fields = WritingSausageNode.common_schema()
+        journal_fields = JournalNode.common_schema()
+        dish_fields = DishNode.common_schema()
 
         def get_field_type(vi):
             TYPES = (Field, ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor, ForeignKey)
@@ -126,28 +153,28 @@ class ModelMixin_Test(object):
         ok_(set(gourmand_fields) == set(['id', 'pk', 'lastname', 'firstname', 'favourite_dishes', 'pseudo']))
         ok_(get_field_type(gourmand_fields['firstname']) is CharField)
         ok_(get_field_type(gourmand_fields['favourite_dishes']) is ManyToManyField)
-        ok_(gourmand_fields['favourite_dishes']._schema == {SmartDict.KeyAny: Dish})
+        ok_(gourmand_fields['favourite_dishes'].kwargs == {'value_type': Dish})
         ok_(get_field_type(gourmand_fields['pseudo']) is CharField)
         ok_(set(wsausage_fields) == set(['id', 'pk', 'lastname', 'firstname', 'nickname', 'name', 'greasiness']))
         ok_(get_field_type(journal_fields['name']) is CharField)
         ok_(get_field_type(journal_fields['journalist_set']) is ForeignRelatedObjectsDescriptor)
-        ok_(journal_fields['journalist_set']._schema == {SmartDict.KeyAny: Journalist})
+        ok_(journal_fields['journalist_set'].kwargs == {'value_type': Journalist})
         ok_(get_field_type(journal_fields['issue_set']) is ForeignRelatedObjectsDescriptor)
-        ok_(journal_fields['issue_set']._schema == {SmartDict.KeyAny: Issue})
+        ok_(journal_fields['issue_set'].kwargs == {'value_type': Issue})
         ok_(set(journal_fields) == set(['id', 'pk', 'name', 'journalist_set', 'issue_set']))
         ok_(get_field_type(dish_fields['name']) is CharField)
         ok_(get_field_type(dish_fields['gourmand_set']) is ManyRelatedObjectsDescriptor)
-        ok_(dish_fields['gourmand_set']._schema == {SmartDict.KeyAny: Gourmand})
+        ok_(dish_fields['gourmand_set'].kwargs == {'value_type': Gourmand})
         ok_(set(dish_fields) == set(['id', 'pk', 'name', 'gourmand_set']))
 
     def nk_test(self):
         """
         Test ModelMixin.extract_key
         """
-        class ColumnistBundle(ReadOnlyModelBundle):
+        class ColumnistNode(ReadOnlyModelNode):
             klass = Columnist
             key_schema = ('firstname', 'lastname')
-        ok_(ColumnistBundle.extract_key({
+        ok_(ColumnistNode.extract_key({
             'firstname': 'Jamy',
             'lastname': 'Gourmaud',
             'journal': {'id': 806, 'name': "C'est pas sorcier"},
@@ -156,7 +183,7 @@ class ModelMixin_Test(object):
         }) == {'firstname': 'Jamy', 'lastname': 'Gourmaud'})
 
 
-class BaseModel(object):
+class BaseModel(TestCase):
     
     def setUp(self):
         self.author = Author(firstname='John', lastname='Steinbeck', nickname='JS')
@@ -203,7 +230,7 @@ class ModelToDict_Test(BaseModel):
         """
         Simple test ModelToDict.call
         """
-        ok_(self.serialize(self.author) == {
+        self.assertEqual(self.serialize(self.author), {
             'id': self.author.pk,
             'pk': self.author.pk,
             'firstname': 'John',
@@ -269,16 +296,24 @@ class ModelToDict_Test(BaseModel):
         Test ModelToDict.call serializing a reverse relationship (fk, m2m).
         """
         # reverse ForeignKey
-        class JournalistBundle(CRUModelBundle):
+        class JournalistNode(CRUModelNode):
             klass = Journalist
-            include = ['firstname', 'lastname']
-        class JournalBundle(CRUModelBundle):
+            @classmethod
+            def schema_dump(cls):
+                return {
+                    'firstname': str,
+                    'lastname': str
+                }
+        class JournalNode(CRUModelNode):
             klass = Journal
-            include = ['name', 'journalist_set']
-            schema = {
-                'journalist_set': QuerySetBundle.get_subclass(value_type=JournalistBundle)
-            }
-        ok_(serialize(self.journal, in_class=JournalBundle) == {
+            @classmethod
+            def schema_dump(cls):
+                schema = super(JournalNode, cls).schema_dump()
+                return {
+                    'name': schema['name'],
+                    'journalist_set': QuerySetNode.get_subclass(value_type=JournalistNode)
+                }
+        ok_(serialize(self.journal, in_class=JournalNode) == {
             'journalist_set': [
                 {'lastname': u'Courant', 'firstname': u'Fred'},
                 {'lastname': u'Gourmaud', 'firstname': u'Jamy'}
@@ -288,15 +323,22 @@ class ModelToDict_Test(BaseModel):
         # reverse m2m
         self.gourmand.favourite_dishes.add(self.salmon)
         self.gourmand.save()
-        class GourmandBundle(CRUModelBundle):
+        class GourmandNode(CRUModelNode):
             klass = Gourmand
-            include = ['pseudo']
-        class DishBundle(CRUModelBundle):
+            @classmethod
+            def schema_dump(cls):
+                return {'pseudo': str}
+        class DishNode(CRUModelNode):
             klass = Dish
-            exclude = ['id', 'pk']
             include_related = True
-            schema = {'gourmand_set': QuerySetBundle.get_subclass(value_type=GourmandBundle)}
-        ok_(serialize(self.salmon, in_class=DishBundle) == {
+            @classmethod
+            def schema_dump(cls):
+                schema = super(DishNode, cls).schema_dump()
+                schema.pop('id', None)
+                schema.pop('pk', None)
+                schema['gourmand_set'] = QuerySetNode.get_subclass(value_type=GourmandNode)
+                return schema
+        ok_(serialize(self.salmon, in_class=DishNode) == {
             'gourmand_set': [
                 {'pseudo': u'Taz'},
             ],
@@ -307,16 +349,24 @@ class ModelToDict_Test(BaseModel):
         """
         Test ModelToDict.call serializing date and datetime
         """
-        class JournalBundle(CRUModelBundle):
+        class JournalNode(CRUModelNode):
             klass = Journal
-            include = ['name']
-        class IssueBundle(CRUModelBundle):
+            @classmethod
+            def schema_dump(cls):
+                return {'name': str}
+
+        class IssueNode(CRUModelNode):
             klass = Issue
-            include = ['journal', 'issue_date', 'last_char_datetime']
-            schema = {
-                'journal': JournalBundle
-            }
-        ok_(self.serialize(self.issue, in_class=IssueBundle) == {
+            @classmethod
+            def schema_dump(cls):
+                schema = super(IssueNode, cls).schema_dump()
+                return {
+                    'journal': JournalNode,
+                    'issue_date': schema['issue_date'],
+                    'last_char_datetime': schema['last_char_datetime'],
+                }
+
+        ok_(self.serialize(self.issue, in_class=IssueNode) == {
             'journal': {'name': "C'est pas sorcier"},
             'issue_date': {'year': 1979, 'month': 11, 'day': 1},
             'last_char_datetime': {'year': 1979, 'month': 10, 'day': 29, 'hour': 0, 'minute': 12, 'second': 0, 'microsecond': 0},
@@ -344,7 +394,7 @@ class DictToModel_Test(BaseModel):
         Simple test DictToModel.call
         """
         authors_before = Author.objects.count()
-        james = self.deserialize({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, out_class=AuthorBundle)
+        james = self.deserialize({'firstname': 'James Graham', 'lastname': 'Ballard', 'nickname': 'JG Ballard'}, out_class=AuthorNode)
         james = Author.objects.get(pk=james.pk)
         # We check the fields
         ok_(james.firstname == 'James Graham')
@@ -383,7 +433,7 @@ class DictToModel_Test(BaseModel):
         book = self.deserialize({
             'title': '1984', 'comments': 'great great great',
             'author': {'firstname': 'George', 'lastname': 'Orwell'}
-        }, out_class=BookBundle)
+        }, out_class=BookNode)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -406,7 +456,7 @@ class DictToModel_Test(BaseModel):
         book = self.deserialize({
             'id': 989, 'title': '1984', 'comments': 'great great great',
             'author': {'id': 76,'firstname': 'George', 'lastname': 'Orwell'}
-        }, out_class=BookBundle)
+        }, out_class=BookNode)
         book = Book.objects.get(pk=book.pk)
         author = Author.objects.get(firstname='George', lastname='Orwell')
         # We check the fields
@@ -461,7 +511,7 @@ class DictToModel_Test(BaseModel):
                 {'id': self.salmon.pk},
                 {'id': self.foiegras.pk},
             ]
-        }, out_class=GourmandBundle)
+        }, out_class=GourmandNode)
         gourmand = Gourmand.objects.get(pk=gourmand.pk)
         vitamineo = Dish.objects.get(pk=888)
         # We check the fields
@@ -524,7 +574,7 @@ class DictToModel_Test(BaseModel):
             'lastname': 'Courant',
             'journal': {'id': self.journal.pk},
             'column': 'on the field',
-        }, out_class=ColumnistBundle)
+        }, out_class=ColumnistNode)
         fred = Columnist.objects.get(pk=fred.pk)
         # We check the fields
         ok_(fred.column == 'on the field')
@@ -549,7 +599,7 @@ if USES_GEODJANGO:
     from django.contrib.gis.geos import (Point, LineString,
     LinearRing, Polygon, MultiPoint, MultiLineString, MultiPolygon)
 
-    class GeoDjango_Test(object):
+    class GeoDjango_Test(TestCase):
         """
         Test serialize and deserialize GeoDjango's geometry objects.
         """
@@ -591,8 +641,6 @@ if USES_GEODJANGO:
             """
             line = self.deserialize([[56.9, 2, 3], [2, 7.0, 8], [3.0, 9.0, -6.8], [156.9, 88, 0]], out_class=LineString)
             ok_(line == LineString(Point(56.9, 2, 3), Point(2, 7.0, 8), Point(3.0, 9.0, -6.8), Point(156.9, 88, 0)))
-            def build_point(pdict):
-                return Point(pdict['x'], pdict['y'], pdict.get('z'))
             line = deserialize([{'x': 5, 'y': -9.0}, {'x': 2, 'y': 7.0}], out_class=LineString)
             ok_(line == LineString(Point(5, -9.0), Point(2, 7.0)))
 

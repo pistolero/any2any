@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from any2any.bundle import *
+from any2any.node import *
 from any2any.cast import *
 from any2any.utils import *
 from nose.tools import assert_raises, ok_
@@ -7,7 +7,7 @@ from nose.tools import assert_raises, ok_
 
 def validation_system_test():
     """
-    This test shows how to build a simple validation framework
+    This test shows how to load a simple validation framework
     on top of any2any
     """
     class ValidationError(Exception):
@@ -18,10 +18,10 @@ def validation_system_test():
 
     class MyCast(Cast): pass
 
-    class MyBundle(MappingBundle):
+    class MyNode(MappingNode):
 
         @classmethod
-        def build(cls, items_iter):
+        def load(cls, items_iter):
             items_dict = dict()
             error = None
             keys_seen = []
@@ -42,11 +42,11 @@ def validation_system_test():
                 error = error or ValidationError()
                 error.non_field_errors.append('Need more keys')
             if error: raise error
-            return super(MyBundle, cls).build(items_dict.iteritems())
+            return super(MyNode, cls).load(items_dict.iteritems())
 
     cast = MyCast({
-        Singleton(dict): MyBundle,
-        AllSubSetsOf(object): IdentityBundle
+        Singleton(dict): MyNode,
+        AllSubSetsOf(object): IdentityNode
     })
 
     ok_(cast({'a': 1, 'b': 2, 'c': 3}) == {'a': 1, 'b': 2, 'c': 3})

@@ -7,59 +7,60 @@ GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField,
     PolygonField, MultiPointField, MultiLineStringField, MultiPolygonField,
     GeometryCollectionField)
 
-from any2any.django.bundle import ModelMixin, serialize, deserialize
-from any2any.utils import ClassSet
+from any2any.django.node import ModelMixin, serialize, deserialize
+from any2any.utils import ClassSet, Singleton, AllSubSetsOf
+from any2any.node import IterableNode
 
 
-class GEOSGeometryBundle(IterableBundle):
+class GEOSGeometryNode(IterableNode):
 
     @classmethod
-    def factory(cls, items_iter):
+    def load(cls, items_iter):
         # Necessary, because constructor of some GEOSGeometry objects don't 
         # accept a list as argument.
-        # TODO: needs ordered dict to pass data between bundles
+        # TODO: needs ordered dict to pass data between nodes
         items_iter = sorted(items_iter, key=lambda i: i[0])
         obj = cls.klass(*(v for k, v in items_iter))
         return cls(obj)
 
 
-class PointBundle(GEOSGeometryBundle):
+class PointNode(GEOSGeometryNode):
 
     klass = Point
     value_type = float
 
 
-class LineStringBundle(GEOSGeometryBundle):
+class LineStringNode(GEOSGeometryNode):
 
     klass = LineString
     value_type = Point
 
 
-class LinearRingBundle(GEOSGeometryBundle):
+class LinearRingNode(GEOSGeometryNode):
 
     klass = LinearRing
     value_type = Point
 
 
-class PolygonBundle(GEOSGeometryBundle):
+class PolygonNode(GEOSGeometryNode):
 
     klass = Polygon
     value_type = LinearRing
 
 
-class MultiPointBundle(GEOSGeometryBundle):
+class MultiPointNode(GEOSGeometryNode):
 
     klass = MultiPoint
     value_type = Point
     
 
-class MultiLineStringBundle(GEOSGeometryBundle):
+class MultiLineStringNode(GEOSGeometryNode):
 
     klass = MultiLineString
     value_type = LineString
 
 
-class MultiPolygonBundle(GEOSGeometryBundle):
+class MultiPolygonNode(GEOSGeometryNode):
 
     klass = MultiPolygon
     value_type = Polygon
@@ -69,42 +70,42 @@ def wrap_geodjango_field(f):
     if isinstance(f, PointField):
         geom_type = Point
     elif isinstance(f, LineStringField):
-        geom_type = LineStringBundle
+        geom_type = LineStringNode
     elif isinstance(f, PolygonField):
-        geom_type = PolygonBundle
+        geom_type = PolygonNode
     elif isinstance(f, MultiPointField):
-        geom_type = MultiPointBundle
+        geom_type = MultiPointNode
     elif isinstance(f, MultiLineStringField):
-        geom_type = MultiLineBundle
+        geom_type = MultiLineNode
     elif isinstance(f, MultiPolygonField):
-        geom_type = MultiPolygonBundle
-    return BundleInfo([type(f), geom_type])
+        geom_type = MultiPolygonNode
+    return NodeInfo([type(f), geom_type])
 
 
 # Plugging-in our function for wrapping GeoDjango fields
 ModelMixin._field_wrapping_functions[ClassSet(GEODJANGO_FIELDS)] = wrap_geodjango_field
 
 
-# Plugging-in our bundles for GeoDjango geometry objects
-serialize.bundle_class_map.update({
-    Singleton(Point): PointBundle,
-    Singleton(LineString): LineStringBundle,
-    Singleton(LinearRing): LinearRingBundle,
-    Singleton(Polygon): PolygonBundle,
-    Singleton(MultiPoint): MultiPointBundle,
-    Singleton(MultiLineString): MultiLineStringBundle,
-    Singleton(MultiPolygon): MultiPolygonBundle
+# Plugging-in our nodes for GeoDjango geometry objects
+serialize.node_class_map.update({
+    Singleton(Point): PointNode,
+    Singleton(LineString): LineStringNode,
+    Singleton(LinearRing): LinearRingNode,
+    Singleton(Polygon): PolygonNode,
+    Singleton(MultiPoint): MultiPointNode,
+    Singleton(MultiLineString): MultiLineStringNode,
+    Singleton(MultiPolygon): MultiPolygonNode
 })
 serialize.fallback_map.update({
-    AllSubSetsOf(GEOSGeometry): IterableBundle,
+    AllSubSetsOf(GEOSGeometry): IterableNode,
 })
 
-deserialize.bundle_class_map.update({
-    Singleton(Point): PointBundle,
-    Singleton(LineString): LineStringBundle,
-    Singleton(LinearRing): LinearRingBundle,
-    Singleton(Polygon): PolygonBundle,
-    Singleton(MultiPoint): MultiPointBundle,
-    Singleton(MultiLineString): MultiLineStringBundle,
-    Singleton(MultiPolygon): MultiPolygonBundle,
+deserialize.node_class_map.update({
+    Singleton(Point): PointNode,
+    Singleton(LineString): LineStringNode,
+    Singleton(LinearRing): LinearRingNode,
+    Singleton(Polygon): PolygonNode,
+    Singleton(MultiPoint): MultiPointNode,
+    Singleton(MultiLineString): MultiLineStringNode,
+    Singleton(MultiPolygon): MultiPolygonNode,
 })

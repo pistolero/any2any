@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 import copy
 
-from bundle import Bundle, IdentityBundle, BundleInfo
+from node import Node, IdentityNode, NodeInfo
 from utils import AllSubSetsOf, Singleton, ClassSetDict, SmartDict
 
 
 class Cast(object):
 
-    def __init__(self, bundle_class_map, fallback_map={}):
-        self.bundle_class_map = ClassSetDict(bundle_class_map)
+    def __init__(self, node_class_map, fallback_map={}):
+        self.node_class_map = ClassSetDict(node_class_map)
         self.fallback_map = ClassSetDict(fallback_map)
         self._depth_counter = 0
         self.debug = False
@@ -20,58 +20,58 @@ class Cast(object):
         # `inpt`'s class
         if in_class in [None, SmartDict.ValueUnknown]:
             in_class = type(inpt)
-        if not isinstance(in_class, BundleInfo):
-            in_value_info = BundleInfo(in_class)
+        if not isinstance(in_class, NodeInfo):
+            in_value_info = NodeInfo(in_class)
         else:
             in_value_info = in_class
-        in_bundle_class = in_value_info.get_bundle_class(inpt, self.bundle_class_map)
+        in_node_class = in_value_info.get_node_class(inpt, self.node_class_map)
 
         # `out_class` can be unknown, and it that case, we find a good fallback 
         if out_class in [None, SmartDict.ValueUnknown]:
-            out_value_info = BundleInfo(self._get_fallback(in_bundle_class))
-        elif (not isinstance(out_class, BundleInfo)):
-            out_value_info = BundleInfo(out_class)
+            out_value_info = NodeInfo(self._get_fallback(in_node_class))
+        elif (not isinstance(out_class, NodeInfo)):
+            out_value_info = NodeInfo(out_class)
         else:
             out_value_info = out_class
-        out_bundle_class = out_value_info.get_bundle_class(inpt, self.bundle_class_map)
+        out_node_class = out_value_info.get_node_class(inpt, self.node_class_map)
 
         # Compiling schemas : if it fails with the 2 schemas found,
         # we use the actual schema of `inpt`
-        out_schema = out_bundle_class.get_schema()
-        in_schema = in_bundle_class.get_schema()
+        out_schema = SmartDict(out_node_class.schema_load())
+        in_schema = SmartDict(in_node_class.schema_dump())
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = in_bundle_class(inpt).get_actual_schema()
+            in_schema = SmartDict(in_node_class(inpt).get_actual_schema())
             compiled = CompiledSchema(in_schema, out_schema)
 
         # Generator iterating on the casted items, and which will be used
-        # to build the casted object.
+        # to load the casted object.
         # It calls the casting recursively if the schema has any nesting.
-        generator = _Generator(self, iter(in_bundle_class(inpt)), in_schema, out_schema)
+        generator = _Generator(self, in_node_class(inpt).dump(), in_schema, out_schema)
 
-        # Finally, we build the casted object.
-        self.log('%s <= %s' % (in_bundle_class, inpt))
-        casted = out_bundle_class.build(generator).obj
-        self.log('%s => %s' % (out_bundle_class, casted))
+        # Finally, we load the casted object.
+        self.log('%s <= %s' % (in_node_class, inpt))
+        casted = out_node_class.load(generator).obj
+        self.log('%s => %s' % (out_node_class, casted))
         self._depth_counter -= 1
         return casted
 
     def log(self, msg):
         if self.debug: print '\t' * self._depth_counter, msg
 
-    def _get_fallback(self, in_bundle_class):
+    def _get_fallback(self, in_node_class):
         # If input is a final value, we'll just assume that ouput is also
-        if SmartDict.KeyFinal in in_bundle_class.get_schema():
-            return in_bundle_class
+        if SmartDict.KeyFinal in in_node_class.schema_dump():
+            return in_node_class
 
-        # we try to get a bundle class from the `fallback_map`
-        bundle_class = self.fallback_map.subsetget(in_bundle_class.klass)
-        if not bundle_class is None:
-            return bundle_class
+        # we try to get a node class from the `fallback_map`
+        node_class = self.fallback_map.subsetget(in_node_class.klass)
+        if not node_class is None:
+            return node_class
 
-        # Or we'll just use `in_bundle_class`, so that operation is an identity.
-        return in_bundle_class # TODO: shouldn't this rather be an error ?
+        # Or we'll just use `in_node_class`, so that operation is an identity.
+        return in_node_class # TODO: shouldn't this rather be an error ?
 
 
 class _Generator(object):

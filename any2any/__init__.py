@@ -4,35 +4,35 @@ import datetime
 
 from cast import Cast
 from utils import Singleton, AllSubSetsOf, SmartDict
-from bundle import (Bundle, ObjectBundle, IterableBundle,
-MappingBundle, IdentityBundle)
-from stdlib.bundle import DateBundle, DateTimeBundle
+from node import (Node, ObjectNode, IterableNode,
+MappingNode, IdentityNode)
+from stdlib.node import DateNode, DateTimeNode
 
 serialize = Cast({
-    AllSubSetsOf(dict): MappingBundle,
-    AllSubSetsOf(list): IterableBundle,
-    AllSubSetsOf(int): IdentityBundle,
-    AllSubSetsOf(float): IdentityBundle,
-    AllSubSetsOf(bool): IdentityBundle,
-    AllSubSetsOf(basestring): IdentityBundle,
-    AllSubSetsOf(types.NoneType): IdentityBundle,
-    AllSubSetsOf(datetime.datetime): DateTimeBundle,
-    AllSubSetsOf(datetime.date): DateBundle,
+    AllSubSetsOf(dict): MappingNode,
+    AllSubSetsOf(list): IterableNode,
+    AllSubSetsOf(int): IdentityNode,
+    AllSubSetsOf(float): IdentityNode,
+    AllSubSetsOf(bool): IdentityNode,
+    AllSubSetsOf(basestring): IdentityNode,
+    AllSubSetsOf(types.NoneType): IdentityNode,
+    AllSubSetsOf(datetime.datetime): DateTimeNode,
+    AllSubSetsOf(datetime.date): DateNode,
 }, {
-    AllSubSetsOf(dict): MappingBundle,
-    AllSubSetsOf(list): IterableBundle,
-    AllSubSetsOf(object): MappingBundle,
+    AllSubSetsOf(dict): MappingNode,
+    AllSubSetsOf(list): IterableNode,
+    AllSubSetsOf(object): MappingNode,
 })
 
 
 deserialize = Cast({
-    AllSubSetsOf(dict): MappingBundle,
-    AllSubSetsOf(list): IterableBundle,
-    AllSubSetsOf(int): IdentityBundle,
-    AllSubSetsOf(float): IdentityBundle,
-    AllSubSetsOf(bool): IdentityBundle,
-    AllSubSetsOf(basestring): IdentityBundle,
-    AllSubSetsOf(types.NoneType): IdentityBundle,
-    AllSubSetsOf(datetime.datetime): DateTimeBundle,
-    AllSubSetsOf(datetime.date): DateBundle,
+    AllSubSetsOf(dict): MappingNode,
+    AllSubSetsOf(list): IterableNode,
+    AllSubSetsOf(int): IdentityNode,
+    AllSubSetsOf(float): IdentityNode,
+    AllSubSetsOf(bool): IdentityNode,
+    AllSubSetsOf(basestring): IdentityNode,
+    AllSubSetsOf(types.NoneType): IdentityNode,
+    AllSubSetsOf(datetime.datetime): DateTimeNode,
+    AllSubSetsOf(datetime.date): DateNode,
 })

@@ -1,7 +1,7 @@
 from django.db.models.fields.related import ManyRelatedObjectsDescriptor, ForeignRelatedObjectsDescriptor
 
 from any2any.utils import classproperty
-from any2any.django.bundle import QUERYSET_FIELDS
+from any2any.django.node import QUERYSET_FIELDS
 
 class ModelIntrospector(object):
     """

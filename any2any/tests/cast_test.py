@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from any2any.bundle import *
+from any2any.node import *
 from any2any.cast import *
 from any2any.utils import *
 from nose.tools import assert_raises, ok_
@@ -78,15 +78,19 @@ class CompiledSchema_test(object):
         assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
 
-class MyBundle(Bundle):
+class MyNode(Node):
 
     @classmethod
-    def default_schema(cls):
+    def schema_dump(cls):
         return {}
 
-class BaseStrBundle(MyBundle): pass
-class IntBundle(MyBundle): pass
-class MyFloatBundle(MyBundle):
+    @classmethod
+    def schema_load(cls):
+        return {}
+
+class BaseStrNode(MyNode): pass
+class IntNode(MyNode): pass
+class MyFloatNode(MyNode):
     klass = float
 
 
@@ -96,32 +100,42 @@ class Cast_test(object):
         """
         Test Cast._get_fallback
         """
-        cast = Cast({AllSubSetsOf(object): IdentityBundle}, {
-            AllSubSetsOf(basestring): BaseStrBundle,
-            AllSubSetsOf(list): IdentityBundle,
-            Singleton(int): IntBundle,
+        cast = Cast({AllSubSetsOf(object): IdentityNode}, {
+            AllSubSetsOf(basestring): BaseStrNode,
+            AllSubSetsOf(list): IdentityNode,
+            Singleton(int): IntNode,
         })
+        class MyIntNode1(IntNode):
+            @classmethod
+            def schema_dump(cls):
+                return {SmartDict.KeyFinal: int}
+
+        class MyIntNode2(IntNode):
+            klass = int
+
+        class MyIntNode3(IntNode):
+            @classmethod
+            def schema_dump(cls):
+                return {'haha': int}
+
         # With KeyFinal in schema
-        in_bc = IntBundle.get_subclass(schema={SmartDict.KeyFinal: int})
-        out_bc = cast._get_fallback(in_bc)
-        ok_(issubclass(out_bc, IntBundle))
+        out_bc = cast._get_fallback(MyIntNode1)
+        ok_(issubclass(out_bc, IntNode))
         # Get from the fallback map
-        in_bc = IntBundle.get_subclass(klass=int)
-        out_bc = cast._get_fallback(in_bc)
-        ok_(issubclass(out_bc, IntBundle))
+        out_bc = cast._get_fallback(MyIntNode2)
+        ok_(issubclass(out_bc, IntNode))
         # default
-        in_bc = IntBundle.get_subclass(schema={'haha': int})
-        out_bc = cast._get_fallback(in_bc)
-        ok_(out_bc.get_schema() == {'haha': int})
+        out_bc = cast._get_fallback(MyIntNode3)
+        ok_(out_bc.schema_dump() == {'haha': int})
 
     def call_test(self):
         """
         test simple calls
         """
         cast = Cast({
-            AllSubSetsOf(dict): MappingBundle,
-            AllSubSetsOf(list): IterableBundle,
-            AllSubSetsOf(object): IdentityBundle,
+            AllSubSetsOf(dict): MappingNode,
+            AllSubSetsOf(list): IterableNode,
+            AllSubSetsOf(object): IdentityNode,
         })
         ok_(cast({'a': 1, 'b': 2}, out_class=dict) == {'a': 1, 'b': 2})
         ok_(cast({'a': 1, 'b': 2}, out_class=list) == [1, 2])
@@ -145,84 +159,92 @@ class Cast_complex_calls_test(object):
                 self.name = name
                 self.books = books
 
-        class BookBundle(ObjectBundle):
+        class MyObjectNode(ObjectNode):
+            @classmethod
+            def schema_dump(cls):
+                return cls.schema_common()
+            @classmethod
+            def schema_load(cls):
+                return cls.schema_common()
+
+        class BookNode(MyObjectNode):
             klass = Book
             @classmethod
-            def default_schema(cls):
+            def schema_common(cls):
                 return {'title': str,}
 
-        class ListOfBooks(IterableBundle):
+        class ListOfBooks(IterableNode):
             value_type = Book
 
-        class ListOfBookBundle(IterableBundle):
-            value_type = BookBundle
+        class ListOfBookNode(IterableNode):
+            value_type = BookNode
 
-        class SimpleAuthorBundle(ObjectBundle):
+        class SimpleAuthorNode(MyObjectNode):
             klass = Author
             @classmethod
-            def default_schema(cls):
+            def schema_common(cls):
                 return {
                     'name': str,
                     'books': list,
                 }
 
-        class HalfCompleteAuthorBundle(ObjectBundle):
+        class HalfCompleteAuthorNode(MyObjectNode):
             klass = Author
             @classmethod
-            def default_schema(cls):
+            def schema_common(cls):
                 return {
                     'name': str,
                     'books': ListOfBooks,
                 }
 
-        class CompleteAuthorBundle(ObjectBundle):
+        class CompleteAuthorNode(MyObjectNode):
             klass = Author
             @classmethod
-            def default_schema(cls):
+            def schema_common(cls):
                 return {
                     'name': str,
-                    'books': ListOfBookBundle,
+                    'books': ListOfBookNode,
                 }
 
         self.Book = Book
         self.Author = Author
-        self.BookBundle = BookBundle
+        self.BookNode = BookNode
         self.ListOfBooks = ListOfBooks
-        self.CompleteAuthorBundle = CompleteAuthorBundle
-        self.HalfCompleteAuthorBundle = HalfCompleteAuthorBundle
-        self.SimpleAuthorBundle = SimpleAuthorBundle
+        self.CompleteAuthorNode = CompleteAuthorNode
+        self.HalfCompleteAuthorNode = HalfCompleteAuthorNode
+        self.SimpleAuthorNode = SimpleAuthorNode
 
         books = [Book('1984'), Book('animal farm')]
         george = Author('George Orwell', books)
         self.george = george
 
         self.serializer = Cast({
-            AllSubSetsOf(dict): MappingBundle,
-            AllSubSetsOf(list): IterableBundle,
-            AllSubSetsOf(object): IdentityBundle,
+            AllSubSetsOf(dict): MappingNode,
+            AllSubSetsOf(list): IterableNode,
+            AllSubSetsOf(object): IdentityNode,
         }, {
-            AllSubSetsOf(dict): MappingBundle,
-            AllSubSetsOf(list): IterableBundle,
-            AllSubSetsOf(object): MappingBundle,
+            AllSubSetsOf(dict): MappingNode,
+            AllSubSetsOf(list): IterableNode,
+            AllSubSetsOf(object): MappingNode,
         })
 
         self.deserializer = Cast({
-            AllSubSetsOf(dict): MappingBundle,
-            AllSubSetsOf(list): IterableBundle,
-            AllSubSetsOf(object): IdentityBundle,
+            AllSubSetsOf(dict): MappingNode,
+            AllSubSetsOf(list): IterableNode,
+            AllSubSetsOf(object): IdentityNode,
         })
 
     def serialize_given_complete_schema_test(self):
         """
-        test serialize object with a bundle class providing complete schema.
+        test serialize object with a node class providing complete schema.
         """
-        ok_(self.serializer(self.george, in_class=self.CompleteAuthorBundle) == {
+        ok_(self.serializer(self.george, in_class=self.CompleteAuthorNode) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
-        self.serializer.bundle_class_map[Singleton(self.Author)] = self.CompleteAuthorBundle
+        self.serializer.node_class_map[Singleton(self.Author)] = self.CompleteAuthorNode
         ok_(self.serializer(self.george) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -232,11 +254,11 @@ class Cast_complex_calls_test(object):
 
     def deserialize_given_complete_schema_test(self):
         """
-        test deserialize object with bundle class providing complete schema
+        test deserialize object with node class providing complete schema
         """
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=self.CompleteAuthorBundle)
+        ]}, out_class=self.CompleteAuthorNode)
         ok_(isinstance(truman, self.Author))
         ok_(truman.name == 'Truman Capote')
         ok_(len(truman.books) == 1)
@@ -246,16 +268,16 @@ class Cast_complex_calls_test(object):
 
     def serialize_given_halfcomplete_schema_test(self):
         """
-        test serialize object with a bundle class providing half complete schema.
+        test serialize object with a node class providing half complete schema.
         """
-        self.serializer.bundle_class_map[Singleton(self.Book)] = self.BookBundle
-        ok_(self.serializer(self.george, in_class=self.HalfCompleteAuthorBundle) == {
+        self.serializer.node_class_map[Singleton(self.Book)] = self.BookNode
+        ok_(self.serializer(self.george, in_class=self.HalfCompleteAuthorNode) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
-        self.serializer.bundle_class_map[Singleton(self.Author)] = self.HalfCompleteAuthorBundle
+        self.serializer.node_class_map[Singleton(self.Author)] = self.HalfCompleteAuthorNode
         ok_(self.serializer(self.george) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -265,12 +287,12 @@ class Cast_complex_calls_test(object):
 
     def deserialize_given_halfcomplete_schema_test(self):
         """
-        test deserialize object with bundle class providing half complete schema
+        test deserialize object with node class providing half complete schema
         """
-        self.deserializer.bundle_class_map[Singleton(self.Book)] = self.BookBundle
+        self.deserializer.node_class_map[Singleton(self.Book)] = self.BookNode
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=self.HalfCompleteAuthorBundle)
+        ]}, out_class=self.HalfCompleteAuthorNode)
         ok_(isinstance(truman, self.Author))
         ok_(truman.name == 'Truman Capote')
         ok_(len(truman.books) == 1)
@@ -280,16 +302,16 @@ class Cast_complex_calls_test(object):
 
     def serialize_given_simple_schema_test(self):
         """
-        test serialize object with a bundle class providing schema with missing infos.
+        test serialize object with a node class providing schema with missing infos.
         """
-        self.serializer.bundle_class_map[Singleton(self.Book)] = self.BookBundle
-        ok_(self.serializer(self.george, in_class=self.SimpleAuthorBundle) == {
+        self.serializer.node_class_map[Singleton(self.Book)] = self.BookNode
+        ok_(self.serializer(self.george, in_class=self.SimpleAuthorNode) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
-        self.serializer.bundle_class_map[Singleton(self.Author)] = self.SimpleAuthorBundle
+        self.serializer.node_class_map[Singleton(self.Author)] = self.SimpleAuthorNode
         ok_(self.serializer(self.george) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -299,12 +321,12 @@ class Cast_complex_calls_test(object):
 
     def deserialize_given_simple_schema_test(self):
         """
-        test deserialize object with bundle class providing schema missing infos.
+        test deserialize object with node class providing schema missing infos.
         """
-        self.deserializer.fallback_map[Singleton(dict)] = self.BookBundle
+        self.deserializer.fallback_map[Singleton(dict)] = self.BookNode
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=self.SimpleAuthorBundle)
+        ]}, out_class=self.SimpleAuthorNode)
         ok_(isinstance(truman, self.Author))
         ok_(truman.name == 'Truman Capote')
         ok_(len(truman.books) == 1)
@@ -313,39 +335,41 @@ class Cast_complex_calls_test(object):
         ok_(truman.books[0].title == 'In cold blood')
 
 
-class Cast_ObjectBundle_dict_tests(object):
+class Cast_ObjectNode_dict_tests(object):
     """
-    Test working with ObjectBundle for dict data.
+    Test working with ObjectNode for dict data.
     """
 
     def setUp(self):
-        class DictObjectBundle(ObjectBundle):
+        class DictObjectNode(ObjectNode):
             klass = dict
-            schema = {SmartDict.KeyAny: SmartDict.ValueUnknown}
-            def iter(self):
+            def dump(self):
                 for name in ['aa']:
                     yield name, self.getattr(name)
                 for k, v in self.obj.items():
                     yield k, v
+            @classmethod
+            def schema_dump(cls):
+                return {SmartDict.KeyAny: SmartDict.ValueUnknown}
             def get_aa(self):
                 return 'bloblo'
 
-        self.DictObjectBundle = DictObjectBundle
+        self.DictObjectNode = DictObjectNode
         self.cast = Cast({
-            AllSubSetsOf(dict): MappingBundle,
-            AllSubSetsOf(object): IdentityBundle,
+            AllSubSetsOf(dict): MappingNode,
+            AllSubSetsOf(object): IdentityNode,
         })
 
-    def iter_test(self):
+    def dump_test(self):
         d = {'a': 1, 'b': 2}
-        bundle = self.DictObjectBundle(d)
-        ok_(dict(bundle) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        node = self.DictObjectNode(d)
+        ok_(dict(node.dump()) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
     def cast_test(self):
         d = {'a': 1, 'b': 2}
-        bundle = self.DictObjectBundle(d)
-        ok_(dict(bundle) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        node = self.DictObjectNode(d)
+        ok_(dict(node.dump()) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
-        data = self.cast(d, in_class=self.DictObjectBundle, out_class=dict)
+        data = self.cast(d, in_class=self.DictObjectNode, out_class=dict)
         ok_(data == {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
