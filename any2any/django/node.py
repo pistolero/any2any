@@ -85,9 +85,9 @@ class ModelMixin(ModelIntrospector):
     # This is a trick to allow dynamically branching custom wrapping
     # for non-standard field types like geodjango fields or mongoDB fields.  
     _field_wrapping_functions = ClassSetDict({
-        ClassSet(SIMPLE_FIELDS): wrap_simple_field,
+        ClassSet(*SIMPLE_FIELDS): wrap_simple_field,
         AllSubSetsOf(models.ForeignKey): wrap_foreign_key,
-        ClassSet(QUERYSET_FIELDS): wrap_queryset_field,
+        ClassSet(*QUERYSET_FIELDS): wrap_queryset_field,
     })
 
     @classmethod

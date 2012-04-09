@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import copy
 
-from node import Node, IdentityNode, NodeInfo
-from utils import AllSubSetsOf, Singleton, ClassSetDict, SmartDict
+from node import NodeInfo
+from utils import ClassSetDict, SmartDict
 
 
 class Cast(object):
@@ -42,7 +42,7 @@ class Cast(object):
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = SmartDict(in_node_class.new(inpt).get_actual_schema())
+            in_schema = self.improvise_schema(inpt, in_node_class)
             compiled = CompiledSchema(in_schema, out_schema)
 
         # Generator iterating on the casted items, and which will be used
@@ -73,8 +73,22 @@ class Cast(object):
         # Or we'll just use `in_node_class`, so that operation is an identity.
         return in_node_class # TODO: shouldn't this rather be an error ?
 
+    def improvise_schema(self, obj, node_class):
+        """
+        This method can be used to get the dump schema for an object, when the
+        schema obtained 'a priori' is not sufficient.
+        """
+        node = node_class.new(obj)
+        schema = {}
+        for k, v in node.dump():
+            schema[k] = type(v)
+        return SmartDict(schema)
+
 
 class _Generator(object):
+    """
+    Generator used to pass the data from one node to another.
+    """
 
     def __init__(self, cast, items_iter, in_schema, out_schema):
         self.cast = cast

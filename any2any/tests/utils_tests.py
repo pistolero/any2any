@@ -13,58 +13,54 @@ class ClassSet_Test(object):
         Test ClassSet.__eq__ 
         """
         ok_(AllSubSetsOf(object) == AllSubSetsOf(object))
-        ok_(Singleton(int) == Singleton(int))
-        ok_(not AllSubSetsOf(object) == Singleton(object))
+        ok_(ClassSet(int) == ClassSet(int))
+        ok_(not AllSubSetsOf(object) == ClassSet(object))
         ok_(not AllSubSetsOf(object) == AllSubSetsOf(int))
-        ok_(not Singleton(object) == Singleton(int))
+        ok_(not ClassSet(object) == ClassSet(int))
 
-        ok_(Singleton(object) == object)
+        ok_(ClassSet(object) == object)
         ok_(not AllSubSetsOf(object) == object)
 
-        ok_(Singleton(int) == ClassSet([int]))
-        ok_(not Singleton(int) == ClassSet([str, int]))
+        ok_(not ClassSet(int) == ClassSet(str, int))
 
     def lt_test(self):
         """
         Test ClassSet.__lt__
         """
-        ok_(Singleton(object) < AllSubSetsOf(object)) # {object} is included in subclasses of object
-        ok_(Singleton(int) < AllSubSetsOf(object)) # {int} is included in subclasses of object
+        ok_(ClassSet(object) < AllSubSetsOf(object)) # {object} is included in subclasses of object
+        ok_(ClassSet(int, str) < AllSubSetsOf(object)) # {int, str} is included in subclasses of object
         ok_(AllSubSetsOf(int) < AllSubSetsOf(object)) # subclasses of int are included in subclasses of object
-        ok_(Singleton(int) < ClassSet([int, float]))
 
         ok_(not AllSubSetsOf(object) < AllSubSetsOf(object)) # because ==
-        ok_(not Singleton(int) < Singleton(object)) # because other is singleton
-        ok_(not AllSubSetsOf(int) < Singleton(object)) # ''
+        ok_(not ClassSet(int) < ClassSet(object))
+        ok_(not AllSubSetsOf(int) < ClassSet(object))
         ok_(not AllSubSetsOf(int) < AllSubSetsOf(str)) # because no one is other's parent
 
-        ok_(not Singleton(str) < object)
-        ok_(not Singleton(object) < object)
+        ok_(not ClassSet(str) < object)
+        ok_(not ClassSet(object) < object)
         ok_(not AllSubSetsOf(object) < object)
-
-        ok_(not Singleton(int) < ClassSet([int]))
 
     def comp_test(self):
         """
         Test ClassSet's rich comparison
         """
         # Revert of lt_tests
-        ok_(AllSubSetsOf(object) > Singleton(object))
-        ok_(AllSubSetsOf(object) > Singleton(int))
+        ok_(AllSubSetsOf(object) > ClassSet(object))
+        ok_(AllSubSetsOf(object) > ClassSet(int, str, dict))
         ok_(AllSubSetsOf(object) > AllSubSetsOf(int))
 
         ok_(not AllSubSetsOf(object) > AllSubSetsOf(object)) # because ==
-        ok_(not Singleton(int) > Singleton(object)) # because other is singleton
-        ok_(not AllSubSetsOf(int) > Singleton(object)) # ''
+        ok_(not ClassSet(int) > ClassSet(object))
+        ok_(not AllSubSetsOf(int) > ClassSet(object))
         ok_(not AllSubSetsOf(int) > AllSubSetsOf(str)) # because no one is other's parent
         
         ok_(AllSubSetsOf(object) > object)
         ok_(AllSubSetsOf(object) > str)
-        ok_(not Singleton(object) > str)
+        ok_(not ClassSet(object) > str)
 
         # Other comparison operators
-        ok_(AllSubSetsOf(object) >= Singleton(object))
-        ok_(AllSubSetsOf(object) >= Singleton(int))
+        ok_(AllSubSetsOf(object) >= ClassSet(object, dict))
+        ok_(AllSubSetsOf(object) >= ClassSet(int))
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
         ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
@@ -81,7 +77,7 @@ class ClassSetDict_Test(object):
         choice_map = {
             AllSubSetsOf(basestring): 1,
             AllSubSetsOf(object): 2,
-            Singleton(int): 3,
+            ClassSet(int): 3,
         }
         csd = ClassSetDict(choice_map)
         ok_(csd.subsetget(object) is 2)
@@ -93,7 +89,7 @@ class ClassSetDict_Test(object):
         """
         test ClassSetDict.subsetget with no suitable subset
         """
-        choice_map = {Singleton(int): 1}
+        choice_map = {ClassSet(int): 1}
         csd = ClassSetDict(choice_map)
         ok_(csd.subsetget(str) is None)
         ok_(csd.subsetget(str, 'blabla') is 'blabla')

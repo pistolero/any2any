@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from any2any.node import *
 from any2any.cast import *
-from any2any.utils import SmartDict
+from any2any.utils import SmartDict, ClassSet
 
 
 class NodeImplement(Node):
@@ -39,7 +39,7 @@ class NodeInfo_test(TestCase):
         bcm = {
             AllSubSetsOf(basestring): BaseStrNode,
             AllSubSetsOf(list): IdentityNode,
-            Singleton(int): IntNode,
+            ClassSet(int): IntNode,
         }
         # With a node class
         value_info = NodeInfo(BaseStrNode)
@@ -90,15 +90,6 @@ class Node_Test(TestCase):
         ok_(not issubclass(Node, MyNode))
         ok_(MyNode.klass == int)
         ok_(MyNode.bla == 8)
-
-    def get_actual_schema_test(self):
-        """
-        test Node.get_actual_schema
-        """
-        schema = MappingNode({'a': 1, 'b': 'b'}).get_actual_schema()
-        ok_(schema == {'a': int, 'b': str})
-        schema = IterableNode([1, 'b', 2.0]).get_actual_schema()
-        ok_(schema == {0: int, 1: str, 2: float})
         
 
 class IdentityNode_Test(TestCase):

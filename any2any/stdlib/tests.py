@@ -1,7 +1,7 @@
 from nose.tools import ok_, assert_raises
 
 from any2any.cast import Cast
-from any2any.utils import AllSubSetsOf, Singleton
+from any2any.utils import AllSubSetsOf
 from any2any.node import *
 from any2any.stdlib.node import *
 

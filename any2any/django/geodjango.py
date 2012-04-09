@@ -8,7 +8,7 @@ GEODJANGO_FIELDS = (GeometryField, PointField, LineStringField,
     GeometryCollectionField)
 
 from any2any.django.node import ModelMixin, serialize, deserialize
-from any2any.utils import ClassSet, Singleton, AllSubSetsOf
+from any2any.utils import ClassSet, AllSubSetsOf
 from any2any.node import IterableNode
 
 
@@ -88,24 +88,24 @@ ModelMixin._field_wrapping_functions[ClassSet(GEODJANGO_FIELDS)] = wrap_geodjang
 
 # Plugging-in our nodes for GeoDjango geometry objects
 serialize.node_class_map.update({
-    Singleton(Point): PointNode,
-    Singleton(LineString): LineStringNode,
-    Singleton(LinearRing): LinearRingNode,
-    Singleton(Polygon): PolygonNode,
-    Singleton(MultiPoint): MultiPointNode,
-    Singleton(MultiLineString): MultiLineStringNode,
-    Singleton(MultiPolygon): MultiPolygonNode
+    ClassSet(Point): PointNode,
+    ClassSet(LineString): LineStringNode,
+    ClassSet(LinearRing): LinearRingNode,
+    ClassSet(Polygon): PolygonNode,
+    ClassSet(MultiPoint): MultiPointNode,
+    ClassSet(MultiLineString): MultiLineStringNode,
+    ClassSet(MultiPolygon): MultiPolygonNode
 })
 serialize.fallback_map.update({
     AllSubSetsOf(GEOSGeometry): IterableNode,
 })
 
 deserialize.node_class_map.update({
-    Singleton(Point): PointNode,
-    Singleton(LineString): LineStringNode,
-    Singleton(LinearRing): LinearRingNode,
-    Singleton(Polygon): PolygonNode,
-    Singleton(MultiPoint): MultiPointNode,
-    Singleton(MultiLineString): MultiLineStringNode,
-    Singleton(MultiPolygon): MultiPolygonNode,
+    ClassSet(Point): PointNode,
+    ClassSet(LineString): LineStringNode,
+    ClassSet(LinearRing): LinearRingNode,
+    ClassSet(Polygon): PolygonNode,
+    ClassSet(MultiPoint): MultiPointNode,
+    ClassSet(MultiLineString): MultiLineStringNode,
+    ClassSet(MultiPolygon): MultiPolygonNode,
 })

@@ -103,7 +103,7 @@ class Cast_test(object):
         cast = Cast({AllSubSetsOf(object): IdentityNode}, {
             AllSubSetsOf(basestring): BaseStrNode,
             AllSubSetsOf(list): IdentityNode,
-            Singleton(int): IntNode,
+            ClassSet(int): IntNode,
         })
         class MyIntNode1(IntNode):
             @classmethod
@@ -142,6 +142,13 @@ class Cast_test(object):
         ok_(cast(['a', 'b', 'c'], out_class=dict) == {0: 'a', 1: 'b', 2: 'c'})
         ok_(cast(['a', 'b', 'c'], out_class=list) == ['a', 'b', 'c'])
         ok_(cast(1, out_class=int) == 1)
+
+    def improvise_schema_test(self):
+        cast = Cast({})
+        schema = cast.improvise_schema({'a': 1, 'b': 'b'}, MappingNode)
+        ok_(schema == {'a': int, 'b': str})
+        schema = cast.improvise_schema([1, 'b', 2.0], IterableNode)
+        ok_(schema == {0: int, 1: str, 2: float})
 
 
 class Cast_complex_calls_test(object):
@@ -244,7 +251,7 @@ class Cast_complex_calls_test(object):
                 {'title': 'animal farm'}
             ]
         })
-        self.serializer.node_class_map[Singleton(self.Author)] = self.CompleteAuthorNode
+        self.serializer.node_class_map[ClassSet(self.Author)] = self.CompleteAuthorNode
         ok_(self.serializer(self.george) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -270,14 +277,14 @@ class Cast_complex_calls_test(object):
         """
         test serialize object with a node class providing half complete schema.
         """
-        self.serializer.node_class_map[Singleton(self.Book)] = self.BookNode
+        self.serializer.node_class_map[ClassSet(self.Book)] = self.BookNode
         ok_(self.serializer(self.george, in_class=self.HalfCompleteAuthorNode) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
-        self.serializer.node_class_map[Singleton(self.Author)] = self.HalfCompleteAuthorNode
+        self.serializer.node_class_map[ClassSet(self.Author)] = self.HalfCompleteAuthorNode
         ok_(self.serializer(self.george) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -289,7 +296,7 @@ class Cast_complex_calls_test(object):
         """
         test deserialize object with node class providing half complete schema
         """
-        self.deserializer.node_class_map[Singleton(self.Book)] = self.BookNode
+        self.deserializer.node_class_map[ClassSet(self.Book)] = self.BookNode
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
         ]}, out_class=self.HalfCompleteAuthorNode)
@@ -304,14 +311,14 @@ class Cast_complex_calls_test(object):
         """
         test serialize object with a node class providing schema with missing infos.
         """
-        self.serializer.node_class_map[Singleton(self.Book)] = self.BookNode
+        self.serializer.node_class_map[ClassSet(self.Book)] = self.BookNode
         ok_(self.serializer(self.george, in_class=self.SimpleAuthorNode) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
-        self.serializer.node_class_map[Singleton(self.Author)] = self.SimpleAuthorNode
+        self.serializer.node_class_map[ClassSet(self.Author)] = self.SimpleAuthorNode
         ok_(self.serializer(self.george) == {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
@@ -323,7 +330,7 @@ class Cast_complex_calls_test(object):
         """
         test deserialize object with node class providing schema missing infos.
         """
-        self.deserializer.fallback_map[Singleton(dict)] = self.BookNode
+        self.deserializer.fallback_map[ClassSet(dict)] = self.BookNode
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
         ]}, out_class=self.SimpleAuthorNode)

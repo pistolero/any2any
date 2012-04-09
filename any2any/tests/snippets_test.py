@@ -45,7 +45,7 @@ def validation_system_test():
             return super(MyNode, cls).load(items_dict.iteritems())
 
     cast = MyCast({
-        Singleton(dict): MyNode,
+        ClassSet(dict): MyNode,
         AllSubSetsOf(object): IdentityNode
     })
 

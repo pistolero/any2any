@@ -3,8 +3,10 @@ import collections
 
 
 class BaseClassSet(object):
-    # Set of classes, allowing to easily calculate inclusions
-    # with comparison operators : `a < B` <=> "A strictly included in B"
+    """
+    Set of classes, allowing to easily calculate inclusions
+    with comparison operators, e.g. ``a < B`` <=> "A strictly included in B".
+    """
 
     def __ne__(self, other):
         return not self == other
@@ -21,27 +23,33 @@ class BaseClassSet(object):
 
     def _default_to_singleton(self, klass):
         if not isinstance(klass, BaseClassSet):
-            return Singleton(klass)
+            return ClassSet(klass)
         else:
             return klass
 
 
 class ClassSet(BaseClassSet):
+    """
+    Finite set of classes, e.g. ::
 
-    def __init__(self, classes):
+        number_classes = ClassSet(int, float)
+    """
+
+    def __init__(self, *classes):
         self._classes = set(classes)
 
     def __eq__(self, other):
+        other = self._default_to_singleton(other)
         if isinstance(other, ClassSet):
             return self._classes == other._classes
-        elif len(self._classes) == 1 and isinstance(other, Singleton):
-            return list(self._classes)[0] == other._klass
         else:
             return False
 
     def __lt__(self, other):
         if isinstance(other, ClassSet):
             return self._classes < other._classes and not other == self
+        elif isinstance(other, AllSubSetsOf):
+            return all([issubclass(k, other._klass) for k in self._classes])
         else:
             return False
 
@@ -53,6 +61,11 @@ class ClassSet(BaseClassSet):
 
 
 class AllSubSetsOf(BaseClassSet):
+    """
+    Infinite set of all the subclasses of a class. e.g. ::
+
+        all_subclasses_of_dict = AllSubSetsOf(dict)
+    """
 
     def __init__(self, klass):
         self._klass = klass
@@ -76,38 +89,17 @@ class AllSubSetsOf(BaseClassSet):
         return hash(('%s' % self.__class__.__name__, self._klass))
 
 
-class Singleton(BaseClassSet):
-
-    def __init__(self, klass):
-        self._klass = klass
-
-    def __eq__(self, other):
-        other = self._default_to_singleton(other)
-        if isinstance(other, Singleton):
-            return self._klass == other._klass
-        elif isinstance(other, ClassSet):
-            return other == self
-        else:
-            return False
-
-    def __lt__(self, other):
-        if isinstance(other, AllSubSetsOf):
-            return issubclass(self._klass, other._klass)
-        elif isinstance(other, ClassSet):
-            return self._klass in other._classes and not ClassSet([self._klass]) == other
-        else:
-            return False
-
-    def __repr__(self):
-        return u"{%s}" % self._klass.__name__
-
-    def __hash__(self):
-        return hash(('%s' % self.__class__.__name__, self._klass))
-
-
 class ClassSetDict(dict):
+    """
+    Dictionary whose keys are instances of :class:`BaseClassSet`.
+    Allows to easily lookup the best match for a given class by using :meth:`subsetget`. 
+    """
 
     def subsetget(self, klass, default=None):
+        """
+        Similar to :meth:`dict.get`, but looks-up by the smallest class set including
+        `klass`.
+        """
         class_sets = set(filter(lambda cs: klass <= cs, self))
         # Eliminate supersets
         for cs1 in class_sets.copy():
@@ -132,6 +124,9 @@ def classproperty(func):
 
 
 class SmartDict(collections.MutableMapping):
+    """
+    Dictionary used internally to handle schemas.
+    """
 
     class KeyAny(object): pass
     class KeyFinal(object): pass

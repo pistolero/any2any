@@ -7,45 +7,75 @@ class FactoryError(TypeError): pass
 
 class Node(object):
     """
-    Base class for all node classes. 
+    Base class for all node classes.
+
+    Subclasses must implement methods :
+
+        - :meth:`Node.dump`
+        - :meth:`Node.schema_dump`
+        - :meth:`Node.load`
+        - :meth:`Node.schema_load` 
     """
 
     klass = SmartDict.ValueUnknown
+    """The class of the object this node contains."""
 
     def __init__(self, obj):
         self.obj = obj
 
     @classmethod
     def new(cls, obj):
+        """
+        This method is used internally instead of `__init__`, to build
+        a new node instance.
+        """
         return cls(obj)
 
     def dump(self):
+        """
+        Returns an iterator ``key, value`` on the serialized node.
+        This iterator is intended to be used by the :meth:`load` method
+        of another node class.
+        """
         raise NotImplementedError()
 
     @classmethod
     def schema_dump(cls):
+        """
+        Returns the schema - a priori - of the node, when serialized with :meth:`dump`.
+        """
         raise NotImplementedError()
 
     @classmethod
     def load(cls, items_iter):
+        """
+        Takes an iterator ``key, value`` as returned by the :meth:`dump` method
+        of another node ; and returns a deserialized node instance.
+        """
         raise NotImplementedError()
 
     @classmethod
     def schema_load(cls):
+        """
+        Returns the schema - a priori - accepted by the :meth:`load` method 
+        of the node class.
+        """
         raise NotImplementedError()
 
     @classmethod
     def get_subclass(cls, **attrs):
-        return type(cls.__name__, (cls,), attrs)
+        """
+        Allows inline subclassing of a node class. Example ::
 
-    def get_actual_schema(self):
-        schema = {}
-        for k, v in self.dump():
-            schema[k] = type(v)
-        return schema
+            ListOfIntNode = IterableNode.get_subclass(klass=list, value_type=int)
+        """
+        return type(cls.__name__, (cls,), attrs)
 
 
 class IdentityNode(Node):
+    """
+    A no-op node class defining :meth:`dump` and :meth:`load` as identity operations.
+    """
 
     def dump(self):
         yield SmartDict.KeyFinal, self.obj
@@ -68,8 +98,12 @@ class IdentityNode(Node):
 
 
 class ContainerNode(Node):
+    """
+    Base class for container node classes.
+    """
 
     value_type = SmartDict.ValueUnknown
+    """Type of values in the container. This is used to generate schemas."""
 
     @classmethod
     def schema_dump(cls):
@@ -81,6 +115,9 @@ class ContainerNode(Node):
 
 
 class IterableNode(ContainerNode):
+    """
+    Node class for iterables.
+    """
 
     klass = list
 
@@ -96,7 +133,10 @@ class IterableNode(ContainerNode):
 
 
 class MappingNode(ContainerNode):
-    
+    """
+    Node class for mappings.
+    """
+
     klass = dict
 
     def dump(self):
@@ -110,10 +150,8 @@ class MappingNode(ContainerNode):
 
 class ObjectNode(Node):
     """
-    A subclass of `WrappedObject` can also provide informations on the wrapped type's instances' :
-
-        - attribute access - :meth:`setattr` and :meth:`getattr`
-        - creation of new instances - :meth:`new`
+    Node class for any object.
+    Provides attribute accessors for the object :meth:`setattr` and :meth:`getattr`.
     """
     
     klass = object
@@ -128,9 +166,6 @@ class ObjectNode(Node):
 
     @classmethod
     def load(cls, items_iter):
-        """
-        Creates and returns a new instance of the wrapped type.
-        """
         obj = cls.klass(**dict(items_iter))
         return cls.new(obj)
 
@@ -140,7 +175,7 @@ class ObjectNode(Node):
 
     def setattr(self, name, value):
         """
-        Sets the attribute `name` on `instance`, with value `value`. If the calling :class:`WrappedObject` has a method `set_<name>`, this method will be used to set the attribute.
+        Sets the attribute `name` of the node's object, with `value`. If the calling node has a method `set_<name>`, this method will be used instead.
         """
         if hasattr(self, 'set_%s' % name):
             getattr(self, 'set_%s' % name)(value)
@@ -149,7 +184,7 @@ class ObjectNode(Node):
 
     def getattr(self, name):
         """
-        Gets the attribute `name` from `instance`. If the calling :class:`WrappedObject` has a method `get_<name>`, this method will be used to get the attribute.
+        Gets the attribute `name` from the node's object. If the calling node has a method `get_<name>`, this method will be used instead.
         """
         if hasattr(self, 'get_%s' % name):
             return getattr(self, 'get_%s' % name)()

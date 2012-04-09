@@ -108,9 +108,6 @@ class ColumnistNode(CRUModelNode):
     klass = Columnist
     key_schema = ('firstname', 'lastname')
 
-class UpdateOnlyIssue(UpdateOnlyModelNode):
-    klass = Issue
-
 
 class ModelMixin_Test(TestCase):
     """
@@ -586,6 +583,9 @@ class DictToModel_Test(BaseModel):
         """
         Test deserializing date and datetime
         """
+        class UpdateOnlyIssue(UpdateOnlyModelNode):
+            klass = Issue
+
         issue = self.deserialize({
             'id': self.issue.pk,
             'issue_date': {'year': 1865, 'month': 1, 'day': 1},
