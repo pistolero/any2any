@@ -102,10 +102,10 @@ class _Generator(object):
     def next(self):
         key, value = self.items_iter.next()
         self.last_key = key
-        self.cast.log('[ %s ]' % key)
         if key is SmartDict.KeyFinal:
             casted_value = value
         else:
+            self.cast.log('[ %s ]' % key)
             casted_value = self.cast(value,
                 out_class=self.out_schema[key],
                 in_class=self.in_schema[key]
