@@ -6,18 +6,7 @@ print """
 ######################################################################
 TESTING MODULES
 """
-run(argv=['dummy', '--exclude-dir=django/tests/'])
-
-print """
-----------------------------------------------------------------------
-TESTING django
-"""
-from django.core import management
-from any2any.django.tests import settings
-saved_path = os.getcwd()
-os.chdir('django/tests/')
-management.execute_manager(settings, argv=['dummy', 'test'])
-os.chdir(saved_path)
+run(argv=['dummy'])
 
 #print """
 ######################################################################

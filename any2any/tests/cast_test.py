@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import unittest
+
 from any2any.node import *
 from any2any.cast import *
 from any2any.utils import *
-from nose.tools import assert_raises, ok_
 
 
-class CompiledSchema_test(object):
+class CompiledSchema_test(unittest.TestCase):
     """
     test CompiledSchema
     """
@@ -14,23 +15,23 @@ class CompiledSchema_test(object):
         """
         test validate_schema with valid schemas.
         """
-        ok_(CompiledSchema.validate_schema({SmartDict.KeyAny: str}) is None)
-        ok_(CompiledSchema.validate_schema({SmartDict.KeyAny: str, 1: int}) is None)
-        ok_(CompiledSchema.validate_schema({SmartDict.KeyFinal: int}) is None)
-        ok_(CompiledSchema.validate_schema({0: int, 1: str, 'a': basestring}) is None)
+        self.assertIsNone(CompiledSchema.validate_schema({AttrDict.KeyAny: str}))
+        self.assertIsNone(CompiledSchema.validate_schema({AttrDict.KeyAny: str, 1: int}))
+        self.assertIsNone(CompiledSchema.validate_schema({AttrDict.KeyFinal: int}))
+        self.assertIsNone(CompiledSchema.validate_schema({0: int, 1: str, 'a': basestring}))
 
     def unvalid_schemas_test(self):
         """
         test validate_schema with unvalid schemas.
         """
-        assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
-            SmartDict.KeyFinal: str,
+        self.assertRaises(SchemaNotValid, CompiledSchema.validate_schema, {
+            AttrDict.KeyFinal: str,
             'a': str,
             'bb': float
         })
-        assert_raises(SchemaNotValid, CompiledSchema.validate_schema, {
-            SmartDict.KeyFinal: str,
-            SmartDict.KeyAny: int
+        self.assertRaises(SchemaNotValid, CompiledSchema.validate_schema, {
+            AttrDict.KeyFinal: str,
+            AttrDict.KeyAny: int
         })
 
     def validate_schemas_match_test(self):
@@ -39,19 +40,19 @@ class CompiledSchema_test(object):
         """
         schema_in = {'a': int, 'c': int}
         schema_out = {'a': int, 'b': str, 'c': float}
-        ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
+        self.assertIsNone(CompiledSchema.validate_schemas_match(schema_in, schema_out))
 
         schema_in = {'a': int, 'b': str, 'c': float}
-        schema_out = {SmartDict.KeyAny: int}
-        ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
+        schema_out = {AttrDict.KeyAny: int}
+        self.assertIsNone(CompiledSchema.validate_schemas_match(schema_in, schema_out))
 
-        schema_in = {SmartDict.KeyAny: int}
-        schema_out = {SmartDict.KeyAny: float}
-        ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
+        schema_in = {AttrDict.KeyAny: int}
+        schema_out = {AttrDict.KeyAny: float}
+        self.assertIsNone(CompiledSchema.validate_schemas_match(schema_in, schema_out))
 
-        schema_in = {SmartDict.KeyFinal: str}
-        schema_out = {SmartDict.KeyFinal: unicode}
-        ok_(CompiledSchema.validate_schemas_match(schema_in, schema_out) is None)
+        schema_in = {AttrDict.KeyFinal: str}
+        schema_out = {AttrDict.KeyFinal: unicode}
+        self.assertIsNone(CompiledSchema.validate_schemas_match(schema_in, schema_out))
 
     def instantiate_error_test(self):
         """
@@ -59,23 +60,23 @@ class CompiledSchema_test(object):
         """
         schema_in = {0: int, 1: float}
         schema_out = {1: str, 2: int}
-        assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
+        self.assertRaises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
         
-        schema_in = {SmartDict.KeyFinal: int}
+        schema_in = {AttrDict.KeyFinal: int}
         schema_out = {1: str}
-        assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
+        self.assertRaises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
-        schema_in = {SmartDict.KeyAny: int}
+        schema_in = {AttrDict.KeyAny: int}
         schema_out = {'a': int, 'b': str}
-        assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
+        self.assertRaises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
-        schema_in = {SmartDict.KeyAny: int}
+        schema_in = {AttrDict.KeyAny: int}
         schema_out = {'a': int, 'b': str}
-        assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
+        self.assertRaises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
-        schema_in = {SmartDict.KeyFinal: int}
-        schema_out = {SmartDict.KeyAny: int}
-        assert_raises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
+        schema_in = {AttrDict.KeyFinal: int}
+        schema_out = {AttrDict.KeyAny: int}
+        self.assertRaises(SchemasDontMatch, CompiledSchema.validate_schemas_match, schema_in, schema_out)
 
 
 class MyNode(Node):
@@ -94,7 +95,7 @@ class MyFloatNode(MyNode):
     klass = float
 
 
-class Cast_test(object):
+class Cast_test(unittest.TestCase):
 
     def get_fallback_test(self):
         """
@@ -108,7 +109,7 @@ class Cast_test(object):
         class MyIntNode1(IntNode):
             @classmethod
             def schema_dump(cls):
-                return {SmartDict.KeyFinal: int}
+                return {AttrDict.KeyFinal: int}
 
         class MyIntNode2(IntNode):
             klass = int
@@ -120,13 +121,13 @@ class Cast_test(object):
 
         # With KeyFinal in schema
         out_bc = cast._get_fallback(MyIntNode1)
-        ok_(issubclass(out_bc, IntNode))
+        self.assertTrue(issubclass(out_bc, IntNode))
         # Get from the fallback map
         out_bc = cast._get_fallback(MyIntNode2)
-        ok_(issubclass(out_bc, IntNode))
+        self.assertTrue(issubclass(out_bc, IntNode))
         # default
         out_bc = cast._get_fallback(MyIntNode3)
-        ok_(out_bc.schema_dump() == {'haha': int})
+        self.assertTrue(out_bc.schema_dump() == {'haha': int})
 
     def call_test(self):
         """
@@ -137,21 +138,21 @@ class Cast_test(object):
             AllSubSetsOf(list): IterableNode,
             AllSubSetsOf(object): IdentityNode,
         })
-        ok_(cast({'a': 1, 'b': 2}, out_class=dict) == {'a': 1, 'b': 2})
-        ok_(cast({'a': 1, 'b': 2}, out_class=list) == [1, 2])
-        ok_(cast(['a', 'b', 'c'], out_class=dict) == {0: 'a', 1: 'b', 2: 'c'})
-        ok_(cast(['a', 'b', 'c'], out_class=list) == ['a', 'b', 'c'])
-        ok_(cast(1, out_class=int) == 1)
+        self.assertEqual(cast({'a': 1, 'b': 2}, out_class=dict), {'a': 1, 'b': 2})
+        self.assertEqual(cast({'a': 1, 'b': 2}, out_class=list), [1, 2])
+        self.assertEqual(cast(['a', 'b', 'c'], out_class=dict), {0: 'a', 1: 'b', 2: 'c'})
+        self.assertEqual(cast(['a', 'b', 'c'], out_class=list), ['a', 'b', 'c'])
+        self.assertEqual(cast(1, out_class=int), 1)
 
     def improvise_schema_test(self):
         cast = Cast({})
         schema = cast.improvise_schema({'a': 1, 'b': 'b'}, MappingNode)
-        ok_(schema == {'a': int, 'b': str})
+        self.assertEqual(schema, {'a': int, 'b': str})
         schema = cast.improvise_schema([1, 'b', 2.0], IterableNode)
-        ok_(schema == {0: int, 1: str, 2: float})
+        self.assertEqual(schema, {0: int, 1: str, 2: float})
 
 
-class Cast_complex_calls_test(object):
+class Cast_complex_calls_test(unittest.TestCase):
     """
     Test casting complex objects
     """
@@ -245,14 +246,14 @@ class Cast_complex_calls_test(object):
         """
         test serialize object with a node class providing complete schema.
         """
-        ok_(self.serializer(self.george, in_class=self.CompleteAuthorNode) == {
+        self.assertEqual(self.serializer(self.george, in_class=self.CompleteAuthorNode), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
         self.serializer.node_class_map[ClassSet(self.Author)] = self.CompleteAuthorNode
-        ok_(self.serializer(self.george) == {
+        self.assertEqual(self.serializer(self.george), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
@@ -266,26 +267,26 @@ class Cast_complex_calls_test(object):
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
         ]}, out_class=self.CompleteAuthorNode)
-        ok_(isinstance(truman, self.Author))
-        ok_(truman.name == 'Truman Capote')
-        ok_(len(truman.books) == 1)
+        self.assertTrue(isinstance(truman, self.Author))
+        self.assertEqual(truman.name, 'Truman Capote')
+        self.assertEqual(len(truman.books), 1)
         for book in truman.books:
-            ok_(isinstance(book, self.Book))
-        ok_(truman.books[0].title == 'In cold blood')
+            self.assertTrue(isinstance(book, self.Book))
+        self.assertEqual(truman.books[0].title, 'In cold blood')
 
     def serialize_given_halfcomplete_schema_test(self):
         """
         test serialize object with a node class providing half complete schema.
         """
         self.serializer.node_class_map[ClassSet(self.Book)] = self.BookNode
-        ok_(self.serializer(self.george, in_class=self.HalfCompleteAuthorNode) == {
+        self.assertEqual(self.serializer(self.george, in_class=self.HalfCompleteAuthorNode), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
         self.serializer.node_class_map[ClassSet(self.Author)] = self.HalfCompleteAuthorNode
-        ok_(self.serializer(self.george) == {
+        self.assertEqual(self.serializer(self.george), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
@@ -300,26 +301,26 @@ class Cast_complex_calls_test(object):
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
         ]}, out_class=self.HalfCompleteAuthorNode)
-        ok_(isinstance(truman, self.Author))
-        ok_(truman.name == 'Truman Capote')
-        ok_(len(truman.books) == 1)
+        self.assertTrue(isinstance(truman, self.Author))
+        self.assertEqual(truman.name, 'Truman Capote')
+        self.assertEqual(len(truman.books), 1)
         for book in truman.books:
-            ok_(isinstance(book, self.Book))
-        ok_(truman.books[0].title == 'In cold blood')
+            self.assertTrue(isinstance(book, self.Book))
+        self.assertEqual(truman.books[0].title, 'In cold blood')
 
     def serialize_given_simple_schema_test(self):
         """
         test serialize object with a node class providing schema with missing infos.
         """
         self.serializer.node_class_map[ClassSet(self.Book)] = self.BookNode
-        ok_(self.serializer(self.george, in_class=self.SimpleAuthorNode) == {
+        self.assertEqual(self.serializer(self.george, in_class=self.SimpleAuthorNode), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
             ]
         })
         self.serializer.node_class_map[ClassSet(self.Author)] = self.SimpleAuthorNode
-        ok_(self.serializer(self.george) == {
+        self.assertEqual(self.serializer(self.george), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
@@ -334,15 +335,15 @@ class Cast_complex_calls_test(object):
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
         ]}, out_class=self.SimpleAuthorNode)
-        ok_(isinstance(truman, self.Author))
-        ok_(truman.name == 'Truman Capote')
-        ok_(len(truman.books) == 1)
+        self.assertTrue(isinstance(truman, self.Author))
+        self.assertEqual(truman.name, 'Truman Capote')
+        self.assertEqual(len(truman.books), 1)
         for book in truman.books:
-            ok_(isinstance(book, self.Book))
-        ok_(truman.books[0].title == 'In cold blood')
+            self.assertTrue(isinstance(book, self.Book))
+        self.assertEqual(truman.books[0].title, 'In cold blood')
 
 
-class Cast_ObjectNode_dict_tests(object):
+class Cast_ObjectNode_dict_tests(unittest.TestCase):
     """
     Test working with ObjectNode for dict data.
     """
@@ -357,7 +358,7 @@ class Cast_ObjectNode_dict_tests(object):
                     yield k, v
             @classmethod
             def schema_dump(cls):
-                return {SmartDict.KeyAny: SmartDict.ValueUnknown}
+                return {AttrDict.KeyAny: AttrDict.ValueUnknown}
             def get_aa(self):
                 return 'bloblo'
 
@@ -370,13 +371,13 @@ class Cast_ObjectNode_dict_tests(object):
     def dump_test(self):
         d = {'a': 1, 'b': 2}
         node = self.DictObjectNode(d)
-        ok_(dict(node.dump()) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        self.assertEqual(dict(node.dump()), {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
     def cast_test(self):
         d = {'a': 1, 'b': 2}
         node = self.DictObjectNode(d)
-        ok_(dict(node.dump()) == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        self.assertEqual(dict(node.dump()), {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
         data = self.cast(d, in_class=self.DictObjectNode, out_class=dict)
-        ok_(data == {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        self.assertEqual(data, {'a': 1, 'b': 2, 'aa': 'bloblo'})
 

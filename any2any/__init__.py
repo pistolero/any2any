@@ -3,7 +3,7 @@ import types
 import datetime
 
 from cast import Cast
-from utils import AllSubSetsOf, ClassSet, SmartDict
+from utils import AllSubSetsOf, ClassSet, AttrDict
 from node import (Node, ObjectNode, IterableNode,
 MappingNode, IdentityNode)
 from stdlib.node import DateNode, DateTimeNode

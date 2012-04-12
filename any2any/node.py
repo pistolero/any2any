@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-from utils import ClassSetDict, SmartDict, AllSubSetsOf
-
-
-class FactoryError(TypeError): pass
+from utils import ClassSetDict, AttrDict, AllSubSetsOf
+from exceptions import NoSuitableNodeClass
 
 
 class Node(object):
@@ -16,7 +14,7 @@ class Node(object):
         - :meth:`schema_load` 
     """
 
-    klass = SmartDict.ValueUnknown
+    klass = AttrDict.ValueUnknown
     """The class of the object this node contains."""
 
     def __init__(self, obj):
@@ -39,17 +37,17 @@ class Node(object):
         raise NotImplementedError()
 
     @classmethod
-    def schema_dump(cls):
-        """
-        Returns the schema - a priori - of the node, when serialized with :meth:`dump`.
-        """
-        raise NotImplementedError()
-
-    @classmethod
     def load(cls, items_iter):
         """
         Takes an iterator ``key, value`` as returned by the :meth:`dump` method
         of another node ; and returns a deserialized node instance.
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def schema_dump(cls):
+        """
+        Returns the schema - a priori - of the node, when serialized with :meth:`dump`.
         """
         raise NotImplementedError()
 
@@ -77,23 +75,23 @@ class IdentityNode(Node):
     """
 
     def dump(self):
-        yield SmartDict.KeyFinal, self.obj
-
-    @classmethod
-    def schema_dump(cls):
-        return {SmartDict.KeyFinal: cls.klass}
+        yield AttrDict.KeyFinal, self.obj
 
     @classmethod
     def load(cls, items_iter):
         try:
             key, obj = items_iter.next()
         except StopIteration:
-            raise FactoryError("empty iterator received")
+            raise TypeError("empty iterator received")
         return cls.new(obj)
 
     @classmethod
+    def schema_dump(cls):
+        return {AttrDict.KeyFinal: cls.klass}
+
+    @classmethod
     def schema_load(cls):
-        return {SmartDict.KeyFinal: cls.klass}
+        return {AttrDict.KeyFinal: cls.klass}
 
 
 class ContainerNode(Node):
@@ -101,16 +99,16 @@ class ContainerNode(Node):
     Base class for container node classes.
     """
 
-    value_type = SmartDict.ValueUnknown
+    value_type = AttrDict.ValueUnknown
     """Type of values in the container. This is used to generate schemas."""
 
     @classmethod
     def schema_dump(cls):
-        return {SmartDict.KeyAny: cls.value_type}
+        return {AttrDict.KeyAny: cls.value_type}
 
     @classmethod
     def schema_load(cls):
-        return {SmartDict.KeyAny: cls.value_type}
+        return {AttrDict.KeyAny: cls.value_type}
 
 
 class IterableNode(ContainerNode):
@@ -158,15 +156,15 @@ class ObjectNode(Node):
     def dump(self):
         for name in self.schema_dump():
             yield name, self.getattr(name)
-    
-    @classmethod
-    def schema_dump(cls):
-        return {}
 
     @classmethod
     def load(cls, items_iter):
         obj = cls.klass(**dict(items_iter))
         return cls.new(obj)
+    
+    @classmethod
+    def schema_dump(cls):
+        return {}
 
     @classmethod
     def schema_load(cls):
@@ -197,9 +195,6 @@ class ObjectNode(Node):
 
     def default_setattr(self, name, value):
         setattr(self.obj, name, value)
-
-
-class NoSuitableNodeClass(Exception): pass
 
 
 class NodeInfo(object):
@@ -237,7 +232,7 @@ class NodeInfo(object):
             klass = self._lookup_with.subsetget(type(inpt))
             node_class = node_class_map.subsetget(klass)
             if node_class is None:
-                raise NoSuitableNodeClass()
+                raise NoSuitableNodeClass(klass)
             attrs['klass'] = klass
         else:
             node_class = self._raw_node_class

@@ -116,14 +116,7 @@ class ClassSetDict(dict):
         return 'ClassSetDict(%s)' % super(ClassSetDict, self).__repr__()
 
 
-def classproperty(func):
-    class _classproperty(property):
-        def __get__(self, cls, owner):
-            return self.fget.__get__(None, owner)()
-    return _classproperty(classmethod(func))
-
-
-class SmartDict(collections.MutableMapping):
+class AttrDict(collections.MutableMapping):
     """
     Dictionary used internally to handle schemas.
     """
@@ -164,10 +157,10 @@ class SmartDict(collections.MutableMapping):
             (self.KeyAny in self.dict and not key is self.KeyFinal))
 
     def __repr__(self):
-        return 'SmartDict(%s)' % self.dict
+        return '%s(%s)' % (self.__class__.__name__, self.dict)
 
     def _validate(self):
-        if (SmartDict.KeyFinal in schema) and len(schema) != 1:
+        if (AttrDict.KeyFinal in schema) and len(schema) != 1:
             raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
-        elif (SmartDict.KeyAny in schema) and len(schema) != 1:
+        elif (AttrDict.KeyAny in schema) and len(schema) != 1:
             raise SchemaNotValid("schema cannot contain several items if it contains 'KeyAny'")

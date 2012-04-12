@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
+import unittest
+
 from any2any.utils import *
-from nose.tools import assert_raises, ok_
 
 
-class ClassSet_Test(object):
+class ClassSet_Test(unittest.TestCase):
     """
     Tests for the ClassSet class
     """
@@ -12,60 +13,60 @@ class ClassSet_Test(object):
         """
         Test ClassSet.__eq__ 
         """
-        ok_(AllSubSetsOf(object) == AllSubSetsOf(object))
-        ok_(ClassSet(int) == ClassSet(int))
-        ok_(not AllSubSetsOf(object) == ClassSet(object))
-        ok_(not AllSubSetsOf(object) == AllSubSetsOf(int))
-        ok_(not ClassSet(object) == ClassSet(int))
+        self.assertEqual(AllSubSetsOf(object), AllSubSetsOf(object))
+        self.assertEqual(ClassSet(int), ClassSet(int))
+        self.assertNotEqual(AllSubSetsOf(object), ClassSet(object))
+        self.assertNotEqual(AllSubSetsOf(object), AllSubSetsOf(int))
+        self.assertNotEqual(ClassSet(object), ClassSet(int))
 
-        ok_(ClassSet(object) == object)
-        ok_(not AllSubSetsOf(object) == object)
+        self.assertEqual(ClassSet(object), object)
+        self.assertNotEqual(AllSubSetsOf(object), object)
 
-        ok_(not ClassSet(int) == ClassSet(str, int))
+        self.assertNotEqual(ClassSet(int), ClassSet(str, int))
 
     def lt_test(self):
         """
         Test ClassSet.__lt__
         """
-        ok_(ClassSet(object) < AllSubSetsOf(object)) # {object} is included in subclasses of object
-        ok_(ClassSet(int, str) < AllSubSetsOf(object)) # {int, str} is included in subclasses of object
-        ok_(AllSubSetsOf(int) < AllSubSetsOf(object)) # subclasses of int are included in subclasses of object
+        self.assertTrue(ClassSet(object) < AllSubSetsOf(object)) # {object} is included in subclasses of object
+        self.assertTrue(ClassSet(int, str) < AllSubSetsOf(object)) # {int, str} is included in subclasses of object
+        self.assertTrue(AllSubSetsOf(int) < AllSubSetsOf(object)) # subclasses of int are included in subclasses of object
 
-        ok_(not AllSubSetsOf(object) < AllSubSetsOf(object)) # because ==
-        ok_(not ClassSet(int) < ClassSet(object))
-        ok_(not AllSubSetsOf(int) < ClassSet(object))
-        ok_(not AllSubSetsOf(int) < AllSubSetsOf(str)) # because no one is other's parent
+        self.assertFalse(AllSubSetsOf(object) < AllSubSetsOf(object)) # because ==
+        self.assertFalse(ClassSet(int) < ClassSet(object))
+        self.assertFalse(AllSubSetsOf(int) < ClassSet(object))
+        self.assertFalse(AllSubSetsOf(int) < AllSubSetsOf(str)) # because no one is other's parent
 
-        ok_(not ClassSet(str) < object)
-        ok_(not ClassSet(object) < object)
-        ok_(not AllSubSetsOf(object) < object)
+        self.assertFalse(ClassSet(str) < object)
+        self.assertFalse(ClassSet(object) < object)
+        self.assertFalse(AllSubSetsOf(object) < object)
 
     def comp_test(self):
         """
         Test ClassSet's rich comparison
         """
         # Revert of lt_tests
-        ok_(AllSubSetsOf(object) > ClassSet(object))
-        ok_(AllSubSetsOf(object) > ClassSet(int, str, dict))
-        ok_(AllSubSetsOf(object) > AllSubSetsOf(int))
+        self.assertTrue(AllSubSetsOf(object) > ClassSet(object))
+        self.assertTrue(AllSubSetsOf(object) > ClassSet(int, str, dict))
+        self.assertTrue(AllSubSetsOf(object) > AllSubSetsOf(int))
 
-        ok_(not AllSubSetsOf(object) > AllSubSetsOf(object)) # because ==
-        ok_(not ClassSet(int) > ClassSet(object))
-        ok_(not AllSubSetsOf(int) > ClassSet(object))
-        ok_(not AllSubSetsOf(int) > AllSubSetsOf(str)) # because no one is other's parent
+        self.assertFalse(AllSubSetsOf(object) > AllSubSetsOf(object)) # because ==
+        self.assertFalse(ClassSet(int) > ClassSet(object))
+        self.assertFalse(AllSubSetsOf(int) > ClassSet(object))
+        self.assertFalse(AllSubSetsOf(int) > AllSubSetsOf(str)) # because no one is other's parent
         
-        ok_(AllSubSetsOf(object) > object)
-        ok_(AllSubSetsOf(object) > str)
-        ok_(not ClassSet(object) > str)
+        self.assertTrue(AllSubSetsOf(object) > object)
+        self.assertTrue(AllSubSetsOf(object) > str)
+        self.assertFalse(ClassSet(object) > str)
 
         # Other comparison operators
-        ok_(AllSubSetsOf(object) >= ClassSet(object, dict))
-        ok_(AllSubSetsOf(object) >= ClassSet(int))
-        ok_(AllSubSetsOf(object) >= AllSubSetsOf(int))
-        ok_(AllSubSetsOf(object) >= AllSubSetsOf(object))
+        self.assertTrue(AllSubSetsOf(object) >= ClassSet(object, dict))
+        self.assertTrue(AllSubSetsOf(object) >= ClassSet(int))
+        self.assertTrue(AllSubSetsOf(object) >= AllSubSetsOf(int))
+        self.assertTrue(AllSubSetsOf(object) >= AllSubSetsOf(object))
 
 
-class ClassSetDict_Test(object):
+class ClassSetDict_Test(unittest.TestCase):
     """
     Tests for the ClassSetDict class
     """
@@ -80,10 +81,10 @@ class ClassSetDict_Test(object):
             ClassSet(int): 3,
         }
         csd = ClassSetDict(choice_map)
-        ok_(csd.subsetget(object) is 2)
-        ok_(csd.subsetget(float) is 2)
-        ok_(csd.subsetget(str) is 1)
-        ok_(csd.subsetget(int) is 3)
+        self.assertTrue(csd.subsetget(object) is 2)
+        self.assertTrue(csd.subsetget(float) is 2)
+        self.assertTrue(csd.subsetget(str) is 1)
+        self.assertTrue(csd.subsetget(int) is 3)
 
     def no_pick_test(self):
         """
@@ -91,53 +92,53 @@ class ClassSetDict_Test(object):
         """
         choice_map = {ClassSet(int): 1}
         csd = ClassSetDict(choice_map)
-        ok_(csd.subsetget(str) is None)
-        ok_(csd.subsetget(str, 'blabla') is 'blabla')
+        self.assertIsNone(csd.subsetget(str))
+        self.assertEqual(csd.subsetget(str, 'blabla'), 'blabla')
 
 
-class SmartDict_test(object):
+class AttrDict_test(unittest.TestCase):
     """
-    Tests for the SmartDict class
+    Tests for the AttrDict class
     """
 
     def getitem_test(self):
         """
-        Test SmartDict.__getitem__
+        Test AttrDict.__getitem__
         """
-        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
-        ok_(d['a'] == 2)
-        ok_(d['b'] == 3)
-        ok_(d['c'] == 1)
-        ok_(d['d'] == 1)
+        d = AttrDict({AttrDict.KeyAny: 1, 'a': 2, 'b': 3})
+        self.assertEqual(d['a'], 2)
+        self.assertEqual(d['b'], 3)
+        self.assertEqual(d['c'], 1)
+        self.assertEqual(d['d'], 1)
 
     def getitem_keyerror_test(self):
         """
-        Test SmartDict.__getitem__
+        Test AttrDict.__getitem__
         """
-        d = SmartDict({'a': 1})
-        assert_raises(KeyError, d.__getitem__, 'b')
-        d = SmartDict({SmartDict.KeyAny: 1})
-        assert_raises(KeyError, d.__getitem__, SmartDict.KeyFinal)
+        d = AttrDict({'a': 1})
+        self.assertRaises(KeyError, d.__getitem__, 'b')
+        d = AttrDict({AttrDict.KeyAny: 1})
+        self.assertRaises(KeyError, d.__getitem__, AttrDict.KeyFinal)
 
     def get_test(self):
         """
-        Test SmartDict.get
+        Test AttrDict.get
         """
-        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
-        ok_(d.get('a') == 2)
-        ok_(d.get('b') == 3)
-        ok_(d.get('c') == 1)
-        ok_(d.get('d') == 1)
-        d = SmartDict({'a': 1})
-        ok_(d.get('a') == 1)
-        ok_(d.get('b', 2) == 2)
+        d = AttrDict({AttrDict.KeyAny: 1, 'a': 2, 'b': 3})
+        self.assertEqual(d.get('a'), 2)
+        self.assertEqual(d.get('b'), 3)
+        self.assertEqual(d.get('c'), 1)
+        self.assertEqual(d.get('d'), 1)
+        d = AttrDict({'a': 1})
+        self.assertEqual(d.get('a'), 1)
+        self.assertEqual(d.get('b', 2), 2)
 
     def contains_test(self):
         """
-        Test SmartDict.contains
+        Test AttrDict.contains
         """
-        d = SmartDict({SmartDict.KeyAny: 1, 'a': 2, 'b': 3})
-        ok_('a' in d)
-        ok_('b' in d)
-        ok_('c' in d)
-        ok_(not SmartDict.KeyFinal in d)
+        d = AttrDict({AttrDict.KeyAny: 1, 'a': 2, 'b': 3})
+        self.assertTrue('a' in d)
+        self.assertTrue('b' in d)
+        self.assertTrue('c' in d)
+        self.assertFalse(AttrDict.KeyFinal in d)

@@ -2,7 +2,7 @@
 import copy
 
 from node import NodeInfo
-from utils import ClassSetDict, SmartDict
+from utils import ClassSetDict, AttrDict
 
 
 class Cast(object):
@@ -18,7 +18,7 @@ class Cast(object):
 
         # `in_class` is always known, because we at least have the 
         # `inpt`'s class
-        if in_class in [None, SmartDict.ValueUnknown]:
+        if in_class in [None, AttrDict.ValueUnknown]:
             in_class = type(inpt)
         if not isinstance(in_class, NodeInfo):
             in_value_info = NodeInfo(in_class)
@@ -27,7 +27,7 @@ class Cast(object):
         in_node_class = in_value_info.get_node_class(inpt, self.node_class_map)
 
         # `out_class` can be unknown, and it that case, we find a good fallback 
-        if out_class in [None, SmartDict.ValueUnknown]:
+        if out_class in [None, AttrDict.ValueUnknown]:
             out_value_info = NodeInfo(self._get_fallback(in_node_class))
         elif (not isinstance(out_class, NodeInfo)):
             out_value_info = NodeInfo(out_class)
@@ -37,8 +37,8 @@ class Cast(object):
 
         # Compiling schemas : if it fails with the 2 schemas found,
         # we use the actual schema of `inpt`
-        out_schema = SmartDict(out_node_class.schema_load())
-        in_schema = SmartDict(in_node_class.schema_dump())
+        out_schema = AttrDict(out_node_class.schema_load())
+        in_schema = AttrDict(in_node_class.schema_dump())
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
@@ -62,7 +62,7 @@ class Cast(object):
 
     def _get_fallback(self, in_node_class):
         # If input is a final value, we'll just assume that ouput is also
-        if SmartDict.KeyFinal in in_node_class.schema_dump():
+        if AttrDict.KeyFinal in in_node_class.schema_dump():
             return in_node_class
 
         # we try to get a node class from the `fallback_map`
@@ -82,7 +82,7 @@ class Cast(object):
         schema = {}
         for k, v in node.dump():
             schema[k] = type(v)
-        return SmartDict(schema)
+        return AttrDict(schema)
 
 
 class _Generator(object):
@@ -102,7 +102,7 @@ class _Generator(object):
     def next(self):
         key, value = self.items_iter.next()
         self.last_key = key
-        if key is SmartDict.KeyFinal:
+        if key is AttrDict.KeyFinal:
             casted_value = value
         else:
             self.cast.log('[ %s ]' % key)
@@ -126,13 +126,13 @@ class CompiledSchema(object):
 
     @classmethod
     def validate_schemas_match(cls, in_schema, out_schema):
-        if SmartDict.KeyAny in in_schema:
-            if not SmartDict.KeyAny in out_schema:
+        if AttrDict.KeyAny in in_schema:
+            if not AttrDict.KeyAny in out_schema:
                 raise SchemasDontMatch("in_schema contains 'KeyAny', but out_schema doesn't")
-        elif SmartDict.KeyFinal in in_schema or SmartDict.KeyFinal in out_schema:
-            if not (SmartDict.KeyFinal in in_schema and SmartDict.KeyFinal in out_schema):
+        elif AttrDict.KeyFinal in in_schema or AttrDict.KeyFinal in out_schema:
+            if not (AttrDict.KeyFinal in in_schema and AttrDict.KeyFinal in out_schema):
                 raise SchemasDontMatch("both in_schema and out_schema must contain 'KeyFinal'")
-        elif SmartDict.KeyAny in out_schema:
+        elif AttrDict.KeyAny in out_schema:
             pass
         elif set(out_schema) >= set(in_schema):
             pass
@@ -142,6 +142,6 @@ class CompiledSchema(object):
 
     @classmethod
     def validate_schema(cls, schema):
-        if (SmartDict.KeyFinal in schema) and len(schema) != 1:
+        if (AttrDict.KeyFinal in schema) and len(schema) != 1:
             raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
 
