@@ -127,6 +127,13 @@ class AttrDict(collections.MutableMapping):
     def __init__(self, *args, **kwargs):
         self.dict = dict(*args, **kwargs)
 
+    def iter_attrs(self):
+        """
+        Returns an iterator over attribute names in the dictionary.
+        Special values like :class:`KeyAny` or :class: `KeyFinal` are not included.
+        """
+        return (a for a in self if a not in [self.KeyAny, self.KeyFinal])
+
     def __getitem__(self, key):
         try:
             return self.dict[key]
