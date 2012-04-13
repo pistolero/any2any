@@ -17,12 +17,12 @@ class Cast(object):
     def __call__(self, inpt, frm=NodeInfo(), to=NodeInfo()):
         self._depth_counter += 1
 
-        # If `frm`, isn't a node class yet, we must find one for it
+        # If `frm`, isn't a node class yet, we must find one for it.
+        # For this, we'll first get a NodeInfo, and then resolve it to a
+        # node class. 
         if (isinstance(frm, type) and not issubclass(frm, Node))\
                 or isinstance(frm, NodeInfo):
 
-            # For this, we first get a NodeInfo, and resolve it to a
-            # node class. 
             if not isinstance(frm, NodeInfo):
                 node_info = NodeInfo(frm)
             else:
@@ -33,18 +33,18 @@ class Cast(object):
         else:
             frm_node_class = frm
         
-        # If `to`, isn't a node class yet, we must find one for it
+        # If `to`, isn't a node class yet, we must find one for it.
+        # For this, we first get a NodeInfo ...
         if (isinstance(to, type) and not issubclass(to, Node))\
                 or isinstance(to, NodeInfo):
 
-            # For this, we first get a NodeInfo
             if not isinstance(to, NodeInfo):
                 node_info = NodeInfo(to)
             else:
                 node_info = copy.copy(to)
 
-            # If the NodeInfo provides no class to use for looking-up
-            # the Node class, we try to find a good fallback.
+            # If the NodeInfo doesn't provide any useful `class_info` about
+            # the node class, we directly try to find a good fallback.
             if node_info.class_info is None:
                 to_node_class = self._get_fallback(frm_node_class)
             else:
@@ -52,20 +52,20 @@ class Cast(object):
         else:
             to_node_class = to
 
-        # Compiling schemas : if it fails with the 2 schemas found,
+        # Checking schema compatibility : if it fails with the 2 schemas found,
         # we use the actual schema of `inpt`
-        out_schema = AttrDict(to_node_class.schema_load())
-        in_schema = AttrDict(frm_node_class.schema_dump())
+        frm_schema = AttrDict(frm_node_class.schema_dump())
+        to_schema = AttrDict(to_node_class.schema_load())
         try:
-            in_schema.validate_inclusion(out_schema)
+            frm_schema.validate_inclusion(to_schema)
         except NotIncludedError:
-            in_schema = self._improvise_schema(inpt, frm_node_class)
-            in_schema.validate_inclusion(out_schema)
+            frm_schema = self._improvise_schema(inpt, frm_node_class)
+            frm_schema.validate_inclusion(to_schema)
 
         # Generator iterating on the casted items, and which will be used
         # to load the casted object.
         # It calls the casting recursively if the schema has any nesting.
-        generator = _Generator(self, frm_node_class.new(inpt).dump(), in_schema, out_schema)
+        generator = _Generator(self, frm_node_class.new(inpt).dump(), frm_schema, to_schema)
 
         # Finally, we load the casted object.
         self.log('%s <= %s' % (frm_node_class, inpt))
@@ -122,11 +122,11 @@ class _Generator(object):
     Generator used to pass the data from one node to another.
     """
 
-    def __init__(self, cast, items_iter, in_schema, out_schema):
+    def __init__(self, cast, items_iter, frm_schema, to_schema):
         self.cast = cast
         self.items_iter = items_iter
-        self.in_schema = in_schema
-        self.out_schema = out_schema
+        self.frm_schema = frm_schema
+        self.to_schema = to_schema
 
     def __iter__(self):
         return self
@@ -139,8 +139,8 @@ class _Generator(object):
         else:
             self.cast.log('[ %s ]' % key)
             casted_value = self.cast(value,
-                to=self.out_schema[key],
-                frm=self.in_schema[key]
+                to=self.to_schema[key],
+                frm=self.frm_schema[key]
             )
         return key, casted_value
 
