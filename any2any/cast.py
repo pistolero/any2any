@@ -65,11 +65,11 @@ class Cast(object):
         # Generator iterating on the casted items, and which will be used
         # to load the casted object.
         # It calls the casting recursively if the schema has any nesting.
-        generator = _Generator(self, frm_node_class.new(inpt).dump(), frm_schema, to_schema)
+        generator = _Generator(self, frm_node_class.dump(inpt), frm_schema, to_schema)
 
         # Finally, we load the casted object.
         self.log('%s <= %s' % (frm_node_class, inpt))
-        casted = to_node_class.load(generator).obj
+        casted = to_node_class.load(generator)
         self.log('%s => %s' % (to_node_class, casted))
         self._depth_counter -= 1
         return casted
@@ -110,9 +110,8 @@ class Cast(object):
         This method can be used to get the dump schema for an object, when the
         schema obtained 'a priori' is not sufficient.
         """
-        node = node_class.new(obj)
         schema = {}
-        for k, v in node.dump():
+        for k, v in node_class.dump(obj):
             schema[k] = type(v)
         return AttrDict(schema)
 

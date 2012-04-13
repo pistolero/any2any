@@ -331,12 +331,13 @@ class Cast_ObjectNode_dict_tests(unittest.TestCase):
     """
 
     def setUp(self):
-        class DictObjectNode(ObjectNode):
+        class DictObjectNode(dict, ObjectNode):
             klass = dict
-            def dump(self):
+            @classmethod
+            def dump(cls, obj):
                 for name in ['aa']:
-                    yield name, self.getattr(name)
-                for k, v in self.obj.items():
+                    yield name, cls.getattr(obj, name)
+                for k, v in obj.items():
                     yield k, v
             @classmethod
             def schema_dump(cls):
@@ -351,15 +352,13 @@ class Cast_ObjectNode_dict_tests(unittest.TestCase):
         })
 
     def dump_test(self):
-        d = {'a': 1, 'b': 2}
-        node = self.DictObjectNode(d)
-        self.assertEqual(dict(node.dump()), {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        node = self.DictObjectNode({'a': 1, 'b': 2})
+        self.assertEqual(dict(self.DictObjectNode.dump(node)), {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
     def cast_test(self):
-        d = {'a': 1, 'b': 2}
-        node = self.DictObjectNode(d)
-        self.assertEqual(dict(node.dump()), {'a': 1, 'b': 2, 'aa': 'bloblo'})
+        node = self.DictObjectNode({'a': 1, 'b': 2})
+        self.assertEqual(dict(self.DictObjectNode.dump(node)), {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
-        data = self.cast(d, frm=self.DictObjectNode, to=dict)
+        data = self.cast(node, frm=self.DictObjectNode, to=dict)
         self.assertEqual(data, {'a': 1, 'b': 2, 'aa': 'bloblo'})
 

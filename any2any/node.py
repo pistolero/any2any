@@ -87,20 +87,10 @@ class Node(object):
     klass = NodeInfo()
     """The class of the object this node contains."""
 
-    def __init__(self, obj):
-        self.obj = obj
-
     @classmethod
-    def new(cls, obj):
+    def dump(cls, obj):
         """
-        This method is used internally instead of `__init__`, to build
-        a new node instance.
-        """
-        return cls(obj)
-
-    def dump(self):
-        """
-        Returns an iterator ``key, value`` on the serialized node.
+        Serializes `obj`, and returns an iterator ``key, value``.
         This iterator is intended to be used by the :meth:`load` method
         of another node class.
         """
@@ -110,7 +100,7 @@ class Node(object):
     def load(cls, items_iter):
         """
         Takes an iterator ``key, value`` as returned by the :meth:`dump` method
-        of another node ; and returns a deserialized node instance.
+        of another node class ; and returns a deserialized object.
         """
         raise NotImplementedError()
 
@@ -144,8 +134,9 @@ class IdentityNode(Node):
     A no-op node class defining :meth:`dump` and :meth:`load` as identity operations.
     """
 
-    def dump(self):
-        yield AttrDict.KeyFinal, self.obj
+    @classmethod
+    def dump(cls, obj):
+        yield AttrDict.KeyFinal, obj
 
     @classmethod
     def load(cls, items_iter):
@@ -153,7 +144,7 @@ class IdentityNode(Node):
             key, obj = items_iter.next()
         except StopIteration:
             raise TypeError("empty iterator received")
-        return cls.new(obj)
+        return obj
 
     @classmethod
     def schema_dump(cls):
@@ -188,15 +179,15 @@ class IterableNode(ContainerNode):
 
     klass = list
 
-    def dump(self):
-        return enumerate(self.obj)
+    @classmethod
+    def dump(cls, obj):
+        return enumerate(obj)
 
     @classmethod
     def load(cls, items_iter):
         # TODO: needs ordered dict to pass data between nodes
         items_iter = sorted(items_iter, key=lambda i: i[0])
-        obj = cls.klass((v for k, v in items_iter))
-        return cls.new(obj)
+        return cls.klass((v for k, v in items_iter))
 
 
 class MappingNode(ContainerNode):
@@ -206,13 +197,13 @@ class MappingNode(ContainerNode):
 
     klass = dict
 
-    def dump(self):
-        return ((k, self.obj[k]) for k in self.obj)
+    @classmethod
+    def dump(cls, obj):
+        return ((k, obj[k]) for k in obj)
 
     @classmethod
     def load(cls, items_iter):
-        obj = cls.klass(items_iter)
-        return cls.new(obj)
+        return cls.klass(items_iter)
 
 
 class ObjectNode(Node):
@@ -223,15 +214,15 @@ class ObjectNode(Node):
     
     klass = object
 
-    def dump(self):
-        schema = AttrDict(self.schema_dump())
+    @classmethod
+    def dump(cls, obj):
+        schema = AttrDict(cls.schema_dump())
         for name in schema.iter_attrs():
-            yield name, self.getattr(name)
+            yield name, cls.getattr(obj, name)
 
     @classmethod
     def load(cls, items_iter):
-        obj = cls.klass(**dict(items_iter))
-        return cls.new(obj)
+        return cls.klass(**dict(items_iter))
     
     @classmethod
     def schema_dump(cls):
@@ -241,29 +232,33 @@ class ObjectNode(Node):
     def schema_load(cls):
         return {}
 
-    def setattr(self, name, value):
+    @classmethod
+    def setattr(cls, obj, name, value):
         """
-        Sets the attribute `name` of the node's object, with `value`.
-        If the calling node has a method `set_<name>`, this method will be used instead.
+        Sets the attribute `name` of `obj`, with `value`.
+        If `obj` has a method `set_<name>`, this method will be used instead.
         """
-        if hasattr(self, 'set_%s' % name):
-            getattr(self, 'set_%s' % name)(value)
+        if hasattr(obj, 'set_%s' % name):
+            getattr(obj, 'set_%s' % name)(value)
         else:
-            self.default_setattr(name, value)
+            cls.default_setattr(obj, name, value)
 
-    def getattr(self, name):
+    @classmethod
+    def getattr(cls, obj, name):
         """
-        Gets the attribute `name` from the node's object.
-        If the calling node has a method `get_<name>`, this method will be used instead.
+        Gets the attribute `name` from `obj`.
+        If `obj` has a method `get_<name>`, this method will be used instead.
         """
-        if hasattr(self, 'get_%s' % name):
-            return getattr(self, 'get_%s' % name)()
+        if hasattr(obj, 'get_%s' % name):
+            return getattr(obj, 'get_%s' % name)()
         else:
-            return self.default_getattr(name)
+            return cls.default_getattr(obj, name)
 
-    def default_getattr(self, name):
-        return getattr(self.obj, name)
+    @classmethod
+    def default_getattr(cls, obj, name):
+        return getattr(obj, name)
 
-    def default_setattr(self, name, value):
-        setattr(self.obj, name, value)
+    @classmethod
+    def default_setattr(cls, obj, name, value):
+        setattr(obj, name, value)
 

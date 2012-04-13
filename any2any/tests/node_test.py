@@ -106,15 +106,14 @@ class IdentityNode_Test(TestCase):
         """
         Test IdentityNode.dump
         """
-        node = IdentityNode(1.89)
-        self.assertEqual(list(node.dump()), [(AttrDict.KeyFinal, 1.89)])
+        self.assertEqual(list(IdentityNode.dump(1.89)), [(AttrDict.KeyFinal, 1.89)])
 
     def load_test(self):
         """
         Test IdentityNode.load
         """
-        node = IdentityNode.load({'whatever': 'hello'}.iteritems())
-        self.assertEqual(node.obj, 'hello')
+        loaded_dict = IdentityNode.load({'whatever': 'hello'}.iteritems())
+        self.assertEqual(loaded_dict, 'hello')
         self.assertRaises(TypeError, IdentityNode.load, {}.iteritems())
 
     def schema_dump_load_test(self):
@@ -135,21 +134,21 @@ class IterableNode_Test(TestCase):
         """
         Test IterableNode.dump
         """
-        node = IterableNode(['a', 'b', 'c'])
-        self.assertEqual(list(node.dump()), [(0, 'a'), (1, 'b'), (2, 'c')])
-        node = IterableNode(('a',))
-        self.assertEqual(list(node.dump()), [(0, 'a')])
-        node = IterableNode([])
-        self.assertEqual(list(node.dump()), [])
+        self.assertEqual(
+            list(IterableNode.dump(['a', 'b', 'c'])),
+            [(0, 'a'), (1, 'b'), (2, 'c')]
+        )
+        self.assertEqual(list(IterableNode.dump(('a',))), [(0, 'a')])
+        self.assertEqual(list(IterableNode.dump([])), [])
 
     def load_test(self):
         """
         Test IterableNode.load
         """
-        node = IterableNode.load({0: 'aaa', 1: 'bbb', 2: 'ccc'}.iteritems())
-        self.assertEqual(node.obj, ['aaa', 'bbb', 'ccc'])
-        node = IterableNode.load({}.iteritems())
-        self.assertEqual(node.obj, [])
+        loaded_list = IterableNode.load({0: 'aaa', 1: 'bbb', 2: 'ccc'}.iteritems())
+        self.assertEqual(loaded_list, ['aaa', 'bbb', 'ccc'])
+        loaded_list = IterableNode.load({}.iteritems())
+        self.assertEqual(loaded_list, [])
 
     def schema_dump_load_test(self):
 
@@ -169,19 +168,20 @@ class MappingNode_Test(TestCase):
         """
         Test MappingNode.dump
         """
-        node = MappingNode({"a": "aaa", "b": 2, "cc": 3})
-        self.assertItemsEqual(node.dump(), [("a", "aaa"), ("b", 2), ("cc", 3)])
-        node = MappingNode({})
-        self.assertEqual(list(node.dump()), [])
+        self.assertItemsEqual(
+            MappingNode.dump({"a": "aaa", "b": 2, "cc": 3}),
+            [("a", "aaa"), ("b", 2), ("cc", 3)]
+        )
+        self.assertEqual(list(MappingNode.dump({})), [])
 
     def load_test(self):
         """
         Test MappingNode.load
         """
-        node = MappingNode.load({'a': 'aaa', 1: 'bbb', 'c': 'ccc'}.iteritems())
-        self.assertEqual(node.obj, {'a': 'aaa', 1: 'bbb', 'c': 'ccc'})
-        node = MappingNode.load({}.iteritems())
-        self.assertEqual(node.obj, {})
+        loaded_dict = MappingNode.load({'a': 'aaa', 1: 'bbb', 'c': 'ccc'}.iteritems())
+        self.assertEqual(loaded_dict, {'a': 'aaa', 1: 'bbb', 'c': 'ccc'})
+        loaded_dict = MappingNode.load({}.iteritems())
+        self.assertEqual(loaded_dict, {})
 
     def load_dump_schema_test(self):
 
@@ -205,27 +205,27 @@ class ObjectNode_Test(TestCase):
         """
         Test ObjectNode.getattr
         """
-        class AnObjectNode(ObjectNode):
+        class AnObjectNode(self.AnObject, ObjectNode):
             klass = self.AnObject
             def get_a(self):
                 return 'blabla'
-        obj = self.AnObject()
+
+        obj = AnObjectNode()
         obj.b = 'bloblo'
-        node = AnObjectNode(obj)
-        self.assertEqual(node.getattr('a'), 'blabla')
-        self.assertEqual(node.getattr('b'), 'bloblo')
+        self.assertEqual(AnObjectNode.getattr(obj, 'a'), 'blabla')
+        self.assertEqual(AnObjectNode.getattr(obj, 'b'), 'bloblo')
                 
     def setattr_test(self):
         """
         Test ObjectNode.setattr
         """
-        class AnObjectNode(ObjectNode):
+        class AnObjectNode(self.AnObject, ObjectNode):
             klass = self.AnObject
             def set_a(self, value):
-                self.obj.a = 'bloblo'
-        obj = self.AnObject()
-        node = AnObjectNode(obj)
-        node.setattr('a', 'blibli')
-        node.setattr('b', 'blabla')
+                self.a = 'bloblo'
+
+        obj = AnObjectNode()
+        AnObjectNode.setattr(obj, 'a', 'blibli')
+        AnObjectNode.setattr(obj, 'b', 'blabla')
         self.assertEqual(obj.a, 'bloblo')
         self.assertEqual(obj.b, 'blabla')
