@@ -5,53 +5,73 @@ from exceptions import NoSuitableNodeClass
 
 class NodeInfo(object):
     """
-    Just a hint of what kind of node class is wished.
-    The NodeInfo will be resolved to an actual node class
-    by the cast.
+    NodeInfo allows to specify a node class, without chosing it.
+
+    Examples :
+
+        >>> NodeInfo()
+
+    Tells the cast that the node class is completely unknown.
+
+        >>> NodeInfo(list, value_type=int)
+
+    Tells the cast to pick a node class for type `list`, 
+    set its ``value_type`` class attributes to ``value_type = int``.
+
+        >>> NodeInfo([list, tuple], value_type=str)
+
+    Tells the cast to pick a node class for `list` or `tuple`, depending
+    on the input to be casted, and customize it as before.
     """
 
-    def __init__(self, *lookup_with, **kwargs):
-        if not len(lookup_with) <= 1:
+    def __init__(self, *class_info, **kwargs):
+        if not len(class_info) <= 1:
             raise TypeError('%s() takes 0 or 1 argument (%s given)' % 
-                (self.__class__.__name__, len(lookup_with)))
-        elif len(lookup_with) == 1:
-            self.lookup_with = lookup_with[0]
+                (self.__class__.__name__, len(class_info)))
+        elif len(class_info) == 1:
+            self.class_info = class_info[0]
         else:
-            self._raw_lookup_with = None
+            self._raw_class_info = None
 
         # Those will be used for building the final node class        
         self.kwargs = kwargs
 
     def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__, self._raw_lookup_with or '')
+        return '%s(%s)' % (self.__class__.__name__, self._raw_class_info or '')
 
     def __copy__(self):
-        if self._raw_lookup_with is None:
+        if self._raw_class_info is None:
             return NodeInfo(**self.kwargs)
         else:
-            return NodeInfo(self._raw_lookup_with, **self.kwargs)
+            return NodeInfo(self._raw_class_info, **self.kwargs)
 
-    def do_lookup(self, klass=object):
-        return self._lookup_with.subsetget(klass)
+    def get_class(self, klass):
+        """
+        Chose a single class, given the input class of the casting.
+        """
+        return self._class_info.subsetget(klass)
 
     @property
-    def lookup_with(self):
-        return getattr(self, '_lookup_with', None)
+    def class_info(self):
+        """
+        A :class:`ClassSetDict` if the NodeInfo contains class information, `None` otherwise.
+        """
+        return getattr(self, '_class_info', None)
 
-    @lookup_with.setter
-    def lookup_with(self, value):
-        self._raw_lookup_with = value
+    @class_info.setter
+    def class_info(self, value):
+        self._raw_class_info = value
 
-        # Dealing with `lookup_with`, which can be of different types
-        self._lookup_with = ClassSetDict()
+        # Dealing with `class_info`, which can be of different types
+        self._class_info = ClassSetDict()
         if isinstance(value, (list, tuple)):
             for klass in value:
-                self._lookup_with[AllSubSetsOf(klass)] = klass
+                self._class_info[AllSubSetsOf(klass)] = klass
             # We use the last class of the list as a fallback
-            if not AllSubSetsOf(object) in self._lookup_with:
-                self._lookup_with[AllSubSetsOf(object)] = value[-1]
+            if not AllSubSetsOf(object) in self._class_info:
+                self._class_info[AllSubSetsOf(object)] = value[-1]
         else:
-            self._lookup_with[AllSubSetsOf(object)] = value
+            self._class_info[AllSubSetsOf(object)] = value
 
 
 class Node(object):

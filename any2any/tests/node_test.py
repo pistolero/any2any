@@ -32,28 +32,28 @@ class MyFloatNode(NodeImplement):
 
 class NodeInfo_test(TestCase):
 
-    def no_lookup_with_test(self):
+    def no_class_info_test(self):
         """
-        Test creating a NodeInfo with no lookup.
+        Test creating a NodeInfo with no class info.
         """
         node_info = NodeInfo()
-        self.assertIsNone(node_info.lookup_with)
+        self.assertIsNone(node_info.class_info)
 
-    def lookup_with_class_test(self):
+    def class_info_class_test(self):
         """
-        Test creating a NodeInfo with a single class for lookup.
+        Test creating a NodeInfo with a single class as info.
         """
         node_info = NodeInfo(int)
-        self.assertEqual(node_info.lookup_with, ClassSetDict({
+        self.assertEqual(node_info.class_info, ClassSetDict({
             AllSubSetsOf(object): int,
         }))
 
-    def lookup_with_class_list_test(self):
+    def class_info_class_list_test(self):
         """
-        Test creating a NodeInfo with a list of classes for lookup.
+        Test creating a NodeInfo with a list of classes as info.
         """
         node_info = NodeInfo([int, str, unicode])
-        self.assertEqual(node_info.lookup_with, ClassSetDict({
+        self.assertEqual(node_info.class_info, ClassSetDict({
             AllSubSetsOf(int): int,
             AllSubSetsOf(str): str,
             AllSubSetsOf(unicode): unicode,
@@ -66,12 +66,12 @@ class NodeInfo_test(TestCase):
         """
         node_info = NodeInfo(bla=90)
         node_info_copy = copy.copy(node_info)
-        self.assertEqual(node_info.lookup_with, node_info_copy.lookup_with)
+        self.assertEqual(node_info.class_info, node_info_copy.class_info)
         self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
 
         node_info = NodeInfo(blo=0, poi='yuyu')
         node_info_copy = copy.copy(node_info)
-        self.assertEqual(node_info.lookup_with, node_info_copy.lookup_with)
+        self.assertEqual(node_info.class_info, node_info_copy.class_info)
         self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
 
 

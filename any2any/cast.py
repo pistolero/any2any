@@ -26,9 +26,9 @@ class Cast(object):
                 node_info = NodeInfo(frm)
             else:
                 node_info = copy.copy(frm)
-                if node_info.lookup_with is None:
-                    node_info.lookup_with = type(inpt)
-            frm_node_class = self.resolve_node_class(node_info, inpt)
+                if node_info.class_info is None:
+                    node_info.class_info = type(inpt)
+            frm_node_class = self._resolve_node_class(node_info, inpt)
         else:
             frm_node_class = frm
         
@@ -44,10 +44,10 @@ class Cast(object):
 
             # If the NodeInfo provides no class to use for looking-up
             # the Node class, we try to find a good fallback.
-            if node_info.lookup_with is None:
+            if node_info.class_info is None:
                 to_node_class = self._get_fallback(frm_node_class)
             else:
-                to_node_class = self.resolve_node_class(node_info, inpt)
+                to_node_class = self._resolve_node_class(node_info, inpt)
         else:
             to_node_class = to
 
@@ -58,7 +58,7 @@ class Cast(object):
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = self.improvise_schema(inpt, frm_node_class)
+            in_schema = self._improvise_schema(inpt, frm_node_class)
             compiled = CompiledSchema(in_schema, out_schema)
 
         # Generator iterating on the casted items, and which will be used
@@ -77,6 +77,9 @@ class Cast(object):
         if self.debug: print '\t' * self._depth_counter, msg
 
     def _get_fallback(self, frm_node_class):
+        """
+        Gets a fallback node class for the output, as a last resort.
+        """
         # If input is a final value, we'll just assume that ouput is also
         if AttrDict.KeyFinal in frm_node_class.schema_dump():
             return frm_node_class
@@ -91,17 +94,17 @@ class Cast(object):
         # Or we'll just use `frm_node_class`, so that operation is an identity.
         return frm_node_class # TODO: shouldn't this rather be an error ?
 
-    def resolve_node_class(self, node_info, inpt):
+    def _resolve_node_class(self, node_info, inpt):
         """
         Resolves the node class from a node info.
         """
-        klass = node_info.do_lookup(type(inpt))
+        klass = node_info.get_class(type(inpt))
         node_class = self.node_class_map.subsetget(klass)
         if node_class is None:
             raise NoSuitableNodeClass(klass)
         return node_class.get_subclass(klass=klass, **node_info.kwargs)
 
-    def improvise_schema(self, obj, node_class):
+    def _improvise_schema(self, obj, node_class):
         """
         This method can be used to get the dump schema for an object, when the
         schema obtained 'a priori' is not sufficient.

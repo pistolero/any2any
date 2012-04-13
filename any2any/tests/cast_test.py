@@ -7,9 +7,6 @@ from any2any.utils import *
 
 
 class CompiledSchema_test(unittest.TestCase):
-    """
-    test CompiledSchema
-    """
 
     def valid_schemas_test(self):
         """
@@ -97,36 +94,53 @@ class MyFloatNode(MyNode):
 
 class Cast_test(unittest.TestCase):
 
-    def get_fallback_test(self):
+    def get_fallback_test_schema_KeyFinal(self):
         """
-        Test Cast._get_fallback
+        Test _get_fallback, frm_node_class's schema containing KeyFinal 
         """
         cast = Cast({AllSubSetsOf(object): IdentityNode}, {
             AllSubSetsOf(basestring): BaseStrNode,
             AllSubSetsOf(list): IdentityNode,
             ClassSet(int): IntNode,
         })
-        class MyIntNode1(IntNode):
+        class MyIntNode(IntNode):
             @classmethod
             def schema_dump(cls):
                 return {AttrDict.KeyFinal: int}
 
-        class MyIntNode2(IntNode):
+        out_bc = cast._get_fallback(MyIntNode)
+        self.assertTrue(issubclass(out_bc, IntNode))
+
+    def get_fallback_test_fallback_map(self):
+        """
+        Test _get_fallback, picking from the fallback map
+        """
+        cast = Cast({AllSubSetsOf(object): IdentityNode}, {
+            AllSubSetsOf(basestring): BaseStrNode,
+            AllSubSetsOf(list): IdentityNode,
+            ClassSet(int): IntNode,
+        })
+        class MyIntNode(IntNode):
             klass = int
 
-        class MyIntNode3(IntNode):
+        out_bc = cast._get_fallback(MyIntNode)
+        self.assertTrue(issubclass(out_bc, IntNode))
+
+    def get_fallback_test_default_node_class(self):
+        """
+        Test Cast._get_fallback, picking the default node class
+        """
+        cast = Cast({AllSubSetsOf(object): IdentityNode}, {
+            AllSubSetsOf(basestring): BaseStrNode,
+            AllSubSetsOf(list): IdentityNode,
+            ClassSet(int): IntNode,
+        })
+        class MyIntNode(IntNode):
             @classmethod
             def schema_dump(cls):
                 return {'haha': int}
 
-        # With KeyFinal in schema
-        out_bc = cast._get_fallback(MyIntNode1)
-        self.assertTrue(issubclass(out_bc, IntNode))
-        # Get from the fallback map
-        out_bc = cast._get_fallback(MyIntNode2)
-        self.assertTrue(issubclass(out_bc, IntNode))
-        # default
-        out_bc = cast._get_fallback(MyIntNode3)
+        out_bc = cast._get_fallback(MyIntNode)
         self.assertTrue(out_bc.schema_dump() == {'haha': int})
 
     def call_test(self):
@@ -146,14 +160,14 @@ class Cast_test(unittest.TestCase):
 
     def improvise_schema_test(self):
         cast = Cast({})
-        schema = cast.improvise_schema({'a': 1, 'b': 'b'}, MappingNode)
+        schema = cast._improvise_schema({'a': 1, 'b': 'b'}, MappingNode)
         self.assertEqual(schema, {'a': int, 'b': str})
-        schema = cast.improvise_schema([1, 'b', 2.0], IterableNode)
+        schema = cast._improvise_schema([1, 'b', 2.0], IterableNode)
         self.assertEqual(schema, {0: int, 1: str, 2: float})
 
     def resolve_node_class_simple_class_test(self):
         """
-        Test resolve_node_class with NodeInfo that has a simple class
+        Test _resolve_node_class with NodeInfo that has a simple class
         """
         cast = Cast({
             AllSubSetsOf(basestring): BaseStrNode,
@@ -162,19 +176,19 @@ class Cast_test(unittest.TestCase):
         })
         node_info = NodeInfo(int)
 
-        bc = cast.resolve_node_class(node_info, 1)
+        bc = cast._resolve_node_class(node_info, 1)
         self.assertTrue(issubclass(bc, IntNode))
         self.assertTrue(bc.klass is int)
         node_info = NodeInfo(str, schema={'a': str})
 
-        bc = cast.resolve_node_class(node_info, 1)
+        bc = cast._resolve_node_class(node_info, 1)
         self.assertTrue(issubclass(bc, BaseStrNode))
         self.assertTrue(bc.klass is str)
         self.assertEqual(bc.schema, {'a': str})
 
     def resolve_node_class_class_list_test(self):
         """
-        Test resolve_node_class with NodeInfo that has a list of classes
+        Test _resolve_node_class with NodeInfo that has a list of classes
         """
         cast = Cast({
             AllSubSetsOf(basestring): BaseStrNode,
@@ -183,19 +197,16 @@ class Cast_test(unittest.TestCase):
         })
         node_info = NodeInfo([float, basestring, list])
 
-        bc = cast.resolve_node_class(node_info, 'bla')
+        bc = cast._resolve_node_class(node_info, 'bla')
         self.assertTrue(issubclass(bc, BaseStrNode))
         self.assertTrue(bc.klass is basestring)
 
-        bc = cast.resolve_node_class(node_info, 1)
+        bc = cast._resolve_node_class(node_info, 1)
         self.assertTrue(issubclass(bc, IdentityNode))
         self.assertTrue(bc.klass is list)
 
 
 class Cast_complex_calls_test(unittest.TestCase):
-    """
-    Test casting complex objects
-    """
 
     def setUp(self):
         class Book(object):
