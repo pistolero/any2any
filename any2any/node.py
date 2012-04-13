@@ -154,7 +154,8 @@ class ObjectNode(Node):
     klass = object
 
     def dump(self):
-        for name in self.schema_dump():
+        schema = AttrDict(self.schema_dump())
+        for name in schema.iter_attrs():
             yield name, self.getattr(name)
 
     @classmethod

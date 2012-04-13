@@ -113,12 +113,24 @@ class AttrDict_test(unittest.TestCase):
 
     def getitem_keyerror_test(self):
         """
-        Test AttrDict.__getitem__
+        Test AttrDict.__getitem__ with a key that is not in the dict, or when the dict doesn't contain
+        `KeyAny`.
         """
         d = AttrDict({'a': 1})
         self.assertRaises(KeyError, d.__getitem__, 'b')
         d = AttrDict({AttrDict.KeyAny: 1})
         self.assertRaises(KeyError, d.__getitem__, AttrDict.KeyFinal)
+
+    def iter_attrs_test(self):
+        """
+        Test iterating attributes.
+        """
+        d = AttrDict({'a': 1, 'b': 2, AttrDict.KeyAny: 3})
+        self.assertItemsEqual(['a', 'b'], list(d.iter_attrs()))
+        d = AttrDict({'a': 1, 'b': 2})
+        self.assertItemsEqual(['a', 'b'], list(d.iter_attrs()))
+        d = AttrDict({AttrDict.KeyAny: 1})
+        self.assertItemsEqual([], list(d.iter_attrs()))
 
     def get_test(self):
         """
