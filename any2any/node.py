@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from utils import ClassSetDict, AttrDict, AllSubSetsOf
-from exceptions import NoSuitableNodeClass
 
 
 class NodeInfo(object):

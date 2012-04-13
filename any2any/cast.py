@@ -3,6 +3,7 @@ import copy
 
 from node import NodeInfo, Node
 from utils import ClassSetDict, AttrDict
+from exceptions import NotIncludedError
 
 
 class Cast(object):
@@ -56,10 +57,10 @@ class Cast(object):
         out_schema = AttrDict(to_node_class.schema_load())
         in_schema = AttrDict(frm_node_class.schema_dump())
         try:
-            compiled = CompiledSchema(in_schema, out_schema)
-        except SchemasDontMatch:
+            in_schema.validate_inclusion(out_schema)
+        except NotIncludedError:
             in_schema = self._improvise_schema(inpt, frm_node_class)
-            compiled = CompiledSchema(in_schema, out_schema)
+            in_schema.validate_inclusion(out_schema)
 
         # Generator iterating on the casted items, and which will be used
         # to load the casted object.
@@ -101,7 +102,7 @@ class Cast(object):
         klass = node_info.get_class(type(inpt))
         node_class = self.node_class_map.subsetget(klass)
         if node_class is None:
-            raise NoSuitableNodeClass(klass)
+            raise NoNodeClassError(klass)
         return node_class.get_subclass(klass=klass, **node_info.kwargs)
 
     def _improvise_schema(self, obj, node_class):
@@ -142,37 +143,4 @@ class _Generator(object):
                 frm=self.in_schema[key]
             )
         return key, casted_value
-
-
-class SchemaError(TypeError): pass
-class SchemaNotValid(SchemaError): pass
-class SchemasDontMatch(SchemaError): pass
-
-class CompiledSchema(object):
-
-    def __init__(self, in_schema, out_schema):
-        self.validate_schema(in_schema)
-        self.validate_schema(out_schema)
-        self.validate_schemas_match(in_schema, out_schema)
-
-    @classmethod
-    def validate_schemas_match(cls, in_schema, out_schema):
-        if AttrDict.KeyAny in in_schema:
-            if not AttrDict.KeyAny in out_schema:
-                raise SchemasDontMatch("in_schema contains 'KeyAny', but out_schema doesn't")
-        elif AttrDict.KeyFinal in in_schema or AttrDict.KeyFinal in out_schema:
-            if not (AttrDict.KeyFinal in in_schema and AttrDict.KeyFinal in out_schema):
-                raise SchemasDontMatch("both in_schema and out_schema must contain 'KeyFinal'")
-        elif AttrDict.KeyAny in out_schema:
-            pass
-        elif set(out_schema) >= set(in_schema):
-            pass
-        else:
-            raise SchemasDontMatch("out_schema doesn't contain '%s'" %
-            list(set(in_schema) - set(out_schema)))
-
-    @classmethod
-    def validate_schema(cls, schema):
-        if (AttrDict.KeyFinal in schema) and len(schema) != 1:
-            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
 

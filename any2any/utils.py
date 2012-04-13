@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import collections
 
+from exceptions import NotIncludedError
+
 
 class BaseClassSet(object):
     """
@@ -126,6 +128,7 @@ class AttrDict(collections.MutableMapping):
 
     def __init__(self, *args, **kwargs):
         self.dict = dict(*args, **kwargs)
+        self._validate()
 
     def iter_attrs(self):
         """
@@ -148,7 +151,8 @@ class AttrDict(collections.MutableMapping):
 
     def __setitem__(self, key, value):
         self.dict[key] = value
-    
+        self._validate()
+
     def __delitem__(self, key):
         del self.dict[key]
 
@@ -166,7 +170,32 @@ class AttrDict(collections.MutableMapping):
         return '%s(%s)' % (self.__class__.__name__, self.dict)
 
     def _validate(self):
-        if (AttrDict.KeyFinal in schema) and len(schema) != 1:
-            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyFinal'")
-        elif (AttrDict.KeyAny in schema) and len(schema) != 1:
-            raise SchemaNotValid("schema cannot contain several items if it contains 'KeyAny'")
+        if (self.KeyFinal in self.dict) and len(self.dict) != 1:
+            raise ValueError("schema cannot contain several items if it contains %s" 
+                % self.KeyFinal)
+
+    def validate_inclusion(self, other):
+        """
+        Validates that the calling attribute dict's keys are included in `other`'s keys.
+        If the validation failed :class:`NotIncludedError` is raised.
+
+        For example :
+
+            >>> ad1 = AttrDict({'a': 1, 'b': 2})
+            >>> ad2 = AttrDict({'a': 3})
+     
+        `ad2` is included in `ad1`, but `ad1` is not included in `ad2`.
+        """
+        if self.KeyAny in self:
+            if not self.KeyAny in other:
+                raise NotIncludedError("%s contains %s, but %s doesn't" % (self, self.KeyAny, other))
+        elif self.KeyFinal in self or self.KeyFinal in other:
+            if not (self.KeyFinal in self and self.KeyFinal in other):
+                raise NotIncludedError("both %s and %s must contain %s" % (self, other, self.KeyFinal))
+        elif self.KeyAny in other:
+            pass
+        elif set(other) >= set(self):
+            pass
+        else:
+            raise NotIncludedError("%s doesn't contain '%s'" %
+            (other, list(set(self) - set(other))) )

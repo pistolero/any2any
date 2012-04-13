@@ -154,3 +154,82 @@ class AttrDict_test(unittest.TestCase):
         self.assertTrue('b' in d)
         self.assertTrue('c' in d)
         self.assertFalse(AttrDict.KeyFinal in d)
+
+    def constructor_unvalid_data_test(self):
+        """
+        Test constuctor raises ValueError with unvalid schemas.
+        """
+        self.assertRaises(ValueError, AttrDict, {
+            AttrDict.KeyFinal: str,
+            'a': str,
+            'bb': float
+        })
+        self.assertRaises(ValueError, AttrDict, {
+            AttrDict.KeyFinal: str,
+            AttrDict.KeyAny: int
+        })
+
+    def setitem_unvalid_data_test(self):
+        """
+        Test setitem with unvalid data
+        """
+        d = AttrDict({
+            AttrDict.KeyAny: str,
+            'a': str,
+        })
+        self.assertRaises(ValueError, d.__setitem__, AttrDict.KeyFinal, int)
+
+        d = AttrDict({
+            1: int,
+            'a': str,
+        })
+        self.assertRaises(ValueError, d.__setitem__, AttrDict.KeyFinal, int)
+
+        d = AttrDict({
+            AttrDict.KeyFinal: str,
+        })
+        self.assertRaises(ValueError, d.__setitem__, 2, str)
+
+    def validate_inclusion_valid_test(self):
+        """
+        test validate_inclusion with calling dict included in other
+        """
+        attr_dict = AttrDict({'a': int, 'c': int})
+        other = AttrDict({'a': int, 'b': str, 'c': float})
+        self.assertIsNone(attr_dict.validate_inclusion(other))
+
+        attr_dict = AttrDict({'a': int, 'b': str, 'c': float})
+        other = AttrDict({AttrDict.KeyAny: int})
+        self.assertIsNone(attr_dict.validate_inclusion(other))
+
+        attr_dict = AttrDict({AttrDict.KeyAny: int})
+        other = AttrDict({AttrDict.KeyAny: float})
+        self.assertIsNone(attr_dict.validate_inclusion(other))
+
+        attr_dict = AttrDict({AttrDict.KeyFinal: str})
+        other = AttrDict({AttrDict.KeyFinal: unicode})
+        self.assertIsNone(attr_dict.validate_inclusion(other))
+
+    def validate_inclusion_error_test(self):
+        """
+        test validate_inclusion with calling dict NOT included in other
+        """
+        attr_dict = AttrDict({0: int, 1: float})
+        other = AttrDict({1: str, 2: int})
+        self.assertRaises(NotIncludedError, attr_dict.validate_inclusion, other)
+        
+        attr_dict = AttrDict({AttrDict.KeyFinal: int})
+        other = AttrDict({1: str})
+        self.assertRaises(NotIncludedError, attr_dict.validate_inclusion, other)
+
+        attr_dict = AttrDict({AttrDict.KeyAny: int})
+        other = AttrDict({'a': int, 'b': str})
+        self.assertRaises(NotIncludedError, attr_dict.validate_inclusion, other)
+
+        attr_dict = AttrDict({AttrDict.KeyAny: int})
+        other = AttrDict({'a': int, 'b': str})
+        self.assertRaises(NotIncludedError, attr_dict.validate_inclusion, other)
+
+        attr_dict = AttrDict({AttrDict.KeyFinal: int})
+        other = AttrDict({AttrDict.KeyAny: int})
+        self.assertRaises(NotIncludedError, attr_dict.validate_inclusion, other)
