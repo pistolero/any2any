@@ -123,7 +123,6 @@ class AttrDict(collections.MutableMapping):
 
     class KeyAny(object): pass
     class KeyFinal(object): pass
-    class ValueUnknown(object): pass
 
     def __init__(self, *args, **kwargs):
         self.dict = dict(*args, **kwargs)

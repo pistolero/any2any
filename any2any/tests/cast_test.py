@@ -138,11 +138,11 @@ class Cast_test(unittest.TestCase):
             AllSubSetsOf(list): IterableNode,
             AllSubSetsOf(object): IdentityNode,
         })
-        self.assertEqual(cast({'a': 1, 'b': 2}, out_class=dict), {'a': 1, 'b': 2})
-        self.assertEqual(cast({'a': 1, 'b': 2}, out_class=list), [1, 2])
-        self.assertEqual(cast(['a', 'b', 'c'], out_class=dict), {0: 'a', 1: 'b', 2: 'c'})
-        self.assertEqual(cast(['a', 'b', 'c'], out_class=list), ['a', 'b', 'c'])
-        self.assertEqual(cast(1, out_class=int), 1)
+        self.assertEqual(cast({'a': 1, 'b': 2}, to=dict), {'a': 1, 'b': 2})
+        self.assertEqual(cast({'a': 1, 'b': 2}, to=list), [1, 2])
+        self.assertEqual(cast(['a', 'b', 'c'], to=dict), {0: 'a', 1: 'b', 2: 'c'})
+        self.assertEqual(cast(['a', 'b', 'c'], to=list), ['a', 'b', 'c'])
+        self.assertEqual(cast(1, to=int), 1)
 
     def improvise_schema_test(self):
         cast = Cast({})
@@ -150,6 +150,46 @@ class Cast_test(unittest.TestCase):
         self.assertEqual(schema, {'a': int, 'b': str})
         schema = cast.improvise_schema([1, 'b', 2.0], IterableNode)
         self.assertEqual(schema, {0: int, 1: str, 2: float})
+
+    def resolve_node_class_simple_class_test(self):
+        """
+        Test resolve_node_class with NodeInfo that has a simple class
+        """
+        cast = Cast({
+            AllSubSetsOf(basestring): BaseStrNode,
+            AllSubSetsOf(list): IdentityNode,
+            ClassSet(int): IntNode,
+        })
+        node_info = NodeInfo(int)
+
+        bc = cast.resolve_node_class(node_info, 1)
+        self.assertTrue(issubclass(bc, IntNode))
+        self.assertTrue(bc.klass is int)
+        node_info = NodeInfo(str, schema={'a': str})
+
+        bc = cast.resolve_node_class(node_info, 1)
+        self.assertTrue(issubclass(bc, BaseStrNode))
+        self.assertTrue(bc.klass is str)
+        self.assertEqual(bc.schema, {'a': str})
+
+    def resolve_node_class_class_list_test(self):
+        """
+        Test resolve_node_class with NodeInfo that has a list of classes
+        """
+        cast = Cast({
+            AllSubSetsOf(basestring): BaseStrNode,
+            AllSubSetsOf(list): IdentityNode,
+            ClassSet(int): IntNode,
+        })
+        node_info = NodeInfo([float, basestring, list])
+
+        bc = cast.resolve_node_class(node_info, 'bla')
+        self.assertTrue(issubclass(bc, BaseStrNode))
+        self.assertTrue(bc.klass is basestring)
+
+        bc = cast.resolve_node_class(node_info, 1)
+        self.assertTrue(issubclass(bc, IdentityNode))
+        self.assertTrue(bc.klass is list)
 
 
 class Cast_complex_calls_test(unittest.TestCase):
@@ -246,7 +286,7 @@ class Cast_complex_calls_test(unittest.TestCase):
         """
         test serialize object with a node class providing complete schema.
         """
-        self.assertEqual(self.serializer(self.george, in_class=self.CompleteAuthorNode), {
+        self.assertEqual(self.serializer(self.george, frm=self.CompleteAuthorNode), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
@@ -266,7 +306,7 @@ class Cast_complex_calls_test(unittest.TestCase):
         """
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=self.CompleteAuthorNode)
+        ]}, to=self.CompleteAuthorNode)
         self.assertTrue(isinstance(truman, self.Author))
         self.assertEqual(truman.name, 'Truman Capote')
         self.assertEqual(len(truman.books), 1)
@@ -279,7 +319,7 @@ class Cast_complex_calls_test(unittest.TestCase):
         test serialize object with a node class providing half complete schema.
         """
         self.serializer.node_class_map[ClassSet(self.Book)] = self.BookNode
-        self.assertEqual(self.serializer(self.george, in_class=self.HalfCompleteAuthorNode), {
+        self.assertEqual(self.serializer(self.george, frm=self.HalfCompleteAuthorNode), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
@@ -300,7 +340,7 @@ class Cast_complex_calls_test(unittest.TestCase):
         self.deserializer.node_class_map[ClassSet(self.Book)] = self.BookNode
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=self.HalfCompleteAuthorNode)
+        ]}, to=self.HalfCompleteAuthorNode)
         self.assertTrue(isinstance(truman, self.Author))
         self.assertEqual(truman.name, 'Truman Capote')
         self.assertEqual(len(truman.books), 1)
@@ -313,7 +353,7 @@ class Cast_complex_calls_test(unittest.TestCase):
         test serialize object with a node class providing schema with missing infos.
         """
         self.serializer.node_class_map[ClassSet(self.Book)] = self.BookNode
-        self.assertEqual(self.serializer(self.george, in_class=self.SimpleAuthorNode), {
+        self.assertEqual(self.serializer(self.george, frm=self.SimpleAuthorNode), {
             'name': 'George Orwell', 'books': [
                 {'title': '1984'},
                 {'title': 'animal farm'}
@@ -334,7 +374,8 @@ class Cast_complex_calls_test(unittest.TestCase):
         self.deserializer.fallback_map[ClassSet(dict)] = self.BookNode
         truman = self.deserializer({'name': 'Truman Capote', 'books': [
             {'title': 'In cold blood'},
-        ]}, out_class=self.SimpleAuthorNode)
+        ]}, to=self.SimpleAuthorNode)
+
         self.assertTrue(isinstance(truman, self.Author))
         self.assertEqual(truman.name, 'Truman Capote')
         self.assertEqual(len(truman.books), 1)
@@ -358,7 +399,7 @@ class Cast_ObjectNode_dict_tests(unittest.TestCase):
                     yield k, v
             @classmethod
             def schema_dump(cls):
-                return {AttrDict.KeyAny: AttrDict.ValueUnknown}
+                return {AttrDict.KeyAny: NodeInfo()}
             def get_aa(self):
                 return 'bloblo'
 
@@ -378,6 +419,6 @@ class Cast_ObjectNode_dict_tests(unittest.TestCase):
         node = self.DictObjectNode(d)
         self.assertEqual(dict(node.dump()), {'a': 1, 'b': 2, 'aa': 'bloblo'})
 
-        data = self.cast(d, in_class=self.DictObjectNode, out_class=dict)
+        data = self.cast(d, frm=self.DictObjectNode, to=dict)
         self.assertEqual(data, {'a': 1, 'b': 2, 'aa': 'bloblo'})
 

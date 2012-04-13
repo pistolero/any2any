@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 
-from node import NodeInfo
+from node import NodeInfo, Node
 from utils import ClassSetDict, AttrDict
 
 
@@ -13,65 +13,93 @@ class Cast(object):
         self._depth_counter = 0
         self.debug = False
 
-    def __call__(self, inpt, in_class=None, out_class=None):
+    def __call__(self, inpt, frm=NodeInfo(), to=NodeInfo()):
         self._depth_counter += 1
 
-        # `in_class` is always known, because we at least have the 
-        # `inpt`'s class
-        if in_class in [None, AttrDict.ValueUnknown]:
-            in_class = type(inpt)
-        if not isinstance(in_class, NodeInfo):
-            in_value_info = NodeInfo(in_class)
-        else:
-            in_value_info = in_class
-        in_node_class = in_value_info.get_node_class(inpt, self.node_class_map)
+        # If `frm`, isn't a node class yet, we must find one for it
+        if (isinstance(frm, type) and not issubclass(frm, Node))\
+                or isinstance(frm, NodeInfo):
 
-        # `out_class` can be unknown, and it that case, we find a good fallback 
-        if out_class in [None, AttrDict.ValueUnknown]:
-            out_value_info = NodeInfo(self._get_fallback(in_node_class))
-        elif (not isinstance(out_class, NodeInfo)):
-            out_value_info = NodeInfo(out_class)
+            # For this, we first get a NodeInfo, and resolve it to a
+            # node class. 
+            if not isinstance(frm, NodeInfo):
+                node_info = NodeInfo(frm)
+            else:
+                node_info = copy.copy(frm)
+                if node_info.lookup_with is None:
+                    node_info.lookup_with = type(inpt)
+            frm_node_class = self.resolve_node_class(node_info, inpt)
         else:
-            out_value_info = out_class
-        out_node_class = out_value_info.get_node_class(inpt, self.node_class_map)
+            frm_node_class = frm
+        
+        # If `to`, isn't a node class yet, we must find one for it
+        if (isinstance(to, type) and not issubclass(to, Node))\
+                or isinstance(to, NodeInfo):
+
+            # For this, we first get a NodeInfo
+            if not isinstance(to, NodeInfo):
+                node_info = NodeInfo(to)
+            else:
+                node_info = copy.copy(to)
+
+            # If the NodeInfo provides no class to use for looking-up
+            # the Node class, we try to find a good fallback.
+            if node_info.lookup_with is None:
+                to_node_class = self._get_fallback(frm_node_class)
+            else:
+                to_node_class = self.resolve_node_class(node_info, inpt)
+        else:
+            to_node_class = to
 
         # Compiling schemas : if it fails with the 2 schemas found,
         # we use the actual schema of `inpt`
-        out_schema = AttrDict(out_node_class.schema_load())
-        in_schema = AttrDict(in_node_class.schema_dump())
+        out_schema = AttrDict(to_node_class.schema_load())
+        in_schema = AttrDict(frm_node_class.schema_dump())
         try:
             compiled = CompiledSchema(in_schema, out_schema)
         except SchemasDontMatch:
-            in_schema = self.improvise_schema(inpt, in_node_class)
+            in_schema = self.improvise_schema(inpt, frm_node_class)
             compiled = CompiledSchema(in_schema, out_schema)
 
         # Generator iterating on the casted items, and which will be used
         # to load the casted object.
         # It calls the casting recursively if the schema has any nesting.
-        generator = _Generator(self, in_node_class.new(inpt).dump(), in_schema, out_schema)
+        generator = _Generator(self, frm_node_class.new(inpt).dump(), in_schema, out_schema)
 
         # Finally, we load the casted object.
-        self.log('%s <= %s' % (in_node_class, inpt))
-        casted = out_node_class.load(generator).obj
-        self.log('%s => %s' % (out_node_class, casted))
+        self.log('%s <= %s' % (frm_node_class, inpt))
+        casted = to_node_class.load(generator).obj
+        self.log('%s => %s' % (to_node_class, casted))
         self._depth_counter -= 1
         return casted
 
     def log(self, msg):
         if self.debug: print '\t' * self._depth_counter, msg
 
-    def _get_fallback(self, in_node_class):
+    def _get_fallback(self, frm_node_class):
         # If input is a final value, we'll just assume that ouput is also
-        if AttrDict.KeyFinal in in_node_class.schema_dump():
-            return in_node_class
+        if AttrDict.KeyFinal in frm_node_class.schema_dump():
+            return frm_node_class
 
         # we try to get a node class from the `fallback_map`
-        node_class = self.fallback_map.subsetget(in_node_class.klass)
-        if not node_class is None:
-            return node_class
+        frm = frm_node_class.klass
+        if isinstance(frm, type):
+            node_class = self.fallback_map.subsetget(frm)
+            if not node_class is None:
+                return node_class
 
-        # Or we'll just use `in_node_class`, so that operation is an identity.
-        return in_node_class # TODO: shouldn't this rather be an error ?
+        # Or we'll just use `frm_node_class`, so that operation is an identity.
+        return frm_node_class # TODO: shouldn't this rather be an error ?
+
+    def resolve_node_class(self, node_info, inpt):
+        """
+        Resolves the node class from a node info.
+        """
+        klass = node_info.do_lookup(type(inpt))
+        node_class = self.node_class_map.subsetget(klass)
+        if node_class is None:
+            raise NoSuitableNodeClass(klass)
+        return node_class.get_subclass(klass=klass, **node_info.kwargs)
 
     def improvise_schema(self, obj, node_class):
         """
@@ -107,8 +135,8 @@ class _Generator(object):
         else:
             self.cast.log('[ %s ]' % key)
             casted_value = self.cast(value,
-                out_class=self.out_schema[key],
-                in_class=self.in_schema[key]
+                to=self.out_schema[key],
+                frm=self.in_schema[key]
             )
         return key, casted_value
 

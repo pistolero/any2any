@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from unittest import TestCase
+import copy
 
 from any2any.node import *
 from any2any.cast import *
@@ -31,45 +32,50 @@ class MyFloatNode(NodeImplement):
 
 class NodeInfo_test(TestCase):
 
-    def get_node_class_test(self):
+    def no_lookup_with_test(self):
         """
-        test NodeInfo.get_node_class
+        Test creating a NodeInfo with no lookup.
         """
-        bcm = {
-            AllSubSetsOf(basestring): BaseStrNode,
-            AllSubSetsOf(list): IdentityNode,
-            ClassSet(int): IntNode,
-        }
-        # With a node class
-        value_info = NodeInfo(BaseStrNode)
-        bc = value_info.get_node_class(1, bcm)
-        self.assertTrue(issubclass(bc, BaseStrNode))
+        node_info = NodeInfo()
+        self.assertIsNone(node_info.lookup_with)
 
-        # with a normal class
-        value_info = NodeInfo(int)
-        bc = value_info.get_node_class(1, bcm)
-        self.assertTrue(issubclass(bc, IntNode))
-        self.assertTrue(bc.klass is int)
-        value_info = NodeInfo(str, schema={'a': str})
-        bc = value_info.get_node_class(1, bcm)
-        self.assertTrue(issubclass(bc, BaseStrNode))
-        self.assertTrue(bc.klass is str)
-        self.assertEqual(bc.schema, {'a': str})
+    def lookup_with_class_test(self):
+        """
+        Test creating a NodeInfo with a single class for lookup.
+        """
+        node_info = NodeInfo(int)
+        self.assertEqual(node_info.lookup_with, ClassSetDict({
+            AllSubSetsOf(object): int,
+        }))
 
-        # with a list
-        value_info = NodeInfo([float, basestring, list])
-        bc = value_info.get_node_class('bla', bcm)
-        self.assertTrue(issubclass(bc, BaseStrNode))
-        self.assertTrue(bc.klass is basestring)
-        bc = value_info.get_node_class(1, bcm)
-        self.assertTrue(issubclass(bc, IdentityNode))
-        self.assertTrue(bc.klass is list)
+    def lookup_with_class_list_test(self):
+        """
+        Test creating a NodeInfo with a list of classes for lookup.
+        """
+        node_info = NodeInfo([int, str, unicode])
+        self.assertEqual(node_info.lookup_with, ClassSetDict({
+            AllSubSetsOf(int): int,
+            AllSubSetsOf(str): str,
+            AllSubSetsOf(unicode): unicode,
+            AllSubSetsOf(object): unicode,
+        }))
+
+    def copy_test(self):
+        """
+        test copying NodeInfo
+        """
+        node_info = NodeInfo(bla=90)
+        node_info_copy = copy.copy(node_info)
+        self.assertEqual(node_info.lookup_with, node_info_copy.lookup_with)
+        self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
+
+        node_info = NodeInfo(blo=0, poi='yuyu')
+        node_info_copy = copy.copy(node_info)
+        self.assertEqual(node_info.lookup_with, node_info_copy.lookup_with)
+        self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
 
 
 class Node_Test(TestCase):
-    """
-    Tests on Node
-    """
     
     def setUp(self):
         class AnObject(object): pass

@@ -3,6 +3,57 @@ from utils import ClassSetDict, AttrDict, AllSubSetsOf
 from exceptions import NoSuitableNodeClass
 
 
+class NodeInfo(object):
+    """
+    Just a hint of what kind of node class is wished.
+    The NodeInfo will be resolved to an actual node class
+    by the cast.
+    """
+
+    def __init__(self, *lookup_with, **kwargs):
+        if not len(lookup_with) <= 1:
+            raise TypeError('%s() takes 0 or 1 argument (%s given)' % 
+                (self.__class__.__name__, len(lookup_with)))
+        elif len(lookup_with) == 1:
+            self.lookup_with = lookup_with[0]
+        else:
+            self._raw_lookup_with = None
+
+        # Those will be used for building the final node class        
+        self.kwargs = kwargs
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self._raw_lookup_with or '')
+
+    def __copy__(self):
+        if self._raw_lookup_with is None:
+            return NodeInfo(**self.kwargs)
+        else:
+            return NodeInfo(self._raw_lookup_with, **self.kwargs)
+
+    def do_lookup(self, klass=object):
+        return self._lookup_with.subsetget(klass)
+
+    @property
+    def lookup_with(self):
+        return getattr(self, '_lookup_with', None)
+
+    @lookup_with.setter
+    def lookup_with(self, value):
+        self._raw_lookup_with = value
+
+        # Dealing with `lookup_with`, which can be of different types
+        self._lookup_with = ClassSetDict()
+        if isinstance(value, (list, tuple)):
+            for klass in value:
+                self._lookup_with[AllSubSetsOf(klass)] = klass
+            # We use the last class of the list as a fallback
+            if not AllSubSetsOf(object) in self._lookup_with:
+                self._lookup_with[AllSubSetsOf(object)] = value[-1]
+        else:
+            self._lookup_with[AllSubSetsOf(object)] = value
+
+
 class Node(object):
     """
     Base for all node classes.
@@ -14,7 +65,7 @@ class Node(object):
         - :meth:`schema_load` 
     """
 
-    klass = AttrDict.ValueUnknown
+    klass = NodeInfo()
     """The class of the object this node contains."""
 
     def __init__(self, obj):
@@ -99,7 +150,7 @@ class ContainerNode(Node):
     Base class for container node classes.
     """
 
-    value_type = AttrDict.ValueUnknown
+    value_type = NodeInfo()
     """Type of values in the container. This is used to generate schemas."""
 
     @classmethod
@@ -195,48 +246,4 @@ class ObjectNode(Node):
 
     def default_setattr(self, name, value):
         setattr(self.obj, name, value)
-
-
-class NodeInfo(object):
-
-    def __init__(self, wished, **kwargs):
-        # Those will be used for building the final node class        
-        self.kwargs = kwargs
-
-        # Dealing with `wished`, which can be of many different types
-        self._lookup_with = ClassSetDict()
-        if isinstance(wished, (list, tuple)):
-            for klass in wished:
-                self._lookup_with[AllSubSetsOf(klass)] = klass
-            # We use the last class of the list as a fallback
-            if not AllSubSetsOf(object) in self._lookup_with:
-                self._lookup_with[AllSubSetsOf(object)] = wished[-1]
-        elif isinstance(wished, type) and issubclass(wished, Node):
-            self._raw_node_class = wished
-        elif isinstance(wished, type):
-            self._lookup_with[AllSubSetsOf(object)] = wished
-        else:
-            raise ValueError("invalid wish %s" % wished)
-
-    def get_node_class(self, inpt, node_class_map):
-        if not isinstance(node_class_map, ClassSetDict):
-            node_class_map = ClassSetDict(node_class_map)
-
-        # attrs for customizing the node class
-        attrs = {}
-
-        if not hasattr(self, '_raw_node_class'):
-            # Finding a node class : first we get the classes to lookup with
-            # according to inpt's type, then try to find a node class for any
-            # of those classes 
-            klass = self._lookup_with.subsetget(type(inpt))
-            node_class = node_class_map.subsetget(klass)
-            if node_class is None:
-                raise NoSuitableNodeClass(klass)
-            attrs['klass'] = klass
-        else:
-            node_class = self._raw_node_class
-
-        attrs.update(self.kwargs)
-        return node_class.get_subclass(**attrs)
 
