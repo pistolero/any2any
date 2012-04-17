@@ -214,7 +214,9 @@ class Cast_complex_calls_test(unittest.TestCase):
         }, {
             AllSubSetsOf(dict): MappingNode,
             AllSubSetsOf(list): IterableNode,
-            AllSubSetsOf(object): MappingNode,
+            AllSubSetsOf(object): IdentityNode,
+            AllSubSetsOf(Author): MappingNode,
+            AllSubSetsOf(Book): MappingNode,
         })
 
         self.deserializer = Cast({

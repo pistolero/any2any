@@ -81,10 +81,6 @@ class Cast(object):
         """
         Gets a fallback node class for the output, as a last resort.
         """
-        # If input is a final value, we'll just assume that ouput is also
-        if AttrDict.KeyFinal in frm_node_class.schema_dump():
-            return frm_node_class
-
         # we try to get a node class from the `fallback_map`
         frm = frm_node_class.klass
         if isinstance(frm, type):
