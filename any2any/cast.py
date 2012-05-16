@@ -3,7 +3,7 @@ import copy
 
 from node import NodeInfo, Node
 from utils import ClassSetDict, AttrDict
-from exceptions import NotIncludedError
+from exceptions import NotIncludedError, NoNodeClassError
 
 
 class Cast(object):
@@ -28,7 +28,7 @@ class Cast(object):
             else:
                 node_info = copy.copy(frm)
                 if node_info.class_info is None:
-                    node_info.class_info = type(inpt)
+                    node_info.class_info = [type(inpt)]
             frm_node_class = self._resolve_node_class(node_info, inpt)
         else:
             frm_node_class = frm
@@ -96,10 +96,14 @@ class Cast(object):
         Resolves the node class from a node info.
         """
         klass = node_info.get_class(type(inpt))
-        node_class = self.node_class_map.subsetget(klass)
-        if node_class is None:
-            raise NoNodeClassError(klass)
-        return node_class.get_subclass(klass=klass, **node_info.kwargs)
+        if not issubclass(klass, Node):
+            node_class = self.node_class_map.subsetget(klass)
+            if node_class is None:
+                raise NoNodeClassError(klass)
+            return node_class.get_subclass(klass=klass, **node_info.kwargs)
+        # If the value picked is a node class, we use that.
+        else:
+            return klass.get_subclass(**node_info.kwargs)
 
     def _improvise_schema(self, obj, node_class):
         """

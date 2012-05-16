@@ -17,20 +17,20 @@ class NodeInfo(object):
     Tells the cast to pick a node class for type `list`, 
     set its ``value_type`` class attributes to ``value_type = int``.
 
-        >>> NodeInfo([list, tuple], value_type=str)
+        >>> NodeInfo(list, tuple, value_type=str)
 
     Tells the cast to pick a node class for `list` or `tuple`, depending
     on the input to be casted, and customize it as before.
+
+    If the input doesn't match any of the class provided, the last class
+    of the list is taken as default.
     """
 
     def __init__(self, *class_info, **kwargs):
-        if not len(class_info) <= 1:
-            raise TypeError('%s() takes 0 or 1 argument (%s given)' % 
-                (self.__class__.__name__, len(class_info)))
-        elif len(class_info) == 1:
-            self.class_info = class_info[0]
-        else:
+        if len(class_info) == 0:
             self._raw_class_info = None
+        else:
+            self.class_info = class_info
 
         # Those will be used for building the final node class        
         self.kwargs = kwargs
@@ -60,17 +60,13 @@ class NodeInfo(object):
     @class_info.setter
     def class_info(self, value):
         self._raw_class_info = value
-
         # Dealing with `class_info`, which can be of different types
         self._class_info = ClassSetDict()
-        if isinstance(value, (list, tuple)):
-            for klass in value:
-                self._class_info[AllSubSetsOf(klass)] = klass
-            # We use the last class of the list as a fallback
-            if not AllSubSetsOf(object) in self._class_info:
-                self._class_info[AllSubSetsOf(object)] = value[-1]
-        else:
-            self._class_info[AllSubSetsOf(object)] = value
+        for klass in value:
+            self._class_info[AllSubSetsOf(klass)] = klass
+        # We use the last class of the list as a fallback
+        if not AllSubSetsOf(object) in self._class_info:
+            self._class_info[AllSubSetsOf(object)] = value[-1]
 
 
 class Node(object):

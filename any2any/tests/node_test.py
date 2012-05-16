@@ -45,6 +45,7 @@ class NodeInfo_test(TestCase):
         """
         node_info = NodeInfo(int)
         self.assertEqual(node_info.class_info, ClassSetDict({
+            AllSubSetsOf(int): int,
             AllSubSetsOf(object): int,
         }))
 
@@ -52,7 +53,7 @@ class NodeInfo_test(TestCase):
         """
         Test creating a NodeInfo with a list of classes as info.
         """
-        node_info = NodeInfo([int, str, unicode])
+        node_info = NodeInfo(int, str, unicode)
         self.assertEqual(node_info.class_info, ClassSetDict({
             AllSubSetsOf(int): int,
             AllSubSetsOf(str): str,
