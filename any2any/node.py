@@ -42,7 +42,7 @@ class NodeInfo(object):
         if self._raw_class_info is None:
             return NodeInfo(**self.kwargs)
         else:
-            return NodeInfo(self._raw_class_info, **self.kwargs)
+            return NodeInfo(*self._raw_class_info, **self.kwargs)
 
     def get_class(self, klass):
         """
@@ -58,15 +58,15 @@ class NodeInfo(object):
         return getattr(self, '_class_info', None)
 
     @class_info.setter
-    def class_info(self, value):
-        self._raw_class_info = value
+    def class_info(self, class_list):
+        self._raw_class_info = class_list
         # Dealing with `class_info`, which can be of different types
         self._class_info = ClassSetDict()
-        for klass in value:
+        for klass in class_list:
             self._class_info[AllSubSetsOf(klass)] = klass
         # We use the last class of the list as a fallback
         if not AllSubSetsOf(object) in self._class_info:
-            self._class_info[AllSubSetsOf(object)] = value[-1]
+            self._class_info[AllSubSetsOf(object)] = class_list[-1]
 
 
 class Node(object):

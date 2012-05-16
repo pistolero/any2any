@@ -75,6 +75,11 @@ class NodeInfo_test(TestCase):
         self.assertEqual(node_info.class_info, node_info_copy.class_info)
         self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
 
+        node_info = NodeInfo(int, str)
+        node_info_copy = copy.copy(node_info)
+        self.assertEqual(node_info.class_info, node_info_copy.class_info)
+        self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
+
 
 class Node_Test(TestCase):
     
