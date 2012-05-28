@@ -79,18 +79,18 @@ class Node(object):
     Subclasses must implement :
 
         - :meth:`dump`
-        - :meth:`schema_dump`
         - :meth:`load`
+        - :meth:`schema_dump`
         - :meth:`schema_load` 
     """
 
     klass = NodeInfo()
-    """The class of the object this node contains."""
+    """Informs on what class the node actually contains."""
 
     @classmethod
     def dump(cls, obj):
         """
-        Serializes `obj`, and returns an iterator ``key, value``.
+        Returns an iterator ``key, value``, serialized version of `obj`.
         This iterator is intended to be used by the :meth:`load` method
         of another node class.
         """

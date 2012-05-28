@@ -8,8 +8,8 @@
     :member-order: bysource
 
 .. autoclass:: IterableNode
-    
-    .. autoattribute:: value_type
+    :members:
+    :member-order: bysource
 
 .. autoclass:: MappingNode
     :members:
