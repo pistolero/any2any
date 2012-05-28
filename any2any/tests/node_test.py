@@ -17,7 +17,7 @@ class NodeImplement(Node):
         pass
 
     @classmethod
-    def schema_dump(cls):
+    def schema_dump(cls, obj):
         return {}
 
     @classmethod
@@ -88,7 +88,7 @@ class Node_Test(TestCase):
         self.AnObject = AnObject
         class SimpleNode(Node):
             @classmethod
-            def schema_dump(cls):
+            def schema_dump(cls, obj):
                 return {}
             @classmethod
             def schema_load(cls):
@@ -127,7 +127,7 @@ class IdentityNode_Test(TestCase):
         class MyNode(IdentityNode):
             klass = int
 
-        self.assertEqual(MyNode.schema_dump(), {AttrDict.KeyFinal: int})
+        self.assertEqual(MyNode.schema_dump(None), {AttrDict.KeyFinal: int})
         self.assertEqual(MyNode.schema_load(), {AttrDict.KeyFinal: int})
         
 
@@ -161,7 +161,7 @@ class IterableNode_Test(TestCase):
         class ListOfInt(IterableNode):
             value_type = int
 
-        self.assertEqual(ListOfInt.schema_dump(), {AttrDict.KeyAny: int})
+        self.assertEqual(ListOfInt.schema_dump(None), {AttrDict.KeyAny: int})
         self.assertEqual(ListOfInt.schema_load(), {AttrDict.KeyAny: int})
 
 
@@ -194,8 +194,8 @@ class MappingNode_Test(TestCase):
         class MappingOfInt(MappingNode):
             value_type = int
 
-        self.assertEqual(MappingOfInt.schema_dump(), {AttrDict.KeyAny: int})
-        self.assertEqual(MappingOfInt.schema_dump(), {AttrDict.KeyAny: int})
+        self.assertEqual(MappingOfInt.schema_dump(None), {AttrDict.KeyAny: int})
+        self.assertEqual(MappingOfInt.schema_dump(None), {AttrDict.KeyAny: int})
 
 
 class ObjectNode_Test(TestCase):

@@ -9,6 +9,7 @@ from exceptions import NotIncludedError, NoNodeClassError
 class Cast(object):
 
     def __init__(self, node_class_map, fallback_map={}):
+        #TODO: fallback shouldn't be needed, if checking type of dumped inpt
         self.node_class_map = ClassSetDict(node_class_map)
         self.fallback_map = ClassSetDict(fallback_map)
         self._depth_counter = 0
@@ -20,29 +21,41 @@ class Cast(object):
         # If `frm`, isn't a node class yet, we must find one for it.
         # For this, we'll first get a NodeInfo, and then resolve it to a
         # node class.
+        inpt_iter, frm_schema, dumper = None, None, None
         if hasattr(inpt, 'dump'):
             inpt_iter = inpt.dump()
-            frm_schema = {AttrDict.KeyAny: NodeInfo()}
+            dumper = inpt
+            if hasattr(inpt, 'schema_dump'):
+                frm_schema = inpt.schema_dump()
         else:
-            inpt_iter = frm_node_class.dump(inpt)
-            if self._is_node_class(frm):
+            frm_node_class = None
+            if hasattr(frm, 'dump'):
                 frm_node_class = frm
             else:
+                node_info = None
                 if not isinstance(frm, NodeInfo):
                     node_info = NodeInfo(frm)
                 else:
                     node_info = copy.copy(frm)
                     if node_info.class_info is None:
                         node_info.class_info = [type(inpt)]
-                frm_node_class = self._resolve_node_class(node_info, inpt)
-            frm_schema = AttrDict(frm_node_class.schema_dump())
+                frm_node_class = self._resolve_node_class(inpt, node_info)
+
+            inpt_iter = frm_node_class.dump(inpt)
+            dumper = frm_node_class
+            if hasattr(frm_node_class, 'schema_dump'):
+                frm_schema = frm_node_class.schema_dump(inpt)
+        if frm_schema is None:
+            frm_schema = {AttrDict.KeyAny: NodeInfo()}
+        frm_schema = AttrDict(frm_schema)
             
         # If `to`, isn't a node class yet, we must find one for it.
         # For this, we first get a NodeInfo ...
-        if hasattr(inpt, 'load'):
-        if (isinstance(to, type) and not issubclass(to, Node))\
-                or isinstance(to, NodeInfo):
-
+        loader = None
+        if hasattr(to, 'load'):
+            loader = to
+        else:
+            node_info = None
             if not isinstance(to, NodeInfo):
                 node_info = NodeInfo(to)
             else:
@@ -51,20 +64,15 @@ class Cast(object):
             # If the NodeInfo doesn't provide any useful `class_info` about
             # the node class, we directly try to find a good fallback.
             if node_info.class_info is None:
-                to_node_class = self._get_fallback(frm_node_class)
+                loader = self._get_fallback(inpt, dumper)
             else:
-                to_node_class = self._resolve_node_class(node_info, inpt)
-        else:
-            to_node_class = to
+                loader = self._resolve_node_class(inpt, node_info)
 
-        # Checking schema compatibility : if it fails with the 2 schemas found,
-        # we use the actual schema of `inpt`
-        to_schema = AttrDict(to_node_class.schema_load())
-        try:
-            frm_schema.validate_inclusion(to_schema)
-        except NotIncludedError:
-            frm_schema = self._improvise_schema(inpt_iter)
-            frm_schema.validate_inclusion(to_schema)
+        if hasattr(loader, 'schema_load'):
+            to_schema = loader.schema_load()
+        else:
+            to_schema = {AttrDict.KeyAny: NodeInfo()}
+        to_schema = AttrDict(to_schema)
 
         # Generator iterating on the casted items, and which will be used
         # to load the casted object.
@@ -72,30 +80,29 @@ class Cast(object):
         generator = _Generator(self, inpt_iter, frm_schema, to_schema)
 
         # Finally, we load the casted object.
-        self.log('%s <= %s' % (frm_node_class, inpt))
-        casted = to_node_class.load(generator)
-        self.log('%s => %s' % (to_node_class, casted))
+        #self.log('%s <= %s' % (frm_node_class, inpt))
+        casted = loader.load(generator)
+        #self.log('%s => %s' % (loader, casted))
         self._depth_counter -= 1
         return casted
 
     def log(self, msg):
         if self.debug: print '\t' * self._depth_counter, msg
 
-    def _get_fallback(self, frm_node_class):
+    def _get_fallback(self, inpt, dumper):
         """
         Gets a fallback node class for the output, as a last resort.
         """
         # we try to get a node class from the `fallback_map`
-        frm = frm_node_class.klass
-        if isinstance(frm, type):
-            node_class = self.fallback_map.subsetget(frm)
-            if not node_class is None:
-                return node_class
+        node_class = self.fallback_map.subsetget(type(inpt))
+        if not node_class is None:
+            return node_class
+        elif hasattr(dumper, 'load'):
+            return dumper
+        else:
+            raise NoNodeClassError('Couldn\'t find a fallback for %s' % inpt)
 
-        # Or we'll just use `frm_node_class`, so that operation is an identity.
-        return frm_node_class # TODO: shouldn't this rather be an error ?
-
-    def _resolve_node_class(self, node_info, inpt):
+    def _resolve_node_class(self, inpt, node_info):
         """
         Resolves the node class from a node info.
         """
@@ -108,19 +115,6 @@ class Cast(object):
         # If the value picked is a node class, we use that.
         else:
             return klass.get_subclass(**node_info.kwargs)
-
-    def _improvise_schema(self, items_iter):
-        """
-        This method can be used to get the dump schema for an object, when the
-        schema obtained 'a priori' is not sufficient.
-        """
-        schema = {}
-        for k, v in inpt_iter:
-            schema[k] = type(v)
-        return AttrDict(schema)
-
-    def _is_node_class(self, klass):
-        return isinstance(type) and hasattr(klass, 'dump') and hasattr(klass, 'dump_schema')
 
 
 class _Generator(object):
@@ -140,6 +134,7 @@ class _Generator(object):
     def next(self):
         key, value = self.items_iter.next()
         self.last_key = key
+        #TODO : test if key included in schema_to ?
         if key is AttrDict.KeyFinal:
             casted_value = value
         else:

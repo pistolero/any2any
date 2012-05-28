@@ -101,7 +101,7 @@ class Node(object):
         raise NotImplementedError()
 
     @classmethod
-    def schema_dump(cls):
+    def schema_dump(cls, obj):
         """
         Returns the schema - a priori - of the node, when serialized with :meth:`dump`.
         """
@@ -143,7 +143,7 @@ class IdentityNode(Node):
         return obj
 
     @classmethod
-    def schema_dump(cls):
+    def schema_dump(cls, obj):
         return {AttrDict.KeyFinal: cls.klass}
 
     @classmethod
@@ -160,7 +160,7 @@ class ContainerNode(Node):
     """Type of values in the container. This is used to generate schemas."""
 
     @classmethod
-    def schema_dump(cls):
+    def schema_dump(cls, obj):
         return {AttrDict.KeyAny: cls.value_type}
 
     @classmethod
@@ -212,7 +212,7 @@ class ObjectNode(Node):
 
     @classmethod
     def dump(cls, obj):
-        schema = AttrDict(cls.schema_dump())
+        schema = AttrDict(cls.schema_dump(obj))
         for name in schema.iter_attrs():
             yield name, cls.getattr(obj, name)
 
@@ -221,7 +221,7 @@ class ObjectNode(Node):
         return cls.klass(**dict(items_iter))
     
     @classmethod
-    def schema_dump(cls):
+    def schema_dump(cls, obj):
         return {}
 
     @classmethod
