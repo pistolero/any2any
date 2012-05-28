@@ -125,7 +125,7 @@ class Cast_test(unittest.TestCase):
             AllSubSetsOf(list): IdentityNode,
             ClassSet(int): IntNode,
         })
-        node_info = NodeInfo([float, basestring, list])
+        node_info = NodeInfo(float, basestring, list)
 
         bc = cast._resolve_node_class(node_info, 'bla')
         self.assertTrue(issubclass(bc, BaseStrNode))
@@ -134,6 +134,11 @@ class Cast_test(unittest.TestCase):
         bc = cast._resolve_node_class(node_info, 1)
         self.assertTrue(issubclass(bc, IdentityNode))
         self.assertTrue(bc.klass is list)
+
+        node_info = NodeInfo(float, MyNode)
+
+        bc = cast._resolve_node_class(node_info, 'bla')
+        self.assertTrue(issubclass(bc, MyNode))
 
 
 class Cast_complex_calls_test(unittest.TestCase):
@@ -214,7 +219,9 @@ class Cast_complex_calls_test(unittest.TestCase):
         }, {
             AllSubSetsOf(dict): MappingNode,
             AllSubSetsOf(list): IterableNode,
-            AllSubSetsOf(object): MappingNode,
+            AllSubSetsOf(object): IdentityNode,
+            AllSubSetsOf(Author): MappingNode,
+            AllSubSetsOf(Book): MappingNode,
         })
 
         self.deserializer = Cast({

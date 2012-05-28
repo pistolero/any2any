@@ -5,7 +5,7 @@ import datetime
 from cast import Cast
 from utils import AllSubSetsOf, ClassSet, AttrDict
 from node import (Node, ObjectNode, IterableNode,
-MappingNode, IdentityNode)
+MappingNode, IdentityNode, NodeInfo)
 from stdlib.node import DateNode, DateTimeNode
 
 serialize = Cast({
@@ -21,7 +21,7 @@ serialize = Cast({
 }, {
     AllSubSetsOf(dict): MappingNode,
     AllSubSetsOf(list): IterableNode,
-    AllSubSetsOf(object): MappingNode,
+    AllSubSetsOf(object): IdentityNode,
 })
 
 

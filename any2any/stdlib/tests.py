@@ -19,7 +19,9 @@ class DateNode_Test(object):
         }, {
             AllSubSetsOf(dict): MappingNode,
             AllSubSetsOf(list): IterableNode,
-            AllSubSetsOf(object): MappingNode,
+            AllSubSetsOf(object): IdentityNode,
+            AllSubSetsOf(datetime.datetime): MappingNode,
+            AllSubSetsOf(datetime.date): MappingNode,
         })
 
         self.deserializer = Cast({
@@ -33,7 +35,7 @@ class DateNode_Test(object):
         Test serialize date with DateNode
         """
         d = datetime.date(year=1900, month=1, day=1)
-        ok_(self.serializer(d, in_class=DateNode) == {
+        ok_(self.serializer(d, frm=DateNode) == {
             'year': 1900, 'month': 1, 'day': 1
         })
 
@@ -43,7 +45,7 @@ class DateNode_Test(object):
         """
         d = self.deserializer({
             'year': 1906, 'month': 1, 'day': 12
-        }, out_class=DateNode)
+        }, to=DateNode)
         ok_(isinstance(d, datetime.date))
         ok_(d.year == 1906)
         ok_(d.month == 1)
@@ -57,7 +59,7 @@ class DateTimeNode_Test(DateNode_Test):
         Test serialize date with DateNode
         """
         d = datetime.datetime(year=2300, month=12, day=31, microsecond=6)
-        ok_(self.serializer(d, in_class=DateTimeNode) == {
+        ok_(self.serializer(d, frm=DateTimeNode) == {
             'year': 2300, 'month': 12, 'day': 31, 'hour': 0, 'minute': 0, 'second': 0, 'microsecond': 6
         })
 
@@ -67,7 +69,7 @@ class DateTimeNode_Test(DateNode_Test):
         """
         d = self.deserializer({
             'year': 1995, 'month': 6, 'day': 8, 'hour': 8
-        }, out_class=DateTimeNode)
+        }, to=DateTimeNode)
         ok_(isinstance(d, datetime.datetime))
         ok_(d.year == 1995)
         ok_(d.month == 6)

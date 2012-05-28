@@ -45,6 +45,7 @@ class NodeInfo_test(TestCase):
         """
         node_info = NodeInfo(int)
         self.assertEqual(node_info.class_info, ClassSetDict({
+            AllSubSetsOf(int): int,
             AllSubSetsOf(object): int,
         }))
 
@@ -52,7 +53,7 @@ class NodeInfo_test(TestCase):
         """
         Test creating a NodeInfo with a list of classes as info.
         """
-        node_info = NodeInfo([int, str, unicode])
+        node_info = NodeInfo(int, str, unicode)
         self.assertEqual(node_info.class_info, ClassSetDict({
             AllSubSetsOf(int): int,
             AllSubSetsOf(str): str,
@@ -70,6 +71,11 @@ class NodeInfo_test(TestCase):
         self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
 
         node_info = NodeInfo(blo=0, poi='yuyu')
+        node_info_copy = copy.copy(node_info)
+        self.assertEqual(node_info.class_info, node_info_copy.class_info)
+        self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
+
+        node_info = NodeInfo(int, str)
         node_info_copy = copy.copy(node_info)
         self.assertEqual(node_info.class_info, node_info_copy.class_info)
         self.assertEqual(node_info.kwargs, node_info_copy.kwargs)
