@@ -24,7 +24,7 @@ class BaseClassSet(object):
         return self > other or self == other
 
     def _default_to_singleton(self, klass):
-        if not isinstance(klass, BaseClassSet):
+        if isinstance(klass, type):
             return ClassSet(klass)
         else:
             return klass

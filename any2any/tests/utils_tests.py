@@ -24,6 +24,8 @@ class ClassSet_Test(unittest.TestCase):
 
         self.assertNotEqual(ClassSet(int), ClassSet(str, int))
 
+        self.assertNotEqual(ClassSet(object), 1)
+
     def lt_test(self):
         """
         Test ClassSet.__lt__
@@ -144,6 +146,23 @@ class AttrDict_test(unittest.TestCase):
         d = AttrDict({'a': 1})
         self.assertEqual(d.get('a'), 1)
         self.assertEqual(d.get('b', 2), 2)
+
+    def del_test(self):
+        """
+        Test AttrDict.__delitem__
+        """
+        d = AttrDict({AttrDict.KeyAny: 1, 'a': 2, 'b': 3})
+        del d['a']
+        self.assertItemsEqual(d.keys(), ['b', AttrDict.KeyAny])
+        del d[AttrDict.KeyAny]
+        self.assertItemsEqual(d.keys(), ['b'])
+
+    def len_test(self):
+        """
+        Test AttrDict.__len__
+        """
+        d = AttrDict({AttrDict.KeyAny: 1, 'a': 2, 'b': 3})
+        self.assertEqual(len(d), 3)
 
     def contains_test(self):
         """

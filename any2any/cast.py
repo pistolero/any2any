@@ -106,6 +106,7 @@ class Cast(object):
         """
         Resolves the node class from a node info.
         """
+        # TODO: duck typing
         klass = node_info.get_class(type(inpt))
         if not issubclass(klass, Node):
             node_class = self.node_class_map.subsetget(klass)
@@ -134,10 +135,11 @@ class _Generator(object):
     def next(self):
         key, value = self.items_iter.next()
         self.last_key = key
-        #TODO : test if key included in schema_to ?
         if key is AttrDict.KeyFinal:
             casted_value = value
         else:
+            if not key in self.to_schema:
+                raise NotIncludedError("loader schema doesn't contain key '%s'" % key)
             self.cast.log('[ %s ]' % key)
             casted_value = self.cast(value,
                 to=self.to_schema[key],

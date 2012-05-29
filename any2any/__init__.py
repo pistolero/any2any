@@ -4,9 +4,12 @@ import datetime
 
 from cast import Cast
 from utils import AllSubSetsOf, ClassSet, AttrDict
-from node import (Node, ObjectNode, IterableNode,
+from node import (Node, IterableNode,
 MappingNode, IdentityNode, NodeInfo)
-from stdlib.node import DateNode, DateTimeNode
+
+__all__ = ['serialize', 'deserialize', 'Cast', 'AllSubSetsOf',
+'ClassSet', 'AttrDict', 'Node', 'IterableNode', 'MappingNode',
+'IdentityNode', 'NodeInfo']
 
 serialize = Cast({
     AllSubSetsOf(dict): MappingNode,
@@ -16,8 +19,6 @@ serialize = Cast({
     AllSubSetsOf(bool): IdentityNode,
     AllSubSetsOf(basestring): IdentityNode,
     AllSubSetsOf(types.NoneType): IdentityNode,
-    AllSubSetsOf(datetime.datetime): DateTimeNode,
-    AllSubSetsOf(datetime.date): DateNode,
 }, {
     AllSubSetsOf(dict): MappingNode,
     AllSubSetsOf(list): IterableNode,
@@ -33,6 +34,4 @@ deserialize = Cast({
     AllSubSetsOf(bool): IdentityNode,
     AllSubSetsOf(basestring): IdentityNode,
     AllSubSetsOf(types.NoneType): IdentityNode,
-    AllSubSetsOf(datetime.datetime): DateTimeNode,
-    AllSubSetsOf(datetime.date): DateNode,
 })
