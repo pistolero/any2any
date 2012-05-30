@@ -9,19 +9,19 @@ from any2any.utils import AttrDict, ClassSet
 
 class NodeImplement(Node):
 
-    def dump(self):
+    def __dump__(self):
         return iter()
 
     @classmethod
-    def load(cls, items_iter):
+    def __load__(cls, items_iter):
         pass
 
     @classmethod
-    def schema_dump(cls, obj):
+    def __dschema__(cls, obj):
         return {}
 
     @classmethod
-    def schema_load(cls):
+    def __lschema__(cls):
         return {}
 
 class BaseStrNode(NodeImplement): pass
@@ -88,10 +88,10 @@ class Node_Test(TestCase):
         self.AnObject = AnObject
         class SimpleNode(Node):
             @classmethod
-            def schema_dump(cls, obj):
+            def __dschema__(cls, obj):
                 return {}
             @classmethod
-            def schema_load(cls):
+            def __lschema__(cls):
                 return {}
         self.SimpleNode = SimpleNode
 
@@ -110,25 +110,25 @@ class IdentityNode_Test(TestCase):
 
     def dump_test(self):
         """
-        Test IdentityNode.dump
+        Test IdentityNode.__dump__
         """
-        self.assertEqual(list(IdentityNode.dump(1.89)), [(AttrDict.KeyFinal, 1.89)])
+        self.assertEqual(list(IdentityNode.__dump__(1.89)), [(AttrDict.KeyFinal, 1.89)])
 
     def load_test(self):
         """
-        Test IdentityNode.load
+        Test IdentityNode.__load__
         """
-        loaded_dict = IdentityNode.load({'whatever': 'hello'}.iteritems())
+        loaded_dict = IdentityNode.__load__({'whatever': 'hello'}.iteritems())
         self.assertEqual(loaded_dict, 'hello')
-        self.assertRaises(TypeError, IdentityNode.load, {}.iteritems())
+        self.assertRaises(TypeError, IdentityNode.__load__, {}.iteritems())
 
-    def schema_dump_load_test(self):
+    def dschema_lschema_test(self):
 
         class MyNode(IdentityNode):
             klass = int
 
-        self.assertEqual(MyNode.schema_dump(None), {AttrDict.KeyFinal: int})
-        self.assertEqual(MyNode.schema_load(), {AttrDict.KeyFinal: int})
+        self.assertEqual(MyNode.__dschema__(None), {AttrDict.KeyFinal: int})
+        self.assertEqual(MyNode.__lschema__(), {AttrDict.KeyFinal: int})
         
 
 class IterableNode_Test(TestCase):
@@ -138,31 +138,31 @@ class IterableNode_Test(TestCase):
 
     def dump_test(self):
         """
-        Test IterableNode.dump
+        Test IterableNode.__dump__
         """
         self.assertEqual(
-            list(IterableNode.dump(['a', 'b', 'c'])),
+            list(IterableNode.__dump__(['a', 'b', 'c'])),
             [(0, 'a'), (1, 'b'), (2, 'c')]
         )
-        self.assertEqual(list(IterableNode.dump(('a',))), [(0, 'a')])
-        self.assertEqual(list(IterableNode.dump([])), [])
+        self.assertEqual(list(IterableNode.__dump__(('a',))), [(0, 'a')])
+        self.assertEqual(list(IterableNode.__dump__([])), [])
 
     def load_test(self):
         """
-        Test IterableNode.load
+        Test IterableNode.__load__
         """
-        loaded_list = IterableNode.load({0: 'aaa', 1: 'bbb', 2: 'ccc'}.iteritems())
+        loaded_list = IterableNode.__load__({0: 'aaa', 1: 'bbb', 2: 'ccc'}.iteritems())
         self.assertEqual(loaded_list, ['aaa', 'bbb', 'ccc'])
-        loaded_list = IterableNode.load({}.iteritems())
+        loaded_list = IterableNode.__load__({}.iteritems())
         self.assertEqual(loaded_list, [])
 
-    def schema_dump_load_test(self):
+    def dschema_lschema_test(self):
 
         class ListOfInt(IterableNode):
             value_type = int
 
-        self.assertEqual(ListOfInt.schema_dump(None), {AttrDict.KeyAny: int})
-        self.assertEqual(ListOfInt.schema_load(), {AttrDict.KeyAny: int})
+        self.assertEqual(ListOfInt.__dschema__(None), {AttrDict.KeyAny: int})
+        self.assertEqual(ListOfInt.__lschema__(), {AttrDict.KeyAny: int})
 
 
 class MappingNode_Test(TestCase):
@@ -172,21 +172,21 @@ class MappingNode_Test(TestCase):
 
     def dump_test(self):
         """
-        Test MappingNode.dump
+        Test MappingNode.__dump__
         """
         self.assertItemsEqual(
-            MappingNode.dump({"a": "aaa", "b": 2, "cc": 3}),
+            MappingNode.__dump__({"a": "aaa", "b": 2, "cc": 3}),
             [("a", "aaa"), ("b", 2), ("cc", 3)]
         )
-        self.assertEqual(list(MappingNode.dump({})), [])
+        self.assertEqual(list(MappingNode.__dump__({})), [])
 
     def load_test(self):
         """
-        Test MappingNode.load
+        Test MappingNode.__load__
         """
-        loaded_dict = MappingNode.load({'a': 'aaa', 1: 'bbb', 'c': 'ccc'}.iteritems())
+        loaded_dict = MappingNode.__load__({'a': 'aaa', 1: 'bbb', 'c': 'ccc'}.iteritems())
         self.assertEqual(loaded_dict, {'a': 'aaa', 1: 'bbb', 'c': 'ccc'})
-        loaded_dict = MappingNode.load({}.iteritems())
+        loaded_dict = MappingNode.__load__({}.iteritems())
         self.assertEqual(loaded_dict, {})
 
     def load_dump_schema_test(self):
@@ -194,6 +194,6 @@ class MappingNode_Test(TestCase):
         class MappingOfInt(MappingNode):
             value_type = int
 
-        self.assertEqual(MappingOfInt.schema_dump(None), {AttrDict.KeyAny: int})
-        self.assertEqual(MappingOfInt.schema_dump(None), {AttrDict.KeyAny: int})
+        self.assertEqual(MappingOfInt.__dschema__(None), {AttrDict.KeyAny: int})
+        self.assertEqual(MappingOfInt.__dschema__(None), {AttrDict.KeyAny: int})
 

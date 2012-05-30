@@ -9,57 +9,52 @@ from exceptions import NotIncludedError, NoNodeClassError
 class Cast(object):
 
     def __init__(self, node_class_map, fallback_map={}):
-        #TODO: fallback shouldn't be needed, if checking type of dumped inpt
+        #TODO: fallback mightn't be needed, if checking type of dumped inpt
         self.node_class_map = ClassSetDict(node_class_map)
         self.fallback_map = ClassSetDict(fallback_map)
         self._depth_counter = 0
         self.debug = False
 
-    def __call__(self, inpt, frm=NodeInfo(), to=NodeInfo()):
+    def __call__(self, inpt, dumper=NodeInfo(), loader=NodeInfo()):
         self._depth_counter += 1
 
-        # If `frm`, isn't a node class yet, we must find one for it.
-        # For this, we'll first get a NodeInfo, and then resolve it to a
-        # node class.
-        inpt_iter, frm_schema, dumper = None, None, None
-        if hasattr(inpt, 'dump'):
-            inpt_iter = inpt.dump()
+        # First, looking for a proper dumper for `inpt`.
+        dschema = None
+        if hasattr(inpt, '__dump__'):
             dumper = inpt
-            if hasattr(inpt, 'schema_dump'):
-                frm_schema = inpt.schema_dump()
+            inpt_iter = dumper.__dump__()
+            if hasattr(inpt, '__dschema__'):
+                dschema = inpt.__dschema__()
         else:
-            frm_node_class = None
-            if hasattr(frm, 'dump'):
-                frm_node_class = frm
-            else:
+            # if neither `inpt` nor `dumper` actually have a `__dump__`
+            # method, we need to find a suitable dumper from `node_class_map`.
+            if not hasattr(dumper, '__dump__'):
                 node_info = None
-                if not isinstance(frm, NodeInfo):
-                    node_info = NodeInfo(frm)
+                if not isinstance(dumper, NodeInfo):
+                    node_info = NodeInfo(dumper)
                 else:
-                    node_info = copy.copy(frm)
+                    node_info = copy.copy(dumper)
                     if node_info.class_info is None:
                         node_info.class_info = [type(inpt)]
-                frm_node_class = self._resolve_node_class(inpt, node_info)
+                dumper = self._resolve_node_class(inpt, node_info)
 
-            inpt_iter = frm_node_class.dump(inpt)
-            dumper = frm_node_class
-            if hasattr(frm_node_class, 'schema_dump'):
-                frm_schema = frm_node_class.schema_dump(inpt)
-        if frm_schema is None:
-            frm_schema = {AttrDict.KeyAny: NodeInfo()}
-        frm_schema = AttrDict(frm_schema)
-            
-        # If `to`, isn't a node class yet, we must find one for it.
-        # For this, we first get a NodeInfo ...
-        loader = None
-        if hasattr(to, 'load'):
-            loader = to
-        else:
+            inpt_iter = dumper.__dump__(inpt)
+            if hasattr(dumper, '__dschema__'):
+                dschema = dumper.__dschema__(inpt)
+
+        if dschema is None:
+            dschema = self.default_dschema()
+        dschema = AttrDict(dschema)
+
+        # if `loader` doesn't actually have a `__load__` method,
+        # we need to find a suitable loader from `node_class_map`,
+        # or `fallback_map`.
+        if not hasattr(loader, '__load__'):
             node_info = None
-            if not isinstance(to, NodeInfo):
-                node_info = NodeInfo(to)
+            if not isinstance(loader, NodeInfo):
+                node_info = NodeInfo(loader)
             else:
-                node_info = copy.copy(to)
+                node_info = copy.copy(loader)
 
             # If the NodeInfo doesn't provide any useful `class_info` about
             # the node class, we directly try to find a good fallback.
@@ -68,23 +63,28 @@ class Cast(object):
             else:
                 loader = self._resolve_node_class(inpt, node_info)
 
-        if hasattr(loader, 'schema_load'):
-            to_schema = loader.schema_load()
+        if hasattr(loader, '__lschema__'):
+            lschema = loader.__lschema__()
         else:
-            to_schema = {AttrDict.KeyAny: NodeInfo()}
-        to_schema = AttrDict(to_schema)
+            lschema = self.default_lschema()
+        lschema = AttrDict(lschema)
 
-        # Generator iterating on the casted items, and which will be used
-        # to load the casted object.
-        # It calls the casting recursively if the schema has any nesting.
-        generator = _Generator(self, inpt_iter, frm_schema, to_schema)
+        # Generator iterating on the dumped data, and which will be passed
+        # to the loader. Calls the casting recursively if the schema has any nesting.
+        generator = _Generator(self, inpt_iter, dschema, lschema)
 
         # Finally, we load the casted object.
         #self.log('%s <= %s' % (frm_node_class, inpt))
-        casted = loader.load(generator)
+        casted = loader.__load__(generator)
         #self.log('%s => %s' % (loader, casted))
         self._depth_counter -= 1
         return casted
+
+    def default_dschema(self):
+        return {AttrDict.KeyAny: NodeInfo()}
+
+    def default_lschema(self):
+        return {AttrDict.KeyAny: NodeInfo()}
 
     def log(self, msg):
         if self.debug: print '\t' * self._depth_counter, msg
@@ -97,7 +97,7 @@ class Cast(object):
         node_class = self.fallback_map.subsetget(type(inpt))
         if not node_class is None:
             return node_class
-        elif hasattr(dumper, 'load'):
+        elif hasattr(dumper, '__load__'):
             return dumper
         else:
             raise NoNodeClassError('Couldn\'t find a fallback for %s' % inpt)
@@ -106,7 +106,7 @@ class Cast(object):
         """
         Resolves the node class from a node info.
         """
-        # TODO: duck typing
+        # TODO: duck typing (get_subclass could be a function).
         klass = node_info.get_class(type(inpt))
         if not issubclass(klass, Node):
             node_class = self.node_class_map.subsetget(klass)
@@ -123,11 +123,11 @@ class _Generator(object):
     Generator used to pass the data from one node to another.
     """
 
-    def __init__(self, cast, items_iter, frm_schema, to_schema):
+    def __init__(self, cast, items_iter, dschema, lschema):
         self.cast = cast
         self.items_iter = items_iter
-        self.frm_schema = frm_schema
-        self.to_schema = to_schema
+        self.dschema = dschema
+        self.lschema = lschema
 
     def __iter__(self):
         return self
@@ -138,12 +138,12 @@ class _Generator(object):
         if key is AttrDict.KeyFinal:
             casted_value = value
         else:
-            if not key in self.to_schema:
+            if not key in self.lschema:
                 raise NotIncludedError("loader schema doesn't contain key '%s'" % key)
             self.cast.log('[ %s ]' % key)
             casted_value = self.cast(value,
-                to=self.to_schema[key],
-                frm=self.frm_schema[key]
+                dumper=self.dschema[key],
+                loader=self.lschema[key],
             )
         return key, casted_value
 

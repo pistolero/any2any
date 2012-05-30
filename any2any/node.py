@@ -74,43 +74,43 @@ class Node(object):
     Base for all node classes.
     Subclasses must implement :
 
-        - :meth:`dump`
-        - :meth:`load`
-        - :meth:`schema_dump`
-        - :meth:`schema_load` 
+        - :meth:`__dump__`
+        - :meth:`__load__`
+        - :meth:`__dschema__`
+        - :meth:`__lschema__` 
     """
 
     klass = NodeInfo()
     """Informs on what class the node actually contains."""
 
     @classmethod
-    def dump(cls, obj):
+    def __dump__(cls, obj):
         """
         Returns an iterator ``key, value``, serialized version of `obj`.
-        This iterator is intended to be used by the :meth:`load` method
+        This iterator is intended to be used by the :meth:`__load__` method
         of another node class.
         """
         raise NotImplementedError()
 
     @classmethod
-    def load(cls, items_iter):
+    def __load__(cls, items_iter):
         """
-        Takes an iterator ``key, value`` as returned by the :meth:`dump` method
+        Takes an iterator ``key, value`` as returned by the :meth:`__dump__` method
         of another node class ; and returns a deserialized object.
         """
         raise NotImplementedError()
 
     @classmethod
-    def schema_dump(cls, obj):
+    def __dschema__(cls, obj):
         """
-        Returns the schema - a priori - of the node, when serialized with :meth:`dump`.
+        Returns the schema - a priori - of the node, when serialized with :meth:`__dump__`.
         """
         raise NotImplementedError()
 
     @classmethod
-    def schema_load(cls):
+    def __lschema__(cls):
         """
-        Returns the schema - a priori - accepted by the :meth:`load` method 
+        Returns the schema - a priori - accepted by the :meth:`__load__` method 
         of the node class.
         """
         raise NotImplementedError()
@@ -127,15 +127,15 @@ class Node(object):
 
 class IdentityNode(Node):
     """
-    A no-op node class defining :meth:`dump` and :meth:`load` as identity operations.
+    A no-op node class defining :meth:`__dump__` and :meth:`__load__` as identity operations.
     """
 
     @classmethod
-    def dump(cls, obj):
+    def __dump__(cls, obj):
         yield AttrDict.KeyFinal, obj
 
     @classmethod
-    def load(cls, items_iter):
+    def __load__(cls, items_iter):
         try:
             key, obj = items_iter.next()
         except StopIteration:
@@ -143,11 +143,11 @@ class IdentityNode(Node):
         return obj
 
     @classmethod
-    def schema_dump(cls, obj):
+    def __dschema__(cls, obj):
         return {AttrDict.KeyFinal: cls.klass}
 
     @classmethod
-    def schema_load(cls):
+    def __lschema__(cls):
         return {AttrDict.KeyFinal: cls.klass}
 
 
@@ -160,11 +160,11 @@ class ContainerNode(Node):
     """Type of values in the container. This is used to generate schemas."""
 
     @classmethod
-    def schema_dump(cls, obj):
+    def __dschema__(cls, obj):
         return {AttrDict.KeyAny: cls.value_type}
 
     @classmethod
-    def schema_load(cls):
+    def __lschema__(cls):
         return {AttrDict.KeyAny: cls.value_type}
 
 
@@ -176,11 +176,11 @@ class IterableNode(ContainerNode):
     klass = list
 
     @classmethod
-    def dump(cls, obj):
+    def __dump__(cls, obj):
         return enumerate(obj)
 
     @classmethod
-    def load(cls, items_iter):
+    def __load__(cls, items_iter):
         # TODO: needs ordered dict to pass data between nodes
         items_iter = sorted(items_iter, key=lambda i: i[0])
         return cls.klass((v for k, v in items_iter))
@@ -194,10 +194,10 @@ class MappingNode(ContainerNode):
     klass = dict
 
     @classmethod
-    def dump(cls, obj):
+    def __dump__(cls, obj):
         return ((k, obj[k]) for k in obj)
 
     @classmethod
-    def load(cls, items_iter):
+    def __load__(cls, items_iter):
         return cls.klass(items_iter)
 

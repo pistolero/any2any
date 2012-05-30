@@ -43,12 +43,12 @@ class Cast_test(unittest.TestCase):
         })
         class MyIntNode(IntNode):
             @classmethod
-            def schema_dump(cls, obj):
+            def __dschema__(cls, obj):
                 return {'haha': int}
 
         inpt = 123.123
         out_bc = cast._get_fallback(inpt, MyIntNode)
-        self.assertTrue(out_bc.schema_dump(inpt) == {'haha': int})
+        self.assertTrue(out_bc.__dschema__(inpt) == {'haha': int})
 
     def resolve_node_class_simple_class_test(self):
         """
@@ -112,30 +112,30 @@ class Cast_test(unittest.TestCase):
             AllSubSetsOf(list): IterableNode,
             AllSubSetsOf(object): IdentityNode,
         })
-        self.assertEqual(cast({'a': 1, 'b': 2}, frm=dict, to=dict), {'a': 1, 'b': 2})
-        self.assertEqual(cast({'a': 1, 'b': 2}, to=list), [1, 2])
-        self.assertEqual(cast(['a', 'b', 'c'], to=dict), {0: 'a', 1: 'b', 2: 'c'})
-        self.assertEqual(cast(['a', 'b', 'c'], to=list), ['a', 'b', 'c'])
-        self.assertEqual(cast(1, to=int), 1)
+        self.assertEqual(cast({'a': 1, 'b': 2}, dumper=dict, loader=dict), {'a': 1, 'b': 2})
+        self.assertEqual(cast({'a': 1, 'b': 2}, loader=list), [1, 2])
+        self.assertEqual(cast(['a', 'b', 'c'], loader=dict), {0: 'a', 1: 'b', 2: 'c'})
+        self.assertEqual(cast(['a', 'b', 'c'], loader=list), ['a', 'b', 'c'])
+        self.assertEqual(cast(1, loader=int), 1)
 
     def call_inpt_with_dump_test(self):
         """
-        Test call with an input that has itself a dump method.
+        Test call with an input that has itself a __dump__ method.
         """
         class MyDumper(object):
                 
             @staticmethod
-            def dump(obj):
+            def __dump__(obj):
                 yield AttrDict.KeyFinal, str(obj)
 
         class MyObject(dict):
 
-            def dump(self):
+            def __dump__(self):
                 for k, v in self.iteritems():
                     yield k, v
                 yield '__count__', len(self)
 
-            def schema_dump(self):
+            def __dschema__(self):
                 return {'__count__': MyDumper, AttrDict.KeyAny: NodeInfo()}
 
         cast = Cast({
@@ -145,7 +145,7 @@ class Cast_test(unittest.TestCase):
             AllSubSetsOf(object): IdentityNode
         })
         inpt = MyObject({'a': 1, 'b': 2})
-        self.assertEqual(cast(inpt, to=dict), {'a': 1, 'b': 2, '__count__': '2'})
+        self.assertEqual(cast(inpt, loader=dict), {'a': 1, 'b': 2, '__count__': '2'})
         
     def call_inpt_with_load_test(self):
         """
@@ -153,7 +153,7 @@ class Cast_test(unittest.TestCase):
         """
         class MyDict(dict):
                 
-            def load(self, items_iter):
+            def __load__(self, items_iter):
                 for k, v in items_iter:
                     if k.startswith('key'):
                         self[k] = v
@@ -167,5 +167,5 @@ class Cast_test(unittest.TestCase):
             AllSubSetsOf(object): IdentityNode
         })
         inpt = {'a': 1, 'b': 2, 'key_c': 3, 'key_d': 4}
-        self.assertEqual(cast(inpt, to=my_dict), {'key_c': 3, 'key_d': 4})
+        self.assertEqual(cast(inpt, loader=my_dict), {'key_c': 3, 'key_d': 4})
 
