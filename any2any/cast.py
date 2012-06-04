@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import copy
+import types
 
 from node import NodeInfo, Node
 from utils import ClassSetDict, AttrDict
@@ -140,10 +141,14 @@ class _Generator(object):
         else:
             if not key in self.lschema:
                 raise NotIncludedError("loader schema doesn't contain key '%s'" % key)
+            dumper = self.dschema[key]
+            loader = self.lschema[key]
+            if isinstance(dumper, types.FunctionType): dumper = dumper()
+            if isinstance(loader, types.FunctionType): loader = loader()
             self.cast.log('[ %s ]' % key)
             casted_value = self.cast(value,
-                dumper=self.dschema[key],
-                loader=self.lschema[key],
+                dumper=dumper,
+                loader=loader,
             )
         return key, casted_value
 
