@@ -75,9 +75,9 @@ class Cast(object):
         generator = _Generator(self, inpt_iter, dschema, lschema)
 
         # Finally, we load the casted object.
-        #self.log('%s <= %s' % (frm_node_class, inpt))
+        self.log('%s <= %s' % (dumper, inpt))
         casted = loader.__load__(generator)
-        #self.log('%s => %s' % (loader, casted))
+        self.log('%s => %s' % (loader, casted))
         self._depth_counter -= 1
         return casted
 
