@@ -37,7 +37,7 @@ class Cast(object):
                     node_info = copy.copy(dumper)
                     if node_info.class_info is None:
                         node_info.class_info = [type(inpt)]
-                dumper = self._resolve_node_class(inpt, node_info)
+                dumper = self._resolve_node_class(inpt, node_info, '__dump__')
 
             inpt_iter = dumper.__dump__(inpt)
             if hasattr(dumper, '__dschema__'):
@@ -62,7 +62,7 @@ class Cast(object):
             if node_info.class_info is None:
                 loader = self._get_fallback(inpt, dumper)
             else:
-                loader = self._resolve_node_class(inpt, node_info)
+                loader = self._resolve_node_class(inpt, node_info, '__load__')
 
         if hasattr(loader, '__lschema__'):
             lschema = loader.__lschema__()
@@ -103,12 +103,14 @@ class Cast(object):
         else:
             raise NoNodeClassError('Couldn\'t find a fallback for %s' % inpt)
 
-    def _resolve_node_class(self, inpt, node_info):
+    def _resolve_node_class(self, inpt, node_info, method):
         """
         Resolves the node class from a node info.
         """
         # TODO: duck typing (get_subclass could be a function).
         klass = node_info.get_class(type(inpt))
+        if hasattr(klass, method):
+            return klass
         if not issubclass(klass, Node):
             node_class = self.node_class_map.subsetget(klass)
             if node_class is None:

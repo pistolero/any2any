@@ -62,11 +62,10 @@ class NodeInfo(object):
         self._raw_class_info = class_list
         # Dealing with `class_info`, which can be of different types
         self._class_info = ClassSetDict()
-        for klass in class_list:
+        for klass in class_list[:-1]:
             self._class_info[AllSubSetsOf(klass)] = klass
         # We use the last class of the list as a fallback
-        if not AllSubSetsOf(object) in self._class_info:
-            self._class_info[AllSubSetsOf(object)] = class_list[-1]
+        self._class_info[AllSubSetsOf(object)] = class_list[-1]
 
 
 class Node(object):

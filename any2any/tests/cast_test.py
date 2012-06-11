@@ -61,12 +61,12 @@ class Cast_test(unittest.TestCase):
         })
         node_info = NodeInfo(int)
 
-        bc = cast._resolve_node_class(1, node_info)
+        bc = cast._resolve_node_class(1, node_info, '__dump__')
         self.assertTrue(issubclass(bc, IntNode))
         self.assertTrue(bc.klass is int)
         node_info = NodeInfo(str, schema={'a': str})
 
-        bc = cast._resolve_node_class(1, node_info)
+        bc = cast._resolve_node_class(1, node_info, '__dump__')
         self.assertTrue(issubclass(bc, BaseStrNode))
         self.assertTrue(bc.klass is str)
         self.assertEqual(bc.schema, {'a': str})
@@ -82,17 +82,17 @@ class Cast_test(unittest.TestCase):
         })
         node_info = NodeInfo(float, basestring, list)
 
-        bc = cast._resolve_node_class('bla', node_info)
+        bc = cast._resolve_node_class('bla', node_info, '__dump__')
         self.assertTrue(issubclass(bc, BaseStrNode))
         self.assertTrue(bc.klass is basestring)
 
-        bc = cast._resolve_node_class(1, node_info)
+        bc = cast._resolve_node_class(1, node_info, '__dump__')
         self.assertTrue(issubclass(bc, IdentityNode))
         self.assertTrue(bc.klass is list)
 
         node_info = NodeInfo(float, MyNode)
 
-        bc = cast._resolve_node_class('bla', node_info)
+        bc = cast._resolve_node_class('bla', node_info, '__dump__')
         self.assertTrue(issubclass(bc, MyNode))
 
     def resolve_node_class_fail_test(self):
@@ -101,7 +101,7 @@ class Cast_test(unittest.TestCase):
         """
         cast = Cast({ClassSet(int): IntNode})
         node_info = NodeInfo(float)
-        self.assertRaises(NoNodeClassError, cast._resolve_node_class, 'bla', node_info)
+        self.assertRaises(NoNodeClassError, cast._resolve_node_class, 'bla', node_info, '__dump__')
 
     def call_test(self):
         """
